@@ -1,0 +1,4 @@
+/pkg/common/envs
+/pkg/common/utils
+/go.mod
+/go.sum
