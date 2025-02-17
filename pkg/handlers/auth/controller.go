@@ -15,4 +15,5 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 
 	r.POST("/signup", h.Signup)
 	r.POST("/login", h.Login)
+	r.POST("/logout", h.Logout)
 }

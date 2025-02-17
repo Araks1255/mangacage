@@ -57,7 +57,7 @@ func (h handler) Login(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("mangabrad_token", tokenString, int(expirationTime.Unix()), "/", "localhost:8080", false, true)
+	c.SetCookie("mangabrad_token", tokenString, int(expirationTime.Unix()), "/", "localhost", false, true)
 
 	c.JSON(200, gin.H{"success": "Вход в аккаунт выполнен успешно"})
 }
