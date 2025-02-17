@@ -13,6 +13,6 @@ func Init(dbUrl string) (db *gorm.DB, err error) {
 		return nil, err
 	}
 
-	db.AutoMigrate()
+	db.AutoMigrate(&models.Title{}, &models.Chapter{}, &models.User{}, &models.Team{}, &models.Genre{}, &models.Author{})
 	return db, nil
 }
