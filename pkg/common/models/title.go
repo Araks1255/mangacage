@@ -1,6 +1,8 @@
 package models
 
 import (
+	"database/sql"
+
 	"gorm.io/gorm"
 )
 
@@ -9,7 +11,7 @@ type Title struct {
 	Name        string `gorm:"unique"`
 	Description string
 	AuthorID    uint
-	TeamID      uint
-	team        Team    `gorm:"foreignKey:TeamID;references:id"`
-	genres      []Genre `gorm:"many2many:title_genres"`
+	TeamID      sql.NullInt32
+	Team        Team    `gorm:"foreignKey:TeamID;references:id"`
+	Genres      []Genre `gorm:"many2many:title_genres;"`
 }

@@ -3,8 +3,8 @@ package auth
 import (
 	"log"
 
-	"github.com/Araks1255/mangabrad/pkg/common/models"
-	"github.com/Araks1255/mangabrad/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/utils"
 
 	"github.com/gin-gonic/gin"
 )

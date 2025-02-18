@@ -7,5 +7,5 @@ import (
 type Author struct {
 	gorm.Model
 	Name   string
-	genres []Genre `gorm:"many2many:author_genres"`
+	Genres []Genre `gorm:"many2many:author_genres;"`
 }

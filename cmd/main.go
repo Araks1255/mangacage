@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/Araks1255/mangabrad/pkg/common/db"
-	"github.com/Araks1255/mangabrad/pkg/handlers/auth"
+	"github.com/Araks1255/mangacage/pkg/common/db"
+	"github.com/Araks1255/mangacage/pkg/handlers/auth"
+	"github.com/Araks1255/mangacage/pkg/handlers/titles"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 )
@@ -21,6 +22,7 @@ func main() {
 	router := gin.Default()
 
 	auth.RegisterRoutes(db, router)
+	titles.RegisterRoutes(db, router)
 
 	router.Run(":8080")
 }

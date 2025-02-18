@@ -1,6 +1,8 @@
 package models
 
 import (
+	"database/sql"
+
 	"gorm.io/gorm"
 )
 
@@ -10,6 +12,6 @@ type User struct {
 	Password     string `json:"password"`
 	AboutYorself string `json:"aboutYourself"`
 	Role         string
-	TeamID       uint
-	team         Team `gorm:"foreignKey:TeamID;references:id"`
+	TeamID       sql.NullInt32
+	Team         Team `gorm:"foreignKey:TeamID;references:id"`
 }

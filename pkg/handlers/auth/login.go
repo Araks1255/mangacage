@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/Araks1255/mangabrad/pkg/common/models"
-	"github.com/Araks1255/mangabrad/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/utils"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -41,7 +41,8 @@ func (h handler) Login(c *gin.Context) {
 	expirationTime := time.Now().Add(2016 * time.Hour)
 
 	claims := models.Claims{
-		ID: existingUser.ID,
+		ID:   existingUser.ID,
+		Role: "user",
 		StandardClaims: jwt.StandardClaims{
 			Subject:   existingUser.UserName,
 			ExpiresAt: expirationTime.Unix(),
@@ -57,7 +58,7 @@ func (h handler) Login(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("mangabrad_token", tokenString, int(expirationTime.Unix()), "/", "localhost", false, true)
+	c.SetCookie("mangacage_token", tokenString, int(expirationTime.Unix()), "/", "localhost", false, true)
 
 	c.JSON(200, gin.H{"success": "Вход в аккаунт выполнен успешно"})
 }
