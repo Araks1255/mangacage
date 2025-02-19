@@ -24,5 +24,7 @@ func AuthMiddleware(secretKey string) gin.HandlerFunc {
 		}
 
 		c.Set("claims", claims)
+
+		c.Next()
 	}
 }

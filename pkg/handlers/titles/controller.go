@@ -23,4 +23,5 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 	privateTitle.Use(middlewares.AuthMiddleware(secretKey))
 
 	privateTitle.POST("/", h.CreateTitle)
+
 }

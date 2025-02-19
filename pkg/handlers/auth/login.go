@@ -18,22 +18,25 @@ func (h handler) Login(c *gin.Context) {
 
 	secretKey := []byte(viper.Get("SECRET_KEY").(string))
 
-	var user models.User
+	var requestBody struct {
+		UserName string `json:"userName" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
 
-	if err := c.ShouldBindJSON(&user); err != nil {
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
 	var existingUser models.User
-	h.DB.Raw("SELECT * FROM users WHERE user_name = ?", user.UserName).Scan(&existingUser)
+	h.DB.Raw("SELECT * FROM users WHERE user_name = ?", requestBody.UserName).Scan(&existingUser)
 	if existingUser.ID == 0 {
 		c.AbortWithStatusJSON(401, gin.H{"error": "Аккаунт не найден"})
 		return
 	}
 
-	if ok := utils.CompareHashPassword(user.Password, existingUser.Password); !ok {
+	if ok := utils.CompareHashPassword(requestBody.Password, existingUser.Password); !ok {
 		c.AbortWithStatusJSON(401, gin.H{"error": "Неверный пароль"})
 		return
 	}
@@ -41,8 +44,7 @@ func (h handler) Login(c *gin.Context) {
 	expirationTime := time.Now().Add(2016 * time.Hour)
 
 	claims := models.Claims{
-		ID:   existingUser.ID,
-		Role: "user",
+		ID: existingUser.ID,
 		StandardClaims: jwt.StandardClaims{
 			Subject:   existingUser.UserName,
 			ExpiresAt: expirationTime.Unix(),
