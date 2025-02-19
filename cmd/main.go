@@ -4,6 +4,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/common/db"
 	"github.com/Araks1255/mangacage/pkg/handlers/auth"
 	"github.com/Araks1255/mangacage/pkg/handlers/titles"
+	"github.com/Araks1255/mangacage/pkg/handlers/teams"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 )
@@ -23,6 +24,7 @@ func main() {
 
 	auth.RegisterRoutes(db, router)
 	titles.RegisterRoutes(db, router)
+	teams.RegisterRoutes(db, router)
 
 	router.Run(":8080")
 }
