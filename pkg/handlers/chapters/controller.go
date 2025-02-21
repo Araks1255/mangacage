@@ -1,4 +1,4 @@
-package titles
+package chapters
 
 import (
 	"github.com/Araks1255/mangacage/pkg/middlewares"
@@ -19,9 +19,8 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 
 	h := handler{DB: db}
 
-	privateTitle := r.Group("/title")
-	privateTitle.Use(middlewares.AuthMiddleware(secretKey))
+	privateChapter := r.Group("/:title/chapter")
+	privateChapter.Use(middlewares.AuthMiddleware(secretKey))
 
-	privateTitle.POST("/", h.CreateTitle)
-	privateTitle.POST("/translate", h.TranslateTitle)
+	privateChapter.POST("/", h.CreateChapter)
 }
