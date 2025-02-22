@@ -112,10 +112,11 @@ func (h handler) CreateChapter(c *gin.Context) {
 	transaction := h.DB.Begin()
 	go func() {
 		chapter := models.Chapter{
-			Name:        name,
-			Description: description,
-			PathToFile:  pathToChapter,
-			TitleID:     desiredTitleID,
+			Name:          name,
+			Description:   description,
+			Path:          pathToChapter,
+			NumberOfPages: numberOfPages,
+			TitleID:       desiredTitleID,
 		}
 
 		if IsUserAdmin := slices.Contains(userRoles, "admin"); IsUserAdmin {
