@@ -15,12 +15,15 @@ type Title struct {
 	// Ещё обложку надо
 
 	CreatorID uint
-	User      User `gorm:"foreignKey:CreatorID;references:id"`
+	Creator   User `gorm:"foreignKey:CreatorID;references:id"`
+
+	ModeratorID sql.NullInt64
+	Moderator   User `gorm:"foreignKey:ModeratorID;references:id"`
 
 	AuthorID uint
 	Author   Author `gorm:"foreignKey:AuthorID;references:id"`
 
-	TeamID sql.NullInt32
+	TeamID sql.NullInt64
 	Team   Team `gorm:"foreignKey:TeamID;references:id"`
 
 	Genres []Genre `gorm:"many2many:title_genres;"`

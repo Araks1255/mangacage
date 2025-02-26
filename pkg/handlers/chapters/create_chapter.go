@@ -1,6 +1,7 @@
 package chapters
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -9,8 +10,11 @@ import (
 	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	pb "github.com/Araks1255/mangacage_service_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (h handler) CreateChapter(c *gin.Context) {
@@ -146,4 +150,16 @@ func (h handler) CreateChapter(c *gin.Context) {
 	transaction.Commit()
 
 	c.JSON(201, gin.H{"success": "Глава успешно создана"})
+
+	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Println(err)
+	}
+	defer conn.Close()
+
+	client := pb.NewServiceNotificationsClient(conn)
+
+	if _, err := client.NotifyAboutNewChapterOnModeration(context.Background(), &pb.ChapterOnModeration{TitleName: title, ChapterName: name}); err != nil {
+		log.Println(err)
+	}
 }

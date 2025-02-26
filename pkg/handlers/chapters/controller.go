@@ -26,5 +26,5 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 
 	r.GET("/get-chapters/:title", h.GetTitleChapters)
 	r.GET("/get-chapter/:chapter", h.GetChapter)
-	r.GET("/get-chapter-pages/:chapter/:page", h.GetChapterPages)
+	r.GET("/get-chapter-pages/:chapter/:page", h.GetChapterPage)
 }

@@ -23,7 +23,7 @@ func (h handler) JoinTeam(c *gin.Context) {
 		return
 	}
 
-	var userTeamID sql.NullInt32
+	var userTeamID sql.NullInt64
 	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
 	if userTeamID.Valid {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Вы уже состоите в команде перевода"})

@@ -1,13 +1,17 @@
 package titles
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"slices"
 	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	pb "github.com/Araks1255/mangacage_service_protos"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"gorm.io/gorm"
 )
 
@@ -78,6 +82,18 @@ func (h handler) CreateTitle(c *gin.Context) {
 	transaction.Commit()
 
 	c.JSON(201, gin.H{"success": "Тайтл успешно создан"})
+
+	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Println(err)
+	}
+	defer conn.Close()
+
+	client := pb.NewServiceNotificationsClient(conn)
+
+	if _, err = client.NotifyAboutNewTitleOnModeration(context.Background(), &pb.TitleOnModeration{TitleName: title.Name}); err != nil {
+		log.Println(err)
+	}
 }
 
 func AddGenresToTitle(titleID uint, genres []string, transaction *gorm.DB) error {

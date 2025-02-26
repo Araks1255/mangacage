@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h handler) GetChapterPages(c *gin.Context) {
+func (h handler) GetChapterPage(c *gin.Context) {
 	chapter := strings.ToLower(c.Param("chapter"))
 	pageNumber, err := strconv.Atoi(c.Param("page"))
 	if err != nil {

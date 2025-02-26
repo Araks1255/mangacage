@@ -11,8 +11,9 @@ type User struct {
 	UserName     string `gorm:"unique"`
 	Password     string
 	AboutYorself string
+	TgUserID     int64
 
-	TeamID sql.NullInt32
+	TeamID sql.NullInt64
 	Team   Team `gorm:"foreignKey:TeamID;references:id"`
 
 	Roles []Role `gorm:"many2many:user_roles;"`

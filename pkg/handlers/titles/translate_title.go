@@ -46,7 +46,7 @@ func (h handler) TranslateTitle(c *gin.Context) {
 		return
 	}
 
-	var userTeamID sql.NullInt32
+	var userTeamID sql.NullInt64
 	h.DB.Raw("SELECT teams.id FROM teams INNER JOIN users ON teams.id = users.team_id WHERE users.id = ?", claims.ID).Scan(&userTeamID)
 	if !userTeamID.Valid {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Вы не состоите в команде перевода"})

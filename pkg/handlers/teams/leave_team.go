@@ -19,7 +19,7 @@ func (h handler) LeaveTeam(c *gin.Context) {
 	}
 
 	user.TeamID.Valid = false
-	user.TeamID.Int32 = 0
+	user.TeamID.Int64 = 0
 
 	transaction := h.DB.Begin()
 
