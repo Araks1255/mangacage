@@ -16,5 +16,6 @@ type User struct {
 	TeamID sql.NullInt64
 	Team   Team `gorm:"foreignKey:TeamID;references:id"`
 
-	Roles []Role `gorm:"many2many:user_roles;"`
+	Roles                    []Role  `gorm:"many2many:user_roles;"`
+	TitlesUserIsSubscribedTo []Title `gorm:"many2many:user_titles_subscribed_to;"`
 }

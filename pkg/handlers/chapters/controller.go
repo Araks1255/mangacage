@@ -23,6 +23,7 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 	privateChapter.Use(middlewares.AuthMiddleware(secretKey))
 
 	privateChapter.POST("/", h.CreateChapter)
+	privateChapter.DELETE(":chapter", h.DeleteChapter)
 
 	r.GET("/get-chapters/:title", h.GetTitleChapters)
 	r.GET("/get-chapter/:chapter", h.GetChapter)

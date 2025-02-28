@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
-	pb "github.com/Araks1255/mangacage_service_protos"
+	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -154,10 +154,11 @@ func (h handler) CreateChapter(c *gin.Context) {
 	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Println(err)
+		return
 	}
 	defer conn.Close()
 
-	client := pb.NewServiceNotificationsClient(conn)
+	client := pb.NewNotificationsClient(conn)
 
 	if _, err := client.NotifyAboutNewChapterOnModeration(context.Background(), &pb.ChapterOnModeration{TitleName: title, ChapterName: name}); err != nil {
 		log.Println(err)

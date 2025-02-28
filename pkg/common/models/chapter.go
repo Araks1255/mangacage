@@ -1,6 +1,8 @@
 package models
 
 import (
+	"database/sql"
+
 	"gorm.io/gorm"
 )
 
@@ -13,5 +15,8 @@ type Chapter struct {
 	OnModeration  bool
 
 	TitleID uint
-	title   Title `gorm:"foreignKey:TitleID;references:id"`
+	Title   Title `gorm:"foreignKey:TitleID;references:id"`
+
+	ModeratorID sql.NullInt64
+	Moderator   User `gorm:"foreignKey:ModeratorID;references:id"`
 }

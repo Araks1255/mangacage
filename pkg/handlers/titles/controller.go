@@ -24,4 +24,5 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 
 	privateTitle.POST("/", h.CreateTitle)
 	privateTitle.POST("/translate", h.TranslateTitle)
+	privateTitle.POST("/:title/subscribe", h.SubscribeToTitle)
 }
