@@ -3,8 +3,8 @@ package chapters
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -12,17 +12,16 @@ import (
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+type ChapterPages struct {
+	ChapterID uint     `bson:"chapter_id"`
+	Pages     [][]byte `bson:"pages"`
+}
+
 func (h handler) CreateChapter(c *gin.Context) {
-	viper.SetConfigFile("./pkg/common/envs/.env")
-	viper.ReadInConfig()
-
-	pathToDirectory := viper.Get("PATH_TO_CHAPTERS_DIRECTORY").(string)
-
 	claims := c.MustGet("claims").(*models.Claims)
 
 	var userRoles []string
@@ -73,81 +72,62 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	const NUMBER_OF_GORUTINES int = 2
-	errChan := make(chan error, NUMBER_OF_GORUTINES)
-
-	pathToChapter := fmt.Sprintf("%s/%s/%s", pathToDirectory, title, name)
-
-	if err := os.MkdirAll(pathToChapter, 0755); err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+	var existingChapterID uint
+	h.DB.Raw("SELECT id FROM chapters WHERE title_id = ? AND name = ?", desiredTitleID, name).Scan(&existingChapterID)
+	if existingChapterID != 0 {
+		c.AbortWithStatusJSON(403, gin.H{"error": "Глава с таким названием уже существует в тайтле"})
 		return
 	}
 
-	go func() {
-		for i := 0; i < numberOfPages; i++ {
-			file, err := c.FormFile(strconv.Itoa(i))
-			if err != nil {
-				log.Println(err)
-				errChan <- err
-				return
-			}
-
-			path := fmt.Sprintf("%s/%d.jpg", pathToChapter, i)
-			page, err := os.Create(path)
-			if err != nil {
-				log.Println(err)
-				errChan <- err
-				return
-			}
-
-			if err := c.SaveUploadedFile(file, path); err != nil {
-				log.Println(err)
-				errChan <- err
-				return
-			}
-
-			page.Close()
-		}
-
-		errChan <- nil
-	}()
-
-	transaction := h.DB.Begin()
-	go func() {
-		chapter := models.Chapter{
-			Name:          name,
-			Description:   description,
-			Path:          pathToChapter,
-			NumberOfPages: numberOfPages,
-			TitleID:       desiredTitleID,
-		}
-
-		if IsUserAdmin := slices.Contains(userRoles, "admin"); IsUserAdmin {
-			chapter.OnModeration = false
-		} else {
-			chapter.OnModeration = true
-		}
-
-		if result := transaction.Create(&chapter); result.Error != nil {
-			log.Println(err)
-			errChan <- err
-			return
-		}
-
-		errChan <- nil
-	}()
-
-	for i := 0; i < NUMBER_OF_GORUTINES; i++ {
-		if <-errChan != nil {
-			transaction.Rollback()
-			c.AbortWithStatusJSON(500, gin.H{"error": "Произошла ошибка при создании главы"})
-			os.RemoveAll(pathToChapter)
-			return
-		}
+	chapter := models.Chapter{
+		Name:          name,
+		Description:   description,
+		NumberOfPages: numberOfPages,
+		TitleID:       desiredTitleID,
+		OnModeration:  true,
 	}
 
-	transaction.Commit()
+	if result := h.DB.Create(&chapter); result.Error != nil {
+		log.Println(result.Error)
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	chapterPages := ChapterPages{
+		ChapterID: chapter.ID,
+		Pages:     make([][]byte, numberOfPages, numberOfPages),
+	}
+
+	for i := 0; i < numberOfPages; i++ {
+		page, err := c.FormFile(fmt.Sprintf("%d", i))
+		if err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		file, err := page.Open()
+		if err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		data, err := io.ReadAll(file)
+		if err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		chapterPages.Pages[i] = data
+	}
+
+	if _, err := h.Collection.InsertOne(context.Background(), chapterPages); err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err})
+		return
+	}
 
 	c.JSON(201, gin.H{"success": "Глава успешно создана"})
 
