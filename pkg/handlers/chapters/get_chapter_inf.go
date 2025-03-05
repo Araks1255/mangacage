@@ -8,14 +8,16 @@ import (
 )
 
 func (h handler) GetChapter(c *gin.Context) {
-	desiredChapter := strings.ToLower(c.Param("chapter"))
+	title := strings.ToLower(c.Param("title"))
+	volume := strings.ToLower(c.Param("volume"))
+	chapterName := strings.ToLower(c.Param("chapter"))
 
 	var chapter models.Chapter
-	h.DB.Raw("SELECT * FROM chapters WHERE name = ?", desiredChapter).Scan(&chapter)
-	if chapter.ID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "Глава не найдена"})
-		return
-	}
+	h.DB.Raw("SELECT chapters.* FROM chapters INNER JOIN volumes ON chapters.volume_id = volumes.id INNER JOIN titles ON volumes.title_id = titles.id WHERE chapters.name = ? AND volumes.name = ? AND titles.name = ?",
+		chapterName,
+		volume,
+		title,
+	).Scan(&chapter)
 
 	c.JSON(200, &chapter)
 }

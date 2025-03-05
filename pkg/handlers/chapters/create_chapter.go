@@ -37,27 +37,35 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		log.Println(err)
+		log.Println(err, "форма")
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
 	title := strings.ToLower(c.Param("title"))
+	volume := strings.ToLower(c.Param("volume"))
 
 	name := strings.ToLower(form.Value["name"][0])
 	description := strings.ToLower(form.Value["description"][0])
 
 	numberOfPages, err := strconv.Atoi(form.Value["numberOfPages"][0])
 	if err != nil {
-		log.Println(err)
+		log.Println(err, "количество страниц")
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	var desiredTitleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE name = ?", title).Scan(&desiredTitleID)
-	if desiredTitleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "Тайтл, в котором вы хотите выложить главу не найден"})
+	var titleID uint
+	h.DB.Raw("SELECT id FROM titles WHERE name = ?", title).Scan(&titleID)
+	if titleID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "Тайтл не найден"})
+		return
+	}
+
+	var volumeID uint
+	h.DB.Raw("SELECT id FROM volumes WHERE name = ? AND title_id = ?", volume, titleID).Scan(&volumeID)
+	if volumeID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "Том не найден"})
 		return
 	}
 
@@ -65,7 +73,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 	h.DB.Raw("SELECT CAST("+
 		"CASE WHEN ? = "+
 		"(SELECT titles.id FROM titles INNER JOIN teams ON titles.team_id = teams.id INNER JOIN users ON teams.id = users.team_id WHERE users.id = ?) "+
-		"THEN true ELSE false END AS BOOLEAN)", desiredTitleID, claims.ID).Scan(&IsUserTeamTranslatesThisTitle)
+		"THEN true ELSE false END AS BOOLEAN)", titleID, claims.ID).Scan(&IsUserTeamTranslatesThisTitle)
 
 	if !IsUserTeamTranslatesThisTitle {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Ваша команда не переводит данный тайтл"})
@@ -73,9 +81,9 @@ func (h handler) CreateChapter(c *gin.Context) {
 	}
 
 	var existingChapterID uint
-	h.DB.Raw("SELECT id FROM chapters WHERE title_id = ? AND name = ?", desiredTitleID, name).Scan(&existingChapterID)
+	h.DB.Raw("SELECT id FROM chapters WHERE volume_id = ? AND name = ?", volumeID, name).Scan(&existingChapterID)
 	if existingChapterID != 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Глава с таким названием уже существует в тайтле"})
+		c.AbortWithStatusJSON(403, gin.H{"error": "Глава уже существует"})
 		return
 	}
 
@@ -83,11 +91,14 @@ func (h handler) CreateChapter(c *gin.Context) {
 		Name:          name,
 		Description:   description,
 		NumberOfPages: numberOfPages,
-		TitleID:       desiredTitleID,
+		VolumeID:      volumeID,
 		OnModeration:  true,
 	}
 
-	if result := h.DB.Create(&chapter); result.Error != nil {
+	tx := h.DB.Begin()
+
+	if result := tx.Create(&chapter); result.Error != nil { // Заменить это на транзакцию, а коммитить только после выгрузки страниц
+		tx.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
@@ -101,33 +112,39 @@ func (h handler) CreateChapter(c *gin.Context) {
 	for i := 0; i < numberOfPages; i++ {
 		page, err := c.FormFile(fmt.Sprintf("%d", i))
 		if err != nil {
-			log.Println(err)
+			tx.Rollback()
+			log.Println(err, "получение файла")
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
 		file, err := page.Open()
 		if err != nil {
-			log.Println(err)
+			tx.Rollback()
+			log.Println(err, "открытие файла")
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
 		data, err := io.ReadAll(file)
 		if err != nil {
-			log.Println(err)
+			tx.Rollback()
+			log.Println(err, "чтение файла")
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		chapterPages.Pages[i] = data
+		chapterPages.Pages[i] = data // Это не совсем безопасно, но почему-то при использовании append слайс расширялся до 6 элементов, при этом первые 3 оставались незаполненными, а это очень плохо
 	}
 
 	if _, err := h.Collection.InsertOne(context.Background(), chapterPages); err != nil {
-		log.Println(err)
+		tx.Rollback()
+		log.Println(err, "вставка в mongodb")
 		c.AbortWithStatusJSON(500, gin.H{"error": err})
 		return
 	}
+
+	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "Глава успешно создана"})
 

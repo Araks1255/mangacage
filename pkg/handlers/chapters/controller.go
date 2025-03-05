@@ -13,24 +13,28 @@ type handler struct {
 	Collection *mongo.Collection
 }
 
-func RegisterRoutes(db *gorm.DB, collection *mongo.Collection, r *gin.Engine) {
+func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	viper.SetConfigFile("./pkg/common/envs/.env")
 	viper.ReadInConfig()
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
+	chapterPagesCollection := client.Database("mangacage").Collection("chapters_pages")
+
 	h := handler{
 		DB:         db,
-		Collection: collection,
+		Collection: chapterPagesCollection,
 	}
 
-	privateChapter := r.Group("/:title/chapter")
+	privateChapter := r.Group("/:title/:volume")
 	privateChapter.Use(middlewares.AuthMiddleware(secretKey))
 
 	privateChapter.POST("/", h.CreateChapter)
-	privateChapter.DELETE(":chapter", h.DeleteChapter)
+	privateChapter.DELETE("/:chapter", h.DeleteChapter)
 
-	r.GET("/get-chapters/:title", h.GetTitleChapters)
-	r.GET("/get-chapter/:chapter", h.GetChapter)
-	r.GET("/get-chapter-page/:chapter/:page", h.GetChapterPage)
+	publicChapter := r.Group("/:title/:volume")
+
+	publicChapter.GET("/:chapter", h.GetChapter)
+	publicChapter.GET("/:chapter/:page", h.GetChapterPage)
+	publicChapter.GET("/", h.GetVolumeChapters)
 }

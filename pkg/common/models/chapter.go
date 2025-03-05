@@ -8,15 +8,15 @@ import (
 
 type Chapter struct {
 	gorm.Model
+
 	Name          string
 	Description   string
-	Path          string
 	NumberOfPages int
 	OnModeration  bool
 
-	TitleID uint
-	Title   Title `gorm:"foreignKey:TitleID;references:id"`
+	VolumeID uint
+	Volume   Volume `gorm:"foreignKey:VolumeID;references:id" json:"-"`
 
 	ModeratorID sql.NullInt64
-	Moderator   User `gorm:"foreignKey:ModeratorID;references:id"`
+	Moderator   User `gorm:"foreignKey:ModeratorID;references:id" json:"-"`
 }
