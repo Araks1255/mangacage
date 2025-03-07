@@ -36,7 +36,7 @@ func main() {
 	router := gin.Default()
 
 	auth.RegisterRoutes(db, router)
-	titles.RegisterRoutes(db, router)
+	titles.RegisterRoutes(db, mongoClient, router)
 	teams.RegisterRoutes(db, router)
 	chapters.RegisterRoutes(db, mongoClient, router)
 	volumes.RegisterRoutes(db, mongoClient, router)

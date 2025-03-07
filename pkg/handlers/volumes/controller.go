@@ -9,8 +9,7 @@ import (
 )
 
 type handler struct {
-	DB         *gorm.DB
-	Collection *mongo.Collection
+	DB *gorm.DB
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
@@ -19,12 +18,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
-	volumesCoversCollection := client.Database("mangacage").Collection("volumes_covers")
-
-	h := handler{
-		DB:         db,
-		Collection: volumesCoversCollection,
-	}
+	h := handler{DB: db}
 
 	privateVolume := r.Group("/:title")
 	privateVolume.Use(middlewares.AuthMiddleware(secretKey))

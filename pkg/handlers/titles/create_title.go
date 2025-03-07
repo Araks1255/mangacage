@@ -3,8 +3,8 @@ package titles
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
-	"slices"
 	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -16,70 +16,96 @@ import (
 )
 
 func (h handler) CreateTitle(c *gin.Context) {
-	claims, ok := c.MustGet("claims").(*models.Claims)
-	if !ok {
-		log.Println("Не удалось привести клаймсы к типу")
-		c.AbortWithStatusJSON(500, gin.H{"error": "Внутренняя ошибка, извините"})
-		return
-	}
+	claims := c.MustGet("claims").(*models.Claims)
 
-	var requestBody struct {
-		Name        string   `json:"name" binding:"required"`
-		Description string   `json:"description"`
-		Author      string   `json:"author" binding:"required"`
-		Genres      []string `json:"genres" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
+	form, err := c.MultipartForm()
+	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	transaction := h.DB.Begin()
+	name := strings.ToLower(form.Value["name"][0])
+	description := strings.ToLower(form.Value["description"][0])
+	author := strings.ToLower(form.Value["author"][0])
+
+	genres := form.Value["genres"]
+
+	cover, err := c.FormFile("cover")
+	if err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	var existingTitleID uint
+	h.DB.Raw("SELECT id FROM titles WHERE name = ?", name).Scan(&existingTitleID)
+	if existingTitleID != 0 {
+		c.AbortWithStatusJSON(403, gin.H{"error": "Тайтл уже существует"})
+		return
+	}
 
 	var authorID uint
-	transaction.Raw("SELECT id FROM authors WHERE name = ?", requestBody.Author).Scan(&authorID)
+	h.DB.Raw("SELECT id FROM authors WHERE name = ?", author).Scan(&authorID)
 	if authorID == 0 {
-		transaction.Rollback()
 		c.AbortWithStatusJSON(404, gin.H{"error": "Автор не найден"})
 		return
 	}
 
 	title := models.Title{
-		Name:        requestBody.Name,
-		Description: requestBody.Description,
-		AuthorID:    authorID,
-		CreatorID:   claims.ID,
+		Name:         name,
+		Description:  description,
+		AuthorID:     authorID,
+		CreatorID:    claims.ID,
+		OnModeration: true,
 	}
 
-	var userRoles []string
-	transaction.Raw("SELECT roles.name FROM roles "+
-		"INNER JOIN user_roles ON roles.id = user_roles.role_id "+
-		"INNER JOIN users ON user_roles.user_id = users.id "+ // Я знаю, что конкатенация в го процесс сложный, но не хочу делать длиннющую строку
-		"WHERE users.id = ?", claims.ID).Scan(&userRoles)
+	tx := h.DB.Begin()
 
-	if IsUserAdmin := slices.Contains(userRoles, "admin"); IsUserAdmin == true {
-		title.OnModeration = false
-	} else {
-		title.OnModeration = true
-	}
-
-	if result := transaction.Create(&title); result.Error != nil {
-		transaction.Rollback()
+	if result := tx.Create(&title); result.Error != nil {
+		tx.Rollback()
 		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": "Не удалось создать тайтл"})
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	if err := AddGenresToTitle(title.ID, requestBody.Genres, transaction); err != nil {
-		transaction.Rollback()
+	if err := AddGenresToTitle(title.ID, genres, tx); err != nil {
+		tx.Rollback()
 		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": "Не удалось добавить жанры к тайтлу"})
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	transaction.Commit()
+	var titleCover struct {
+		TitleID uint   `bson:"title_id"`
+		Cover   []byte `bson:"cover"`
+	}
+
+	file, err := cover.Open()
+	if err != nil {
+		tx.Rollback()
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	defer file.Close()
+
+	titleCover.Cover, err = io.ReadAll(file)
+	if err != nil {
+		tx.Rollback()
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	if _, err := h.Collection.InsertOne(context.Background(), titleCover); err != nil {
+		tx.Rollback()
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "Тайтл успешно создан"})
 
@@ -96,16 +122,16 @@ func (h handler) CreateTitle(c *gin.Context) {
 	}
 }
 
-func AddGenresToTitle(titleID uint, genres []string, transaction *gorm.DB) error {
+func AddGenresToTitle(titleID uint, genres []string, tx *gorm.DB) error {
 	query := "INSERT INTO title_genres (title_id, genre_id) VALUES"
 
 	for i := 0; i < len(genres); i++ {
-		query += fmt.Sprintf(" (%d, (SELECT id FROM genres WHERE name = '%s')),", titleID, genres[i])
+		query += fmt.Sprintf(" (%d, (SELECT id FROM genres WHERE name = '%s')),", titleID, strings.ToLower(genres[i]))
 	}
 
 	query = strings.TrimSuffix(query, ",")
 
-	if result := transaction.Exec(query); result.Error != nil {
+	if result := tx.Exec(query); result.Error != nil {
 		return result.Error
 	}
 
