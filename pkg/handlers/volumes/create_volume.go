@@ -14,7 +14,7 @@ func (h handler) CreateVolume(c *gin.Context) {
 	title := strings.ToLower(c.Param("title"))
 
 	var requestBody struct {
-		Name        string `json:"name"`
+		Name        string `json:"name" binding:"required"`
 		Description string `json:"description"`
 	}
 

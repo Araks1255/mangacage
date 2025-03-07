@@ -21,7 +21,7 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	var titleID, titleCreatorID uint
 
-	row := h.DB.Raw("SELECT id, creator_id FROM titles WHERE name = ?", title).Row()
+	row := h.DB.Raw("SELECT id, creator_id FROM titles WHERE name = ? AND NOT on_moderation", title).Row()
 	if err := row.Scan(&titleID, &titleCreatorID); err != nil {
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -50,13 +50,13 @@ func (h handler) EditTitle(c *gin.Context) {
 		return
 	}
 
-	tx := h.DB.Begin()
-
-	const NUMBER_OF_GORUTINES = 5
+	const NUMBER_OF_GORUTINES = 6
 	errChan := make(chan error, NUMBER_OF_GORUTINES)
 
 	var wg sync.WaitGroup
 	wg.Add(NUMBER_OF_GORUTINES)
+
+	tx := h.DB.Begin()
 
 	go func() {
 		defer wg.Done()
@@ -187,6 +187,18 @@ func (h handler) EditTitle(c *gin.Context) {
 		errChan <- nil
 	}()
 
+	go func() {
+		defer wg.Done()
+
+		if result := tx.Exec("UPDATE titles SET on_moderation = true WHERE id = ?", titleID); result.Error != nil {
+			log.Println(result.Error)
+			errChan <- result.Error
+			return
+		}
+
+		errChan <- nil
+	}()
+
 	wg.Wait()
 
 	for i := 0; i < NUMBER_OF_GORUTINES; i++ {
@@ -201,4 +213,6 @@ func (h handler) EditTitle(c *gin.Context) {
 	tx.Commit()
 
 	c.JSON(200, gin.H{"success": "тайтл успешно обновлён"})
+
+	// Тут надо будет добавить уведомление модерам
 }
