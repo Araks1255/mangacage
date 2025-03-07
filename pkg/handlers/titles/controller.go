@@ -26,10 +26,14 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		Collection: titlesCoversCollection,
 	}
 
-	privateTitle := r.Group("/title")
+	privateTitle := r.Group("/title") // Надо будет переделать
 	privateTitle.Use(middlewares.AuthMiddleware(secretKey))
 
 	privateTitle.POST("/", h.CreateTitle)
 	privateTitle.POST("/translate", h.TranslateTitle)
 	privateTitle.POST("/:title/subscribe", h.SubscribeToTitle)
+	privateTitle.POST("/:title/edit", h.EditTitle)
+
+	publicTitle := r.Group(":title")
+	publicTitle.GET("/cover", h.GetTitleCover)
 }

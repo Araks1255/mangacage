@@ -90,6 +90,8 @@ func (h handler) CreateTitle(c *gin.Context) {
 	}
 	defer file.Close()
 
+	titleCover.TitleID = title.ID
+
 	titleCover.Cover, err = io.ReadAll(file)
 	if err != nil {
 		tx.Rollback()
