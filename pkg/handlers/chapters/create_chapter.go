@@ -2,11 +2,9 @@ package chapters
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -37,7 +35,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		log.Println(err, "форма")
+		log.Println(err)
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
@@ -48,10 +46,9 @@ func (h handler) CreateChapter(c *gin.Context) {
 	name := strings.ToLower(form.Value["name"][0])
 	description := strings.ToLower(form.Value["description"][0])
 
-	numberOfPages, err := strconv.Atoi(form.Value["numberOfPages"][0])
-	if err != nil {
-		log.Println(err, "количество страниц")
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+	pages := form.File["pages"]
+	if len(pages) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "отсутствуют страницы главы"})
 		return
 	}
 
@@ -90,7 +87,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 	chapter := models.Chapter{
 		Name:          name,
 		Description:   description,
-		NumberOfPages: numberOfPages,
+		NumberOfPages: len(pages),
 		VolumeID:      volumeID,
 		OnModeration:  true,
 	}
@@ -106,17 +103,11 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	chapterPages := ChapterPages{
 		ChapterID: chapter.ID,
-		Pages:     make([][]byte, numberOfPages, numberOfPages),
+		Pages:     make([][]byte, len(pages), len(pages)),
 	}
 
-	for i := 0; i < numberOfPages; i++ {
-		page, err := c.FormFile(fmt.Sprintf("%d", i))
-		if err != nil {
-			tx.Rollback()
-			log.Println(err, "получение файла")
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
-		}
+	for i := 0; i < len(pages); i++ {
+		page := pages[i]
 
 		file, err := page.Open()
 		if err != nil {

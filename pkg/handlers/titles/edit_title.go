@@ -22,13 +22,8 @@ func (h handler) EditTitle(c *gin.Context) {
 	var titleID, titleCreatorID uint
 
 	row := h.DB.Raw("SELECT id, creator_id FROM titles WHERE name = ? AND NOT on_moderation", title).Row()
-	if err := row.Scan(&titleID, &titleCreatorID); err != nil {
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if titleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "Тайтл не найден"})
+	if row.Scan(&titleID, &titleCreatorID); titleID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
 		return
 	}
 
@@ -38,7 +33,7 @@ func (h handler) EditTitle(c *gin.Context) {
 	INNER JOIN users ON user_roles.user_id = users.id
 	WHERE users.id = ?`, claims.ID).Scan(&userRoles)
 
-	if titleCreatorID != claims.ID && !slices.Contains(userRoles, "moderator") && !slices.Contains(userRoles, "admin") {
+	if titleCreatorID != claims.ID && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь создателем этого тайтла"})
 		return
 	}
@@ -50,7 +45,7 @@ func (h handler) EditTitle(c *gin.Context) {
 		return
 	}
 
-	const NUMBER_OF_GORUTINES = 6
+	const NUMBER_OF_GORUTINES = 7
 	errChan := make(chan error, NUMBER_OF_GORUTINES)
 
 	var wg sync.WaitGroup
@@ -190,6 +185,23 @@ func (h handler) EditTitle(c *gin.Context) {
 	go func() {
 		defer wg.Done()
 
+		if !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
+			errChan <- nil
+			return
+		}
+
+		if result := tx.Exec("UPDATE titles SET moderator_id = ? WHERE id = ?", claims.ID, titleID); result.Error != nil {
+			log.Println(result.Error)
+			errChan <- result.Error
+			return
+		}
+
+		errChan <- nil
+	}()
+
+	go func() {
+		defer wg.Done()
+
 		if result := tx.Exec("UPDATE titles SET on_moderation = true WHERE id = ?", titleID); result.Error != nil {
 			log.Println(result.Error)
 			errChan <- result.Error
@@ -200,6 +212,8 @@ func (h handler) EditTitle(c *gin.Context) {
 	}()
 
 	wg.Wait()
+
+	close(errChan)
 
 	for i := 0; i < NUMBER_OF_GORUTINES; i++ {
 		err = <-errChan
