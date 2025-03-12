@@ -34,6 +34,8 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	privateTitle.POST("/:title/subscribe", h.SubscribeToTitle)
 	privateTitle.POST("/:title/edit", h.EditTitle)
 
-	publicTitle := r.Group(":title")
-	publicTitle.GET("/cover", h.GetTitleCover)
+	publicTitle := r.Group("/titles")
+	publicTitle.GET("/:title/cover", h.GetTitleCover)
+	publicTitle.GET("/most_popular/:limit", h.GetMostPopularTitles)
+	publicTitle.GET("/recently_updated/:limit", h.GetRecentlyUpdatedTitles)
 }
