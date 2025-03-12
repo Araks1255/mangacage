@@ -12,19 +12,17 @@ type Title struct {
 	Description  string
 	OnModeration bool
 
-	// Ещё обложку надо
-
 	CreatorID uint
-	Creator   User `gorm:"foreignKey:CreatorID;references:id"`
+	Creator   User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
 
 	ModeratorID sql.NullInt64
-	Moderator   User `gorm:"foreignKey:ModeratorID;references:id"`
+	Moderator   User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
 
 	AuthorID uint
-	Author   Author `gorm:"foreignKey:AuthorID;references:id"`
+	Author   Author `gorm:"foreignKey:AuthorID;references:id;OnDelete:SET NULL"`
 
 	TeamID sql.NullInt64
-	Team   Team `gorm:"foreignKey:TeamID;references:id"`
+	Team   Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
 
-	Genres []Genre `gorm:"many2many:title_genres;"`
+	Genres []Genre `gorm:"many2many:title_genres;OnDelete:SET NULL"`
 }

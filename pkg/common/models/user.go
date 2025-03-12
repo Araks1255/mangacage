@@ -14,8 +14,8 @@ type User struct {
 	TgUserID     int64
 
 	TeamID sql.NullInt64
-	Team   Team `gorm:"foreignKey:TeamID;references:id"`
+	Team   Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
 
-	Roles                    []Role  `gorm:"many2many:user_roles;"`
-	TitlesUserIsSubscribedTo []Title `gorm:"many2many:user_titles_subscribed_to;"`
+	Roles                    []Role  `gorm:"many2many:user_roles;OnDelete:SET NULL"`
+	TitlesUserIsSubscribedTo []Title `gorm:"many2many:user_titles_subscribed_to;OnDelete:SET NULL"`
 }

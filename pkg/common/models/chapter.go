@@ -15,8 +15,8 @@ type Chapter struct {
 	OnModeration  bool
 
 	VolumeID uint
-	Volume   Volume `gorm:"foreignKey:VolumeID;references:id" json:"-"`
+	Volume   Volume `gorm:"foreignKey:VolumeID;references:id;OnDelete:SET NULL" json:"-"`
 
 	ModeratorID sql.NullInt64
-	Moderator   User `gorm:"foreignKey:ModeratorID;references:id" json:"-"`
+	Moderator   User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL" json:"-"`
 }
