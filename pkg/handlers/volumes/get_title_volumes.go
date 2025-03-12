@@ -1,20 +1,18 @@
 package volumes
 
 import (
-	"strings"
-
 	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetTitleVolumes(c *gin.Context) {
-	title := strings.ToLower(c.Param("title"))
+	title := c.Param("title")
 
 	var volumes []string
 	h.DB.Raw(
 		`SELECT volumes.name FROM volumes
 		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE titles.name = ?
+		WHERE lower(titles.name) = lower(?)
 		AND NOT volumes.on_moderation`,
 		title,
 	).Scan(&volumes)

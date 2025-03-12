@@ -2,6 +2,7 @@ package teams
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"slices"
 
@@ -30,18 +31,21 @@ func (h handler) JoinTeam(c *gin.Context) {
 		return
 	}
 
-	var requestBody struct {
-		Team string `json:"team" binding:"required"`
-	}
+	team := c.Param("team")
 
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
+	var (
+		desiredTeamID   uint
+		desiredTeamName string
+	)
+
+	row := h.DB.Raw("SELECT id, name FROM teams WHERE lower(name) = lower(?)", team).Row()
+
+	if err := row.Scan(&desiredTeamID, &desiredTeamName); err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	var desiredTeamID uint
-	h.DB.Raw("SELECT id FROM teams WHERE name = ?", requestBody.Team).Scan(&desiredTeamID)
 	if desiredTeamID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "Команда перевода не найдена"})
 		return
@@ -59,11 +63,11 @@ func (h handler) JoinTeam(c *gin.Context) {
 	if result := transaction.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, (SELECT id FROM roles WHERE name = 'translater'))", claims.ID); result.Error != nil {
 		transaction.Rollback()
 		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": "Не удалось назначит вас переводчиком"})
+		c.AbortWithStatusJSON(500, gin.H{"error": "Не удалось назначить вас переводчиком"})
 		return
 	}
 
 	transaction.Commit()
 
-	c.JSON(200, gin.H{"success": "Теперь вы являетесь частью команды перевода " + requestBody.Team})
+	c.JSON(200, gin.H{"success": fmt.Sprintf("теперь вы являетесь чатью команды перевода %s", desiredTeamName)})
 }

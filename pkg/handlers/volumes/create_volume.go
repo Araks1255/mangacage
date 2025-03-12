@@ -2,7 +2,6 @@ package volumes
 
 import (
 	"log"
-	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
@@ -11,7 +10,7 @@ import (
 func (h handler) CreateVolume(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
-	title := strings.ToLower(c.Param("title"))
+	title := c.Param("title")
 
 	var requestBody struct {
 		Name        string `json:"name" binding:"required"`
@@ -25,14 +24,14 @@ func (h handler) CreateVolume(c *gin.Context) {
 	}
 
 	var titleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE name = ?", title).Scan(&titleID)
+	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", title).Scan(&titleID)
 	if titleID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "Тайтл не найден"})
 		return
 	}
 
 	var existingVolumeID uint
-	h.DB.Raw("SELECT id FROM volumes WHERE name = ? AND title_id = ?", requestBody.Name, titleID).Scan(&existingVolumeID)
+	h.DB.Raw("SELECT id FROM volumes WHERE lower(name) = lower(?) AND title_id = ?", requestBody.Name, titleID).Scan(&existingVolumeID)
 	if existingVolumeID != 0 {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Такой том уже существует"})
 		return

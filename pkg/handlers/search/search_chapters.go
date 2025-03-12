@@ -2,13 +2,12 @@ package search
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) SearchChapters(c *gin.Context) {
-	query := strings.ToLower(c.Param("query"))
+	query := c.Param("query")
 
 	type result struct {
 		Title   string `gorm:"column:name"`
@@ -20,7 +19,8 @@ func (h handler) SearchChapters(c *gin.Context) {
 	h.DB.Raw(`SELECT titles.name, volumes.name, chapters.name FROM chapters
 		INNER JOIN volumes ON chapters.volume_id = volumes.id
 		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE chapters.name ILIKE ? AND NOT chapters.on_moderation`,
+		WHERE lower(chapters.name) ILIKE lower(?)
+		AND NOT chapters.on_moderation`,
 		fmt.Sprintf("%%%s%%", query),
 	).Scan(&results)
 

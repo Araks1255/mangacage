@@ -2,16 +2,15 @@ package search
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) SearchTeams(c *gin.Context) {
-	query := strings.ToLower(c.Param("query"))
+	query := c.Param("query")
 
 	var teams []string
-	h.DB.Raw("SELECT name FROM teams WHERE name ILIKE ?", fmt.Sprintf("%%%s%%", query)).Scan(&teams)
+	h.DB.Raw("SELECT name FROM teams WHERE lower(name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", query)).Scan(&teams)
 	if len(teams) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено команд перевода по вашему запросу"})
 		return

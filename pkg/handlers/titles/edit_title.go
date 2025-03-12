@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -17,11 +16,11 @@ import (
 func (h handler) EditTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
-	title := strings.ToLower(c.Param("title"))
+	title := c.Param("title")
 
 	var titleID, titleCreatorID uint
 
-	row := h.DB.Raw("SELECT id, creator_id FROM titles WHERE name = ? AND NOT on_moderation", title).Row()
+	row := h.DB.Raw("SELECT id, creator_id FROM titles WHERE lower(name) = lower(?) AND NOT on_moderation", title).Row()
 	if row.Scan(&titleID, &titleCreatorID); titleID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
 		return
@@ -61,7 +60,7 @@ func (h handler) EditTitle(c *gin.Context) {
 			return
 		}
 
-		newName := strings.ToLower(form.Value["name"][0])
+		newName := form.Value["name"][0]
 		if result := tx.Exec("UPDATE titles SET name = ? WHERE id = ?", newName, titleID); result.Error != nil {
 			log.Println(result.Error)
 			errChan <- result.Error
@@ -79,7 +78,7 @@ func (h handler) EditTitle(c *gin.Context) {
 			return
 		}
 
-		newDescription := strings.ToLower(form.Value["description"][0])
+		newDescription := form.Value["description"][0]
 		if result := tx.Exec("UPDATE titles SET description = ? WHERE id = ?", newDescription, titleID); result.Error != nil {
 			log.Println(result.Error)
 			errChan <- result.Error
@@ -97,10 +96,10 @@ func (h handler) EditTitle(c *gin.Context) {
 			return
 		}
 
-		newAuthor := strings.ToLower(form.Value["author"][0])
+		newAuthor := form.Value["author"][0]
 
 		var newAuthorID uint
-		h.DB.Raw("SELECT id FROM authors WHERE name = ?", newAuthor).Scan(&newAuthorID)
+		h.DB.Raw("SELECT id FROM authors WHERE lower(name) = lower(?)", newAuthor).Scan(&newAuthorID)
 		if newAuthorID == 0 {
 			errChan <- errors.New("Новый автор не найден")
 			return

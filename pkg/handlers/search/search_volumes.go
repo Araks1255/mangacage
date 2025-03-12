@@ -2,13 +2,12 @@ package search
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) SearchVolumes(c *gin.Context) {
-	query := strings.ToLower(c.Param("query"))
+	query := c.Param("query")
 
 	type result struct {
 		Title  string `gorm:"column:name"`
@@ -18,7 +17,8 @@ func (h handler) SearchVolumes(c *gin.Context) {
 	var results []result
 	h.DB.Raw(`SELECT titles.name, volumes.name FROM volumes
 	INNER JOIN titles ON volumes.title_id = titles.id
-	WHERE volumes.name ILIKE ? AND NOT volumes.on_moderation`,
+	WHERE lower(volumes.name) ILIKE lower(?)
+	AND NOT volumes.on_moderation`,
 		fmt.Sprintf("%%%s%%", query),
 	).Scan(&results)
 

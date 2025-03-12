@@ -1,5 +1,6 @@
 /pkg/common/envs
 /pkg/common/utils
-/chapters
+/html
+/static
 /go.mod
 /go.sum

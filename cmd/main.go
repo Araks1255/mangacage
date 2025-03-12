@@ -10,6 +10,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/handlers/teams"
 	"github.com/Araks1255/mangacage/pkg/handlers/titles"
 	"github.com/Araks1255/mangacage/pkg/handlers/users"
+	"github.com/Araks1255/mangacage/pkg/handlers/views"
 	"github.com/Araks1255/mangacage/pkg/handlers/volumes"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -43,6 +44,7 @@ func main() {
 	volumes.RegisterRoutes(db, mongoClient, router)
 	search.RegisterRoutes(db, router)
 	users.RegisterRoutes(db, router)
+	views.RegisterRoutes(db, router)
 
 	router.Run(":8080")
 }

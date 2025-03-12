@@ -20,11 +20,12 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	h := handler{DB: db}
 
-	privateVolume := r.Group("/:title")
+	privateVolume := r.Group("/volumes/:title")
 	privateVolume.Use(middlewares.AuthMiddleware(secretKey))
 
 	privateVolume.POST("/", h.CreateVolume)
+	privateVolume.DELETE("/:volume", h.DeleteVolume)
 
 	publicVolume := r.Group("/:title")
-	publicVolume.GET("/volumes", h.GetTitleVolumes)
+	publicVolume.GET("/", h.GetTitleVolumes)
 }

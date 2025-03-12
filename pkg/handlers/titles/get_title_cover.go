@@ -3,17 +3,16 @@ package titles
 import (
 	"context"
 	"log"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 func (h handler) GetTitleCover(c *gin.Context) {
-	title := strings.ToLower(c.Param("title"))
+	title := c.Param("title")
 
 	var titleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE name = ?", title).Scan(&titleID)
+	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", title).Scan(&titleID)
 	if titleID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
 		return

@@ -2,7 +2,6 @@ package titles
 
 import (
 	"log"
-	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
@@ -10,12 +9,11 @@ import (
 
 func (h handler) SubscribeToTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
-	log.Println(claims.ID)
 
-	desiredTitle := strings.ToLower(c.Param("title"))
+	desiredTitle := c.Param("title")
 
 	var desiredTitleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE name = ?", desiredTitle).Scan(&desiredTitleID)
+	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", desiredTitle).Scan(&desiredTitleID)
 	if desiredTitleID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "Тайтл не найден"})
 		return

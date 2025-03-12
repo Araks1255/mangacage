@@ -46,7 +46,10 @@ func (h handler) CreateTeam(c *gin.Context) {
 		return
 	}
 
-	if result := transaction.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, (SELECT id FROM roles WHERE name = 'team_leader')), (?, (SELECT id FROM roles WHERE name = 'translater'))", claims.ID, claims.ID); result.Error != nil {
+	if result := transaction.Exec(`INSERT INTO user_roles (user_id, role_id)
+		VALUES (?, (SELECT id FROM roles WHERE name = 'team_leader')),
+		(?, (SELECT id FROM roles WHERE name = 'translater'))`,
+		claims.ID, claims.ID); result.Error != nil {
 		transaction.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": "Не удалось назначить вас лидером команды"})

@@ -19,10 +19,10 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 
 	h := handler{DB: db}
 
-	team := r.Group("/team")
+	team := r.Group("/teams")
 	team.Use(middlewares.AuthMiddleware(secretKey))
 
 	team.POST("/", h.CreateTeam)
-	team.POST("/join", h.JoinTeam)
+	team.POST("/join/:team", h.JoinTeam)
 	team.DELETE("/leave", h.LeaveTeam)
 }

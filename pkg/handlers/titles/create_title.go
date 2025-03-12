@@ -25,9 +25,9 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	name := strings.ToLower(form.Value["name"][0])
-	description := strings.ToLower(form.Value["description"][0])
-	author := strings.ToLower(form.Value["author"][0])
+	name := form.Value["name"][0]
+	description := form.Value["description"][0]
+	author := form.Value["author"][0]
 
 	genres := form.Value["genres"]
 
@@ -39,14 +39,14 @@ func (h handler) CreateTitle(c *gin.Context) {
 	}
 
 	var existingTitleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE name = ?", name).Scan(&existingTitleID)
+	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", name).Scan(&existingTitleID)
 	if existingTitleID != 0 {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Тайтл уже существует"})
 		return
 	}
 
 	var authorID uint
-	h.DB.Raw("SELECT id FROM authors WHERE name = ?", author).Scan(&authorID)
+	h.DB.Raw("SELECT id FROM authors WHERE lower(name) = lower(?)", author).Scan(&authorID)
 	if authorID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "Автор не найден"})
 		return
@@ -128,7 +128,7 @@ func AddGenresToTitle(titleID uint, genres []string, tx *gorm.DB) error {
 	query := "INSERT INTO title_genres (title_id, genre_id) VALUES"
 
 	for i := 0; i < len(genres); i++ {
-		query += fmt.Sprintf(" (%d, (SELECT id FROM genres WHERE name = '%s')),", titleID, strings.ToLower(genres[i]))
+		query += fmt.Sprintf(" (%d, (SELECT id FROM genres WHERE name = '%s')),", titleID, genres[i])
 	}
 
 	query = strings.TrimSuffix(query, ",")

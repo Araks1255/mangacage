@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -12,7 +11,9 @@ import (
 )
 
 func (h handler) GetChapterPage(c *gin.Context) {
-	chapter := strings.ToLower(c.Param("chapter"))
+	title := c.Param("title")
+	volume := c.Param("volume")
+	chapter := c.Param("chapter")
 
 	numberOfPage, err := strconv.Atoi(c.Param("page"))
 	if err != nil {
@@ -21,7 +22,12 @@ func (h handler) GetChapterPage(c *gin.Context) {
 	}
 
 	var chapterID uint
-	h.DB.Raw("SELECT id FROM chapters WHERE name = ?", chapter).Scan(&chapterID)
+	h.DB.Raw(`SELECT chapters.id FROM chapters
+		INNER JOIN volumes ON chapters.volume_id = volumes.id
+		INNER JOIN titles ON volumes.title_id = titles.id
+		WHERE lower(titles.name) = lower(?)
+		AND lower(volumes.name) = lower(?)
+		AND lower(chapters.name) = lower(?)`, title, volume, chapter).Scan(&chapterID)
 	if chapterID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена"})
 		return

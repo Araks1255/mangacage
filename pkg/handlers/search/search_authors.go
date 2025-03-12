@@ -2,16 +2,15 @@ package search
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) SearchAuthors(c *gin.Context) {
-	query := strings.ToLower(c.Param("query"))
+	query := c.Param("query")
 
 	var authors []string
-	h.DB.Raw("SELECT name FROM authors WHERE name ILIKE ?", fmt.Sprintf("%%%s%%", query)).Scan(&authors)
+	h.DB.Raw("SELECT name FROM authors WHERE lower(name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", query)).Scan(&authors)
 	if len(authors) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено авторов по вашему запросу"})
 		return

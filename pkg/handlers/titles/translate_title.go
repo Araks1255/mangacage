@@ -24,18 +24,10 @@ func (h handler) TranslateTitle(c *gin.Context) {
 		return
 	}
 
-	var requestBody struct {
-		Title string `json:"title" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
-		return
-	}
+	title := c.Param("title")
 
 	var desiredTitle models.Title
-	h.DB.Raw("SELECT * FROM titles WHERE name = ?", requestBody.Title).Scan(&desiredTitle)
+	h.DB.Raw("SELECT * FROM titles WHERE lower(name) = lower(?)", title).Scan(&desiredTitle)
 	if desiredTitle.TeamID.Valid {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Тайтл уже переводит другая команда"})
 		return
@@ -61,5 +53,5 @@ func (h handler) TranslateTitle(c *gin.Context) {
 		return
 	}
 
-	c.JSON(201, gin.H{"success": "Теперь ваша команда переводит этот тайтл"})
+	c.JSON(200, gin.H{"success": "Теперь ваша команда переводит этот тайтл"})
 }

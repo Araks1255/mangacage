@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"slices"
-	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	pb "github.com/Araks1255/mangacage_protos"
@@ -40,11 +39,11 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	title := strings.ToLower(c.Param("title"))
-	volume := strings.ToLower(c.Param("volume"))
+	title := c.Param("title")
+	volume := c.Param("volume")
 
-	name := strings.ToLower(form.Value["name"][0])
-	description := strings.ToLower(form.Value["description"][0])
+	name := form.Value["name"][0]
+	description := form.Value["description"][0]
 
 	pages := form.File["pages"]
 	if len(pages) == 0 {
@@ -53,24 +52,27 @@ func (h handler) CreateChapter(c *gin.Context) {
 	}
 
 	var titleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE name = ?", title).Scan(&titleID)
+	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", title).Scan(&titleID)
 	if titleID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "Тайтл не найден"})
 		return
 	}
 
 	var volumeID uint
-	h.DB.Raw("SELECT id FROM volumes WHERE name = ? AND title_id = ?", volume, titleID).Scan(&volumeID)
+	h.DB.Raw("SELECT id FROM volumes WHERE lower(name) = lower(?) AND title_id = ?", volume, titleID).Scan(&volumeID)
 	if volumeID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "Том не найден"})
 		return
 	}
 
 	var IsUserTeamTranslatesThisTitle bool
-	h.DB.Raw("SELECT CAST("+
-		"CASE WHEN ? = "+
-		"(SELECT titles.id FROM titles INNER JOIN teams ON titles.team_id = teams.id INNER JOIN users ON teams.id = users.team_id WHERE users.id = ?) "+
-		"THEN true ELSE false END AS BOOLEAN)", titleID, claims.ID).Scan(&IsUserTeamTranslatesThisTitle)
+	h.DB.Raw(`SELECT CAST(
+		CASE WHEN ? = 
+		(SELECT titles.id FROM titles
+		INNER JOIN teams ON titles.team_id = teams.id
+		INNER JOIN users ON teams.id = users.team_id
+		WHERE users.id = ?)
+		THEN true ELSE false END AS BOOLEAN)`, titleID, claims.ID).Scan(&IsUserTeamTranslatesThisTitle)
 
 	if !IsUserTeamTranslatesThisTitle {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Ваша команда не переводит данный тайтл"})
@@ -78,7 +80,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 	}
 
 	var existingChapterID uint
-	h.DB.Raw("SELECT id FROM chapters WHERE volume_id = ? AND name = ?", volumeID, name).Scan(&existingChapterID)
+	h.DB.Raw("SELECT id FROM chapters WHERE volume_id = ? AND lower(name) = lower(?)", volumeID, name).Scan(&existingChapterID)
 	if existingChapterID != 0 {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Глава уже существует"})
 		return
@@ -112,7 +114,6 @@ func (h handler) CreateChapter(c *gin.Context) {
 		file, err := page.Open()
 		if err != nil {
 			tx.Rollback()
-			log.Println(err, "открытие файла")
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
@@ -120,7 +121,6 @@ func (h handler) CreateChapter(c *gin.Context) {
 		data, err := io.ReadAll(file)
 		if err != nil {
 			tx.Rollback()
-			log.Println(err, "чтение файла")
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
@@ -130,7 +130,6 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	if _, err := h.Collection.InsertOne(context.Background(), chapterPages); err != nil {
 		tx.Rollback()
-		log.Println(err, "вставка в mongodb")
 		c.AbortWithStatusJSON(500, gin.H{"error": err})
 		return
 	}
