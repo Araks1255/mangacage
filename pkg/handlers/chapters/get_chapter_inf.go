@@ -13,7 +13,10 @@ func (h handler) GetChapter(c *gin.Context) {
 	chapterName := strings.ToLower(c.Param("chapter"))
 
 	var chapter models.Chapter
-	h.DB.Raw("SELECT chapters.* FROM chapters INNER JOIN volumes ON chapters.volume_id = volumes.id INNER JOIN titles ON volumes.title_id = titles.id WHERE chapters.name = ? AND volumes.name = ? AND titles.name = ?",
+	h.DB.Raw(`SELECT chapters.* FROM chapters
+		INNER JOIN volumes ON chapters.volume_id = volumes.id
+		INNER JOIN titles ON volumes.title_id = titles.id
+		WHERE chapters.name = ? AND volumes.name = ? AND titles.name = ?`,
 		chapterName,
 		volume,
 		title,

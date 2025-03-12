@@ -34,7 +34,9 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	publicChapter := r.Group("/:title/:volume")
 
-	publicChapter.GET("/:chapter", h.GetChapter)
+	publicChapter.GET("/:chapter/inf", h.GetChapter)
 	publicChapter.GET("/:chapter/:page", h.GetChapterPage)
 	publicChapter.GET("/", h.GetVolumeChapters)
+
+	publicChapter.GET("/:chapter", h.ShowReadingPage)
 }

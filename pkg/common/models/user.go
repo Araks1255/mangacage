@@ -18,4 +18,5 @@ type User struct {
 
 	Roles                    []Role  `gorm:"many2many:user_roles;OnDelete:SET NULL"`
 	TitlesUserIsSubscribedTo []Title `gorm:"many2many:user_titles_subscribed_to;OnDelete:SET NULL"`
+	ViewedTitles             []Title `gorm:"many2many:user_viewed_titles;OnDelete:SET NULL"`
 }
