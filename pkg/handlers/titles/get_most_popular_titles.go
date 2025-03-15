@@ -14,17 +14,18 @@ func (h handler) GetMostPopularTitles(c *gin.Context) {
 	}
 
 	type title struct {
-		Name    string
-		TitleID uint `json:"-"`
-		Views   uint
+		Name  string
+		Views uint
 	}
 
 	var titles []title
-	h.DB.Raw(`SELECT titles.name, user_viewed_titles.title_id, COUNT(user_viewed_titles.title_id) AS views
-		FROM user_viewed_titles
-		INNER JOIN titles ON user_viewed_titles.title_id = titles.id
-		WHERE NOT titles.on_moderation
-		GROUP BY titles.name, user_viewed_titles.title_id
+	h.DB.Raw(
+		`SELECT titles.name, user_viewed_chapters.chapter_id, COUNT(user_viewed_chapters.chapter_id) AS views
+		FROM user_viewed_chapters
+		INNER JOIN chapters ON user_viewed_chapters.chapter_id = chapters.id
+		INNER JOIN volumes ON chapters.volume_id = volumes.id
+		INNER JOIN titles ON volumes.title_id = titles.id
+		GROUP BY titles.name, user_viewed_chapters.chapter_id
 		ORDER BY views DESC
 		LIMIT ?`, limit).Scan(&titles)
 
