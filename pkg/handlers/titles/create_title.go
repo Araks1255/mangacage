@@ -2,14 +2,13 @@ package titles
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
-	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"gorm.io/gorm"
@@ -71,7 +70,6 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	if err := AddGenresToTitle(title.ID, genres, tx); err != nil {
 		tx.Rollback()
-		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
@@ -125,15 +123,15 @@ func (h handler) CreateTitle(c *gin.Context) {
 }
 
 func AddGenresToTitle(titleID uint, genres []string, tx *gorm.DB) error {
-	query := "INSERT INTO title_genres (title_id, genre_id) VALUES"
+	query := `
+		INSERT INTO title_genres (title_id, genre_id)
+		SELECT ?, genres.id
+		FROM genres
+		JOIN UNNEST(?::TEXT[]) AS genre_name ON genres.name = genre_name
+	`
 
-	for i := 0; i < len(genres); i++ {
-		query += fmt.Sprintf(" (%d, (SELECT id FROM genres WHERE name = '%s')),", titleID, genres[i])
-	}
-
-	query = strings.TrimSuffix(query, ",")
-
-	if result := tx.Exec(query); result.Error != nil {
+	if result := tx.Exec(query, titleID, pq.Array(genres)); result.Error != nil {
+		log.Println(result.Error)
 		return result.Error
 	}
 

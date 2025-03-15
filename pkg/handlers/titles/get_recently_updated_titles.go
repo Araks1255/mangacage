@@ -19,7 +19,7 @@ func (h handler) GetRecentlyUpdatedTitles(c *gin.Context) {
 		INNER JOIN volumes ON chapters.volume_id = volumes.id
 		INNER JOIN titles ON volumes.title_id = titles.id
 		WHERE NOT titles.on_moderation
-		ORDER BY chapters.updated_at ASC
+		ORDER BY chapters.updated_at DESC
 		LIMIT ?`, limit).Scan(&titles)
 
 	if len(titles) == 0 { // Ну мало ли

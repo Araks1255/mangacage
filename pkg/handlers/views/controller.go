@@ -15,5 +15,5 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 	r.LoadHTMLFiles("html/reading_page.html")
 	r.Static("/static", "./static")
 
-	r.GET("/:title/:volume/:chapter", h.ShowReadingPage)
+	r.GET("chapters/:title/:volume/:chapter", h.ShowReadingPage)
 }

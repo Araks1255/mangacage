@@ -28,4 +28,5 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	publicVolume := r.Group("/:title")
 	publicVolume.GET("/", h.GetTitleVolumes)
+	publicVolume.GET("/:volume", h.GetVolume)
 }

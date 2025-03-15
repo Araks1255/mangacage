@@ -32,7 +32,7 @@ func (h handler) Login(c *gin.Context) {
 	var existingUser models.User
 	h.DB.Raw("SELECT * FROM users WHERE user_name = ?", requestBody.UserName).Scan(&existingUser)
 	if existingUser.ID == 0 {
-		c.AbortWithStatusJSON(401, gin.H{"error": "Аккаунт не найден"})
+		c.AbortWithStatusJSON(401, gin.H{"error": "Аккаунт не найден. Проверьте регистр символов в имени"})
 		return
 	}
 
