@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"slices"
+	"sync"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	pb "github.com/Araks1255/mangacage_protos"
@@ -39,11 +40,20 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
+	if len(form.Value["name"]) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе отсутствует название главы"})
+		return
+	}
+
 	title := c.Param("title")
 	volume := c.Param("volume")
 
 	name := form.Value["name"][0]
-	description := form.Value["description"][0]
+
+	var description string
+	if len(form.Value["description"]) != 0 {
+		description = form.Value["description"][0]
+	}
 
 	pages := form.File["pages"]
 	if len(pages) == 0 {
@@ -51,31 +61,26 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	var titleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", title).Scan(&titleID)
+	var titleID, volumeID uint
+	row := h.DB.Raw(`SELECT titles.id, volumes.id FROM titles
+		INNER JOIN volumes ON titles.id = volumes.title_id
+		WHERE lower(titles.name) = lower(?)
+		AND lower(volumes.name) = lower(?)
+		AND NOT titles.on_moderation
+		AND NOT volumes.on_moderation`, title, volume).Row()
+
+	if err = row.Scan(&titleID, &volumeID); err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
 	if titleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "Тайтл не найден"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
 		return
 	}
-
-	var volumeID uint
-	h.DB.Raw("SELECT id FROM volumes WHERE lower(name) = lower(?) AND title_id = ?", volume, titleID).Scan(&volumeID)
 	if volumeID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "Том не найден"})
-		return
-	}
-
-	var IsUserTeamTranslatesThisTitle bool
-	h.DB.Raw(`SELECT CAST(
-		CASE WHEN ? = 
-		(SELECT titles.id FROM titles
-		INNER JOIN teams ON titles.team_id = teams.id
-		INNER JOIN users ON teams.id = users.team_id
-		WHERE users.id = ?)
-		THEN true ELSE false END AS BOOLEAN)`, titleID, claims.ID).Scan(&IsUserTeamTranslatesThisTitle)
-
-	if !IsUserTeamTranslatesThisTitle {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Ваша команда не переводит данный тайтл"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
 		return
 	}
 
@@ -83,6 +88,18 @@ func (h handler) CreateChapter(c *gin.Context) {
 	h.DB.Raw("SELECT id FROM chapters WHERE volume_id = ? AND lower(name) = lower(?)", volumeID, name).Scan(&existingChapterID)
 	if existingChapterID != 0 {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Глава уже существует"})
+		return
+	}
+
+	var IsUserTeamTranslatesThisTitle bool
+	h.DB.Raw(`SELECT ? = any(array(SELECT titles.id FROM titles
+		INNER JOIN teams ON titles.team_id = teams.id
+		INNER JOIN users ON teams.id = users.team_id
+		WHERE users.id = ?))`, titleID, claims.ID).
+		Scan(&IsUserTeamTranslatesThisTitle)
+
+	if !IsUserTeamTranslatesThisTitle {
+		c.AbortWithStatusJSON(403, gin.H{"error": "Ваша команда не переводит данный тайтл"})
 		return
 	}
 
@@ -108,24 +125,49 @@ func (h handler) CreateChapter(c *gin.Context) {
 		Pages:     make([][]byte, len(pages), len(pages)),
 	}
 
+	errChan := make(chan error, len(pages))
+	var wg sync.WaitGroup
+	wg.Add(len(pages))
+
 	for i := 0; i < len(pages); i++ {
-		page := pages[i]
+		go func(index int) {
+			defer wg.Done()
 
-		file, err := page.Open()
+			page := pages[index]
+
+			file, err := page.Open()
+			if err != nil {
+				errChan <- err
+				file.Close()
+				log.Println(err)
+				return
+			}
+			defer file.Close()
+
+			data, err := io.ReadAll(file)
+			if err != nil {
+				errChan <- err
+				log.Println(err)
+				return
+			}
+
+			chapterPages.Pages[index] = data
+
+			errChan <- nil
+		}(i)
+
+	}
+
+	wg.Wait()
+
+	for i := 0; i < len(errChan); i++ {
+		err = <-errChan
 		if err != nil {
 			tx.Rollback()
+			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
-
-		data, err := io.ReadAll(file)
-		if err != nil {
-			tx.Rollback()
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
-		}
-
-		chapterPages.Pages[i] = data // Это не совсем безопасно, но почему-то при использовании append слайс расширялся до 6 элементов, при этом первые 3 оставались незаполненными, а это очень плохо
 	}
 
 	if _, err := h.Collection.InsertOne(context.Background(), chapterPages); err != nil {

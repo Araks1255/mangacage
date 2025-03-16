@@ -24,9 +24,18 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
+	if len(form.Value["name"]) == 0 || len(form.Value["author"]) == 0 || len(form.Value["genres"]) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе недостаточно данных"})
+		return
+	}
+
 	name := form.Value["name"][0]
-	description := form.Value["description"][0]
 	author := form.Value["author"][0]
+
+	var description string
+	if len(form.Value["description"]) != 0 {
+		description = form.Value["description"][0]
+	}
 
 	genres := form.Value["genres"]
 

@@ -1,17 +1,23 @@
 package auth
 
 import (
-	"gorm.io/gorm"
-	//"github.com/spf13/viper"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
 )
 
 type handler struct {
-	DB *gorm.DB
+	DB         *gorm.DB
+	Collection *mongo.Collection
 }
 
-func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
-	h := handler{DB: db}
+func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
+	usersProfilePicturesCollection := client.Database("mangacage").Collection("users_profile_pictures")
+
+	h := handler{
+		DB:         db,
+		Collection: usersProfilePicturesCollection,
+	}
 
 	r.POST("/signup", h.Signup)
 	r.POST("/login", h.Login)
