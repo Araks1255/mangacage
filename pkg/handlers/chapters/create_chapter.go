@@ -92,7 +92,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 	}
 
 	var IsUserTeamTranslatesThisTitle bool
-	h.DB.Raw(`SELECT ? = any(array(SELECT titles.id FROM titles
+	h.DB.Raw(`SELECT ? = ANY(ARRAY(SELECT titles.id FROM titles
 		INNER JOIN teams ON titles.team_id = teams.id
 		INNER JOIN users ON teams.id = users.team_id
 		WHERE users.id = ?))`, titleID, claims.ID).
