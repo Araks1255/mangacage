@@ -13,7 +13,7 @@ func (h handler) GetSelfProfile(c *gin.Context) {
 
 	var user struct {
 		UserName                 string
-		AboutYorself             string
+		AboutYourself            string
 		Team                     string
 		RegistrationDate         time.Time
 		Roles                    pq.StringArray `gorm:"type:text[]"`
@@ -21,7 +21,7 @@ func (h handler) GetSelfProfile(c *gin.Context) {
 	}
 
 	h.DB.Raw(
-		`SELECT u.user_name, u.about_yorself, u.created_at AS registration_date, teams.name AS team,
+		`SELECT u.user_name, u.about_yourself, u.created_at AS registration_date, teams.name AS team,
 		(
 			SELECT ARRAY(
 				SELECT roles.name FROM roles
@@ -42,7 +42,7 @@ func (h handler) GetSelfProfile(c *gin.Context) {
 	).Scan(&user)
 
 	if user.UserName == "" {
-		c.AbortWithStatusJSON(404, gin.H{"error":"не удалось получитб профиль"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "не удалось получитб профиль"})
 		return
 	}
 

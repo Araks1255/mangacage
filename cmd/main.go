@@ -43,7 +43,7 @@ func main() {
 	chapters.RegisterRoutes(db, mongoClient, router)
 	volumes.RegisterRoutes(db, mongoClient, router)
 	search.RegisterRoutes(db, router)
-	users.RegisterRoutes(db, router)
+	users.RegisterRoutes(db, mongoClient, router)
 	views.RegisterRoutes(db, router)
 
 	router.Run(":8080")
