@@ -19,4 +19,8 @@ type User struct {
 	Roles                    []Role    `gorm:"many2many:user_roles;OnDelete:SET NULL"`
 	TitlesUserIsSubscribedTo []Title   `gorm:"many2many:user_titles_subscribed_to;OnDelete:SET NULL"`
 	ViewedChapters           []Chapter `gorm:"many2many:user_viewed_chapters;OnDelete:SET NULL"`
+
+	FavoriteTitles   []Title   `gorm:"many2many:user_favorite_titles;OnDelete:SET NULL"`
+	FavoriteChapters []Chapter `gorm:"many2many:user_favorite_chapters;OnDelete:SET NULL"`
+	FavoriteGenres   []Genre   `gorm:"many2many:user_favorite_genres;OnDelete:SET NULL"`
 }
