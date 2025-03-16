@@ -23,4 +23,5 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 	privateUser.Use(middlewares.AuthMiddleware(secretKey))
 
 	privateUser.GET("/viewed_chapters/inf", h.GetViewedChapters)
+	privateUser.GET("profile/inf", h.GetSelfProfile)
 }

@@ -8,10 +8,10 @@ import (
 
 type User struct {
 	gorm.Model
-	UserName     string `gorm:"unique"`
-	Password     string
-	AboutYorself string
-	TgUserID     int64
+	UserName      string `gorm:"unique"`
+	Password      string
+	AboutYourself string
+	TgUserID      int64
 
 	TeamID sql.NullInt64
 	Team   Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`

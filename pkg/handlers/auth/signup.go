@@ -45,8 +45,8 @@ func (h handler) Signup(c *gin.Context) {
 	}
 
 	user := models.User{
-		UserName:     userName,
-		AboutYorself: aboutYourself,
+		UserName:      userName,
+		AboutYourself: aboutYourself,
 	}
 
 	var existingUserID uint
