@@ -41,16 +41,14 @@ func (h handler) DeleteVolume(c *gin.Context) {
 	}
 
 	var doesUserTeamTranslatesDesiredTitle bool
-	h.DB.Raw(`SELECT CAST(
-		CASE WHEN
+	h.DB.Raw(`SELECT
 		(SELECT titles.team_id FROM titles
 		INNER JOIN volumes ON titles.id = volumes.title_id
 		WHERE volumes.id = ?)
 		= 
 		(SELECT teams.id FROM teams
 		INNER JOIN users ON teams.id = users.team_id
-		WHERE users.id = ?)
-		THEN TRUE ELSE FALSE END AS BOOLEAN)`,
+		WHERE users.id = ?)`,
 		volumeID, claims.ID).
 		Scan(&doesUserTeamTranslatesDesiredTitle)
 
@@ -75,7 +73,7 @@ func (h handler) DeleteVolume(c *gin.Context) {
 		return
 	}
 
-	if result := h.DB.Exec("DELETE FROM volumes WHERE id = ?", volumeID); result.Error != nil {
+	if result := h.DB.Exec("DELETE FROM volumes CASCADE WHERE id = ?", volumeID); result.Error != nil {
 		log.Println(result.Error.Error())
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error})
 		return

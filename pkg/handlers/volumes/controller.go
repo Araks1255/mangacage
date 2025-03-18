@@ -26,7 +26,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	privateVolume.POST("/", h.CreateVolume)
 	privateVolume.DELETE("/:volume", h.DeleteVolume)
 
-	publicVolume := r.Group("/:title")
+	publicVolume := r.Group("/volumes/:title")
 	publicVolume.GET("/", h.GetTitleVolumes)
 	publicVolume.GET("/:volume", h.GetVolume)
 }

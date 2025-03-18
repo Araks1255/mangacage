@@ -47,19 +47,17 @@ func (h handler) DeleteChapter(c *gin.Context) {
 	}
 
 	var doesUserTeamTranslatesDesiredTitle bool
-	h.DB.Raw(
-		"SELECT CAST(CASE WHEN (SELECT team_id FROM users WHERE id = ?) = (SELECT team_id FROM titles WHERE id = ?) THEN TRUE ELSE FALSE END AS BOOLEAN)",
-		claims.ID,
-		titleID).Scan(&doesUserTeamTranslatesDesiredTitle)
+	h.DB.Raw("SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)",
+		titleID, claims.ID).Scan(&doesUserTeamTranslatesDesiredTitle)
 
 	if !doesUserTeamTranslatesDesiredTitle {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Удалить главу может только команда, выложившая её"})
+		c.AbortWithStatusJSON(403, gin.H{"error": "удалить главу может только команда, выложившая её"})
 		return
 	}
 
 	tx := h.DB.Begin()
 
-	if result := tx.Exec("DELETE FROM chapters WHERE id = ?", chapterID); result.RowsAffected == 0 {
+	if result := tx.Exec("DELETE FROM chapters CASCADE WHERE id = ?", chapterID); result.RowsAffected == 0 {
 		tx.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})

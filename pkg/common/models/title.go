@@ -24,5 +24,5 @@ type Title struct {
 	TeamID sql.NullInt64
 	Team   Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
 
-	Genres []Genre `gorm:"many2many:title_genres;OnDelete:SET NULL"`
+	Genres []Genre `gorm:"many2many:title_genres;constraint:OnDelete:CASCADE"`
 }
