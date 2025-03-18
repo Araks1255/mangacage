@@ -1,12 +1,19 @@
 package teams
 
 import (
+	"context"
+	"io"
 	"log"
 	"slices"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
+
+type TeamCover struct {
+	TeamID uint   `bson:"team_id"`
+	Cover  []byte `bson:"cover"`
+}
 
 func (h handler) CreateTeam(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
@@ -22,12 +29,27 @@ func (h handler) CreateTeam(c *gin.Context) {
 		return
 	}
 
-	var newTeam models.Team
-
-	if err := c.ShouldBindJSON(&newTeam); err != nil {
+	form, err := c.MultipartForm()
+	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
+	}
+
+	if len(form.Value["name"]) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе нет имени команды"})
+		return
+	}
+
+	name := form.Value["name"][0]
+	var description string
+	if len(form.Value["description"]) != 0 {
+		description = form.Value["description"][0]
+	}
+
+	newTeam := models.Team{
+		Name:        name,
+		Description: description,
 	}
 
 	transaction := h.DB.Begin()
@@ -59,4 +81,32 @@ func (h handler) CreateTeam(c *gin.Context) {
 	transaction.Commit()
 
 	c.JSON(201, gin.H{"success": "Команда успешно создана, и вы являетесь её лидером"})
+
+	cover, err := c.FormFile("cover")
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	file, err := cover.Open()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	teamCover := TeamCover{
+		TeamID: newTeam.ID,
+		Cover:  data,
+	}
+
+	if _, err := h.Collection.InsertOne(context.Background(), teamCover); err != nil {
+		log.Println(err)
+	}
 }

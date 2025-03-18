@@ -37,13 +37,6 @@ func (h handler) Signup(c *gin.Context) {
 		aboutYourself = form.Value["aboutYourself"][0]
 	}
 
-	profilePicture, err := c.FormFile("profilePicture")
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
 	user := models.User{
 		UserName:      userName,
 		AboutYourself: aboutYourself,
@@ -83,6 +76,12 @@ func (h handler) Signup(c *gin.Context) {
 	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "регистрация прошла успешно"})
+
+	profilePicture, err := c.FormFile("profilePicture")
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
 	file, err := profilePicture.Open()
 	if err != nil {
