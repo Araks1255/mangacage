@@ -19,7 +19,7 @@ func (h handler) DeleteVolume(c *gin.Context) {
 		WHERE users.id = ?`, claims.ID).Scan(&userRoles)
 
 	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь ни главой команды, ни модератором, ни администратором"})
+		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь главой команды"})
 		return
 	}
 
@@ -46,9 +46,7 @@ func (h handler) DeleteVolume(c *gin.Context) {
 		INNER JOIN volumes ON titles.id = volumes.title_id
 		WHERE volumes.id = ?)
 		= 
-		(SELECT teams.id FROM teams
-		INNER JOIN users ON teams.id = users.team_id
-		WHERE users.id = ?)`,
+		(SELECT team_id FROM users WHERE id = ?)`,
 		volumeID, claims.ID).
 		Scan(&doesUserTeamTranslatesDesiredTitle)
 

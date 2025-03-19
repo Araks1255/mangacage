@@ -40,7 +40,7 @@ func main() {
 
 	auth.RegisterRoutes(db, mongoClient, router)
 	titles.RegisterRoutes(db, mongoClient, router)
-	teams.RegisterRoutes(db, router)
+	teams.RegisterRoutes(db, mongoClient, router)
 	chapters.RegisterRoutes(db, mongoClient, router)
 	volumes.RegisterRoutes(db, mongoClient, router)
 	search.RegisterRoutes(db, router)
