@@ -19,7 +19,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
-	titlesCoversCollection := client.Database("mangacage").Collection("titles_covers")
+	titlesCoversCollection := client.Database("mangacage").Collection("titles_on_moderation_covers")
 
 	h := handler{
 		DB:         db,

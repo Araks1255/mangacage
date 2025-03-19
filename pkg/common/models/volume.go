@@ -8,10 +8,8 @@ import (
 
 type Volume struct {
 	gorm.Model
-
-	Name         string
-	Description  string
-	OnModeration bool
+	Name        string
+	Description string
 
 	TitleID uint
 	Title   Title `gorm:"foreignKey:TitleID;references:id;OnDelete:SET NULL"`

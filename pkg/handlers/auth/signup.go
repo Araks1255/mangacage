@@ -7,9 +7,9 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
+	pb "github.com/Araks1255/mangacage_protos"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	pb "github.com/Araks1255/mangacage_protos"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,7 +43,6 @@ func (h handler) Signup(c *gin.Context) {
 	user := models.User{
 		UserName:      userName,
 		AboutYourself: aboutYourself,
-		OnModeration:  true,
 	}
 
 	var existingUserID uint

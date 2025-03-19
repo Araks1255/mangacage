@@ -38,11 +38,10 @@ func (h handler) CreateVolume(c *gin.Context) {
 	}
 
 	volume := models.Volume{
-		Name:         requestBody.Name,
-		Description:  requestBody.Description,
-		TitleID:      titleID,
-		CreatorID:    claims.ID,
-		OnModeration: true,
+		Name:        requestBody.Name,
+		Description: requestBody.Description,
+		TitleID:     titleID,
+		CreatorID:   claims.ID,
 	}
 
 	if result := h.DB.Create(&volume); result.Error != nil {

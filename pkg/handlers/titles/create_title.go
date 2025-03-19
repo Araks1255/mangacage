@@ -37,7 +37,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 		description = form.Value["description"][0]
 	}
 
-	genres := form.Value["genres"]
+	genres := pq.StringArray(form.Value["genres"])
 
 	cover, err := c.FormFile("cover")
 	if err != nil {
@@ -53,19 +53,26 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	var authorID uint
-	h.DB.Raw("SELECT id FROM authors WHERE lower(name) = lower(?)", author).Scan(&authorID)
-	if authorID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "Автор не найден"})
+	var existingTitleOnModerationID uint
+	h.DB.Raw("SELECT id FROM titles_on_moderation WHERE lower(name) = lower(?)", name).Scan(&existingTitleOnModerationID)
+	if existingTitleOnModerationID != 0 {
+		c.AbortWithStatusJSON(403, gin.H{"error": "тайтл с таким названием уже находится на модерации"})
 		return
 	}
 
-	title := models.Title{
-		Name:         name,
-		Description:  description,
-		AuthorID:     authorID,
-		CreatorID:    claims.ID,
-		OnModeration: true,
+	var authorID uint
+	h.DB.Raw("SELECT id FROM authors WHERE lower(name) = lower(?)", author).Scan(&authorID)
+	if authorID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "автор не найден"})
+		return
+	}
+
+	title := models.TitleOnModeration{
+		Name:        name,
+		Description: description,
+		CreatorID:   claims.ID,
+		AuthorID:    authorID,
+		Genres:      genres,
 	}
 
 	tx := h.DB.Begin()
@@ -74,12 +81,6 @@ func (h handler) CreateTitle(c *gin.Context) {
 		tx.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-		return
-	}
-
-	if err := AddGenresToTitle(title.ID, genres, tx); err != nil {
-		tx.Rollback()
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -97,15 +98,16 @@ func (h handler) CreateTitle(c *gin.Context) {
 	}
 	defer file.Close()
 
-	titleCover.TitleID = title.ID
-
-	titleCover.Cover, err = io.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		tx.Rollback()
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
+
+	titleCover.TitleID = title.ID
+	titleCover.Cover = data
 
 	if _, err := h.Collection.InsertOne(context.Background(), titleCover); err != nil {
 		tx.Rollback()
@@ -116,7 +118,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "Тайтл успешно создан"})
+	c.JSON(201, gin.H{"success": "тайтл успешно отправлен на модерацию"})
 
 	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

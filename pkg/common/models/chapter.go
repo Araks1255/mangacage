@@ -8,11 +8,9 @@ import (
 
 type Chapter struct {
 	gorm.Model
-
 	Name          string
 	Description   string
 	NumberOfPages int
-	OnModeration  bool
 
 	VolumeID uint
 	Volume   Volume `gorm:"foreignKey:VolumeID;references:id;OnDelete:SET NULL" json:"-"`

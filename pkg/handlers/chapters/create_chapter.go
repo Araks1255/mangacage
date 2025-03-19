@@ -108,7 +108,6 @@ func (h handler) CreateChapter(c *gin.Context) {
 		Description:   description,
 		NumberOfPages: len(pages),
 		VolumeID:      volumeID,
-		OnModeration:  true,
 	}
 
 	tx := h.DB.Begin()

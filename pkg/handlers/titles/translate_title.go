@@ -33,10 +33,10 @@ func (h handler) TranslateTitle(c *gin.Context) {
 		return
 	}
 
-	if desiredTitle.OnModeration {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Этот тайтл находится на стадии модерации"})
-		return
-	}
+	// if desiredTitle.OnModeration {
+	// 	c.AbortWithStatusJSON(403, gin.H{"error": "Этот тайтл находится на стадии модерации"}) // тут всё поменяю потом
+	// 	return
+	// }
 
 	var userTeamID sql.NullInt64
 	h.DB.Raw("SELECT teams.id FROM teams INNER JOIN users ON teams.id = users.team_id WHERE users.id = ?", claims.ID).Scan(&userTeamID)

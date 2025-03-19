@@ -8,9 +8,8 @@ import (
 
 type Title struct {
 	gorm.Model
-	Name         string `gorm:"unique"`
-	Description  string
-	OnModeration bool
+	Name        string `gorm:"unique"`
+	Description string
 
 	CreatorID uint
 	Creator   User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
