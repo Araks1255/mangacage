@@ -8,6 +8,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
 	pb "github.com/Araks1255/mangacage_protos"
+	"github.com/lib/pq"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -20,6 +21,7 @@ type UsersProfilePictures struct {
 }
 
 func (h handler) Signup(c *gin.Context) {
+	// Сделать проверку на наличие входа в аккаунт
 	form, err := c.MultipartForm()
 	if err != nil {
 		log.Println(err)
@@ -40,9 +42,10 @@ func (h handler) Signup(c *gin.Context) {
 		aboutYourself = form.Value["aboutYourself"][0]
 	}
 
-	user := models.User{
+	user := models.UserOnModeration{
 		UserName:      userName,
 		AboutYourself: aboutYourself,
+		Roles:         pq.StringArray([]string{"user"}),
 	}
 
 	var existingUserID uint
@@ -60,25 +63,14 @@ func (h handler) Signup(c *gin.Context) {
 		return
 	}
 
-	tx := h.DB.Begin()
-
-	if result := tx.Create(&user); result.Error != nil {
-		tx.Rollback()
+	if result := h.DB.Create(&user); result.Error != nil {
+		h.DB.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	if result := tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, (SELECT id FROM roles WHERE name = 'user'))", user.ID); result.Error != nil {
-		tx.Rollback()
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-		return
-	}
-
-	tx.Commit()
-
-	c.JSON(201, gin.H{"success": "регистрация прошла успешно"})
+	c.JSON(201, gin.H{"success": "регистрация прошла успешно. Ваш аккаунт находится на стадии модерации. Некторые функции сайта для вас временно ограничены"})
 
 	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

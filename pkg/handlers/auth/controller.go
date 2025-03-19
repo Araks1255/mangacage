@@ -12,7 +12,7 @@ type handler struct {
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
-	usersProfilePicturesCollection := client.Database("mangacage").Collection("users_profile_pictures")
+	usersProfilePicturesCollection := client.Database("mangacage").Collection("users_on_moderation_profile_pictures")
 
 	h := handler{
 		DB:         db,

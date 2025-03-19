@@ -23,12 +23,11 @@ func (h handler) CreateChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
 	var userRoles []string
-	h.DB.Raw("SELECT roles.name FROM roles "+
-		"INNER JOIN user_roles ON roles.id = user_roles.role_id "+
-		"INNER JOIN users ON user_roles.user_id = users.id "+
-		"WHERE users.id = ?", claims.ID).Scan(&userRoles)
+	h.DB.Raw(`SELECT roles.name FROM roles
+		INNER JOIN user_roles ON roles.id = user_roles.role_id
+		WHERE user_roles.user_id = ?`, claims.ID).Scan(&userRoles)
 
-	if IsUserTeamOwner := slices.Contains(userRoles, "team_leader"); !IsUserTeamOwner {
+	if !slices.Contains(userRoles, "team_leader") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Добавлять главы может только лидер команды"})
 		return
 	}
@@ -40,14 +39,13 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	if len(form.Value["name"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе отсутствует название главы"})
+	if len(form.Value["title"]) == 0 || len(form.Value["volume"]) == 0 || len(form.Value["name"]) == 0 || len(form.File["pages"]) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает названия тайтла, тома, главы или страниц главы"})
 		return
 	}
 
-	title := c.Param("title")
-	volume := c.Param("volume")
-
+	title := form.Value["title"][0]
+	volume := form.Value["volume"][0]
 	name := form.Value["name"][0]
 
 	var description string
@@ -56,10 +54,6 @@ func (h handler) CreateChapter(c *gin.Context) {
 	}
 
 	pages := form.File["pages"]
-	if len(pages) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "отсутствуют страницы главы"})
-		return
-	}
 
 	var titleID, volumeID uint
 	row := h.DB.Raw(`SELECT titles.id, volumes.id FROM titles
@@ -69,16 +63,13 @@ func (h handler) CreateChapter(c *gin.Context) {
 		AND NOT titles.on_moderation
 		AND NOT volumes.on_moderation`, title, volume).Row()
 
-	if err = row.Scan(&titleID, &volumeID); err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
+	row.Scan(&titleID, &volumeID)
 
 	if titleID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
 		return
 	}
+
 	if volumeID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
 		return
@@ -92,27 +83,27 @@ func (h handler) CreateChapter(c *gin.Context) {
 	}
 
 	var IsUserTeamTranslatesThisTitle bool
-	h.DB.Raw(`SELECT ? = ANY(ARRAY(SELECT titles.id FROM titles
-		INNER JOIN teams ON titles.team_id = teams.id
-		INNER JOIN users ON teams.id = users.team_id
-		WHERE users.id = ?))`, titleID, claims.ID).
-		Scan(&IsUserTeamTranslatesThisTitle)
+	h.DB.Raw(`SELECT ? =
+		ANY(ARRAY(SELECT titles.id FROM titles
+		INNER JOIN users ON titles.team_id = users.team_id
+		WHERE users.id = ?))`, titleID, claims.ID).Scan(&IsUserTeamTranslatesThisTitle)
 
 	if !IsUserTeamTranslatesThisTitle {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Ваша команда не переводит данный тайтл"})
+		c.AbortWithStatusJSON(403, gin.H{"error": "ваша команда не переводит данный тайтл"})
 		return
 	}
 
-	chapter := models.Chapter{
+	chapter := models.ChapterOnModeration{
 		Name:          name,
 		Description:   description,
 		NumberOfPages: len(pages),
 		VolumeID:      volumeID,
+		CreatorID:     claims.ID,
 	}
 
 	tx := h.DB.Begin()
 
-	if result := tx.Create(&chapter); result.Error != nil { // Заменить это на транзакцию, а коммитить только после выгрузки страниц
+	if result := tx.Create(&chapter); result.Error != nil {
 		tx.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
@@ -177,7 +168,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "Глава успешно создана"})
+	c.JSON(201, gin.H{"success": "Глава успешно отправлена на модерацию"})
 
 	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

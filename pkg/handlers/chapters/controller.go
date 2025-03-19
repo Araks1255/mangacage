@@ -19,14 +19,14 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
-	chapterPagesCollection := client.Database("mangacage").Collection("chapters_pages")
+	chapterPagesCollection := client.Database("mangacage").Collection("chapters_on_moderation_pages")
 
 	h := handler{
 		DB:         db,
 		Collection: chapterPagesCollection,
 	}
 
-	privateChapter := r.Group("/chapters/:title/:volume")
+	privateChapter := r.Group("/chapters")
 	privateChapter.Use(middlewares.AuthMiddleware(secretKey))
 
 	privateChapter.POST("/", h.CreateChapter)

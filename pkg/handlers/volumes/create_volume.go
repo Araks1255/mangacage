@@ -10,9 +10,8 @@ import (
 func (h handler) CreateVolume(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
-	title := c.Param("title")
-
 	var requestBody struct {
+		Title       string `json:"title" binding:"required"`
 		Name        string `json:"name" binding:"required"`
 		Description string `json:"description"`
 	}
@@ -24,20 +23,20 @@ func (h handler) CreateVolume(c *gin.Context) {
 	}
 
 	var titleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", title).Scan(&titleID)
+	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", requestBody.Title).Scan(&titleID)
 	if titleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "Тайтл не найден"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
 		return
 	}
 
 	var existingVolumeID uint
 	h.DB.Raw("SELECT id FROM volumes WHERE lower(name) = lower(?) AND title_id = ?", requestBody.Name, titleID).Scan(&existingVolumeID)
 	if existingVolumeID != 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Такой том уже существует"})
+		c.AbortWithStatusJSON(403, gin.H{"error": "такой том уже существует"})
 		return
 	}
 
-	volume := models.Volume{
+	volume := models.VolumeOnModeration{
 		Name:        requestBody.Name,
 		Description: requestBody.Description,
 		TitleID:     titleID,
@@ -50,5 +49,5 @@ func (h handler) CreateVolume(c *gin.Context) {
 		return
 	}
 
-	c.JSON(201, gin.H{"success": "Том успешно отправлен на модерацию"})
+	c.JSON(201, gin.H{"success": "том успешно отправлен на модерацию"})
 }
