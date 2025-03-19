@@ -24,8 +24,8 @@ func (h handler) CreateTeam(c *gin.Context) {
 		"INNER JOIN users ON user_roles.user_id = users.id "+
 		"WHERE users.id = ?", claims.ID).Scan(&userRoles)
 
-	if IsUserTeamOwner := slices.Contains(userRoles, "team_owner"); IsUserTeamOwner {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Вы уже владеете командой перевода"})
+	if slices.Contains(userRoles, "team_leader") {
+		c.AbortWithStatusJSON(403, gin.H{"error": "вы уже являетесь владельцем другой команды"})
 		return
 	}
 

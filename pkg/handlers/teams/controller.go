@@ -9,7 +9,7 @@ import (
 )
 
 type handler struct {
-	DB *gorm.DB
+	DB         *gorm.DB
 	Collection *mongo.Collection
 }
 
@@ -22,14 +22,19 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	teamsCoversCollection := client.Database("mangacage").Collection("teams_covers")
 
 	h := handler{
-		DB: db,
+		DB:         db,
 		Collection: teamsCoversCollection,
 	}
 
-	team := r.Group("/teams")
-	team.Use(middlewares.AuthMiddleware(secretKey))
+	privateTeam := r.Group("/teams")
+	privateTeam.Use(middlewares.AuthMiddleware(secretKey))
 
-	team.POST("/", h.CreateTeam)
-	team.POST("/join/:team", h.JoinTeam)
-	team.DELETE("/leave", h.LeaveTeam)
+	privateTeam.POST("/", h.CreateTeam)
+	privateTeam.POST("/join/:team", h.JoinTeam)
+	privateTeam.DELETE("/leave", h.LeaveTeam)
+	privateTeam.PUT("/", h.EditTeam)
+
+	publicTeam := r.Group("/teams")
+
+	publicTeam.GET("/:team/cover", h.GetTeamCover)
 }
