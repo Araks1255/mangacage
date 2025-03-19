@@ -9,8 +9,11 @@ import (
 	"sync"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (h handler) EditTitle(c *gin.Context) {
@@ -60,8 +63,8 @@ func (h handler) EditTitle(c *gin.Context) {
 			return
 		}
 
-		newName := form.Value["name"][0]
-		if result := tx.Exec("UPDATE titles SET name = ? WHERE id = ?", newName, titleID); result.Error != nil {
+		title := form.Value["name"][0]
+		if result := tx.Exec("UPDATE titles SET name = ? WHERE id = ?", title, titleID); result.Error != nil {
 			log.Println(result.Error)
 			errChan <- result.Error
 			return
@@ -227,5 +230,15 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	c.JSON(200, gin.H{"success": "тайтл успешно обновлён"})
 
-	// Тут надо будет добавить уведомление модерам
+	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Println(err)
+	}
+	defer conn.Close()
+
+	client := pb.NewNotificationsClient(conn)
+
+	if _, err := client.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{Name: title}); err != nil {
+		log.Println(err)
+	}
 }

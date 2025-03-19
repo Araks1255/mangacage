@@ -12,6 +12,7 @@ type User struct {
 	Password      string
 	AboutYourself string
 	TgUserID      int64
+	OnModeration  bool
 
 	TeamID sql.NullInt64
 	Team   Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`

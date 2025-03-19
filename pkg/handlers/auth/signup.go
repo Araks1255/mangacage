@@ -7,6 +7,9 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	pb "github.com/Araks1255/mangacage_protos"
 
 	"github.com/gin-gonic/gin"
 )
@@ -40,6 +43,7 @@ func (h handler) Signup(c *gin.Context) {
 	user := models.User{
 		UserName:      userName,
 		AboutYourself: aboutYourself,
+		OnModeration:  true,
 	}
 
 	var existingUserID uint
@@ -76,6 +80,18 @@ func (h handler) Signup(c *gin.Context) {
 	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "регистрация прошла успешно"})
+
+	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Println(err)
+	}
+	defer conn.Close()
+
+	client := pb.NewNotificationsClient(conn)
+
+	if _, err := client.NotifyAboutUser(context.Background(), &pb.User{Name: userName}); err != nil {
+		log.Println(err)
+	}
 
 	profilePicture, err := c.FormFile("profilePicture")
 	if err != nil {

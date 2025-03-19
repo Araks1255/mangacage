@@ -189,7 +189,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutNewChapterOnModeration(context.Background(), &pb.ChapterOnModeration{TitleName: title, ChapterName: name}); err != nil {
+	if _, err := client.NotifyAboutChapterOnModeration(context.Background(), &pb.ChapterOnModeration{TitleName: title, Name: name}); err != nil {
 		log.Println(err)
 	}
 }

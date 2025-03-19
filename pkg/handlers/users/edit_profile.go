@@ -7,8 +7,11 @@ import (
 	"sync"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (h handler) EditProfile(c *gin.Context) {
@@ -21,7 +24,7 @@ func (h handler) EditProfile(c *gin.Context) {
 		return
 	}
 
-	const NUMBER_OF_GORUTINES = 3
+	const NUMBER_OF_GORUTINES = 4
 	errChan := make(chan error, NUMBER_OF_GORUTINES)
 
 	var wg sync.WaitGroup
@@ -109,6 +112,18 @@ func (h handler) EditProfile(c *gin.Context) {
 		errChan <- nil
 	}()
 
+	go func() {
+		defer wg.Done()
+
+		if result := tx.Exec("UPDATE users SET on_moderation = true WHERE id = ?", claims.ID); result.Error != nil {
+			log.Println(result.Error)
+			errChan <- result.Error
+			return
+		}
+
+		errChan <- nil
+	}()
+
 	wg.Wait()
 
 	for i := 0; i < NUMBER_OF_GORUTINES; i++ {
@@ -123,4 +138,22 @@ func (h handler) EditProfile(c *gin.Context) {
 	tx.Commit()
 
 	c.JSON(200, gin.H{"success": "профиль успешно обновлён"})
+
+	var userName string
+	h.DB.Raw("SELECT user_name FROM users WHERE id = ?", claims.ID).Scan(&userName)
+	if userName == "" {
+		return
+	}
+
+	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Println(err)
+	}
+	defer conn.Close()
+
+	client := pb.NewNotificationsClient(conn)
+
+	if _, err := client.NotifyAboutUser(context.Background(), &pb.User{Name: userName}); err != nil {
+		log.Println(err)
+	}
 }
