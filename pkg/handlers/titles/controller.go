@@ -32,7 +32,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	privateTitle.POST("/", h.CreateTitle)
 	privateTitle.POST("/:title/translate", h.TranslateTitle)
 	privateTitle.POST("/:title/subscribe", h.SubscribeToTitle)
-	privateTitle.POST("/:title/edit", h.EditTitle)
+	//privateTitle.POST("/:title/edit", h.EditTitle)
 	privateTitle.DELETE("/", h.DeleteTitle)
 	privateTitle.PUT("/:title/quit", h.QuitTranslatingTitle)
 

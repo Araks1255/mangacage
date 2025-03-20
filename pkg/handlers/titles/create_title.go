@@ -11,7 +11,6 @@ import (
 	"github.com/lib/pq"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"gorm.io/gorm"
 )
 
 func (h handler) CreateTitle(c *gin.Context) {
@@ -131,20 +130,4 @@ func (h handler) CreateTitle(c *gin.Context) {
 	if _, err = client.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{Name: title.Name}); err != nil {
 		log.Println(err)
 	}
-}
-
-func AddGenresToTitle(titleID uint, genres []string, tx *gorm.DB) error {
-	query := `
-		INSERT INTO title_genres (title_id, genre_id)
-		SELECT ?, genres.id
-		FROM genres
-		JOIN UNNEST(?::TEXT[]) AS genre_name ON genres.name = genre_name
-	`
-
-	if result := tx.Exec(query, titleID, pq.Array(genres)); result.Error != nil {
-		log.Println(result.Error)
-		return result.Error
-	}
-
-	return nil
 }
