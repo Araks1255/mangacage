@@ -2,6 +2,7 @@ package chapters
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"log"
 	"slices"
@@ -83,10 +84,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 	}
 
 	var IsUserTeamTranslatesThisTitle bool
-	h.DB.Raw(`SELECT ? =
-		ANY(ARRAY(SELECT titles.id FROM titles
-		INNER JOIN users ON titles.team_id = users.team_id
-		WHERE users.id = ?))`, titleID, claims.ID).Scan(&IsUserTeamTranslatesThisTitle)
+	h.DB.Raw(`SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)`, titleID, claims.ID).Scan(&IsUserTeamTranslatesThisTitle)
 
 	if !IsUserTeamTranslatesThisTitle {
 		c.AbortWithStatusJSON(403, gin.H{"error": "ваша команда не переводит данный тайтл"})
@@ -97,7 +95,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 		Name:          name,
 		Description:   description,
 		NumberOfPages: len(pages),
-		VolumeID:      volumeID,
+		VolumeID:      sql.NullInt64{Int64: int64(volumeID), Valid: true},
 		CreatorID:     claims.ID,
 	}
 

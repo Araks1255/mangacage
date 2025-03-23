@@ -7,16 +7,17 @@ import (
 
 func (h handler) GetChapter(c *gin.Context) {
 	title := c.Param("title")
-	volume := c.Param("volume")
+	volume := c.Param("volume") // Поменять
 	chapterName := c.Param("chapter")
 
 	var chapter models.Chapter
-	h.DB.Raw(`SELECT chapters.* FROM chapters
-		INNER JOIN volumes ON chapters.volume_id = volumes.id
+	h.DB.Raw(
+		`SELECT chapters.* FROM chapters
+		INNER JOIN volumes ON chapters.volume_id = volumes.id 
 		INNER JOIN titles ON volumes.title_id = titles.id
 		WHERE lower(chapters.name) = lower(?)
 		AND lower(volumes.name) = lower(?)
-		AND lower(titles.name) = lower(?)`,
+		AND lower(titles.name) = lower(?)`, // Это вообще бред какой-то
 		chapterName,
 		volume,
 		title,

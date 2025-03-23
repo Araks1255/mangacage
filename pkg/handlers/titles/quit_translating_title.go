@@ -32,11 +32,8 @@ func (h handler) QuitTranslatingTitle(c *gin.Context) {
 	}
 
 	var IsUserTeamTranslatesThisTitle bool
-	h.DB.Raw(`SELECT ? = ANY(ARRAY(
-			SELECT titles.id FROM titles
-			INNER JOIN teams ON titles.team_id = teams.id
-			INNER JOIN users ON users.team_id = teams.id
-			WHERE users.id = ?))`,
+	h.DB.Raw(
+		`SELECT (select team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)`,
 		titleID, claims.ID,
 	).Scan(&IsUserTeamTranslatesThisTitle)
 

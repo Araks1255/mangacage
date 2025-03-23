@@ -2,6 +2,7 @@ package titles
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"log"
 
@@ -70,7 +71,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 		Name:        name,
 		Description: description,
 		CreatorID:   claims.ID,
-		AuthorID:    authorID,
+		AuthorID:    sql.NullInt64{Int64: int64(authorID), Valid: true},
 		Genres:      genres,
 	}
 

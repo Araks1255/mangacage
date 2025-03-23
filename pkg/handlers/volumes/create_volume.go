@@ -1,6 +1,7 @@
 package volumes
 
 import (
+	"database/sql"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -39,7 +40,7 @@ func (h handler) CreateVolume(c *gin.Context) {
 	volume := models.VolumeOnModeration{
 		Name:        requestBody.Name,
 		Description: requestBody.Description,
-		TitleID:     titleID,
+		TitleID:     sql.NullInt64{Int64: int64(titleID), Valid: true},
 		CreatorID:   claims.ID,
 	}
 

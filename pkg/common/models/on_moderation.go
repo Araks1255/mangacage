@@ -12,7 +12,7 @@ type TitleOnModeration struct {
 	Name        string `gorm:"unique"`
 	Description string
 
-	ExistingID sql.NullInt64
+	ExistingID sql.NullInt64 `gorm:"unique"`
 	Title      Title `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
 	CreatorID uint
@@ -21,7 +21,7 @@ type TitleOnModeration struct {
 	ModeratorID sql.NullInt64
 	Moderator   User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
 
-	AuthorID uint
+	AuthorID sql.NullInt64
 	Author   Author `gorm:"foreignKey:AuthorID;references:id;OnDelete:SET NULL"`
 
 	TeamID sql.NullInt64
@@ -39,10 +39,10 @@ type VolumeOnModeration struct {
 	Name        string
 	Description string
 
-	ExistingID sql.NullInt64
+	ExistingID sql.NullInt64 `gorm:"unique"`
 	Volume     Volume `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
-	TitleID uint
+	TitleID sql.NullInt64
 	Title   Title `gorm:"foreignKey:TitleID;references:id;OnDelete:SET NULL"`
 
 	CreatorID uint
@@ -62,10 +62,10 @@ type ChapterOnModeration struct {
 	Description   string
 	NumberOfPages int
 
-	ExistingID sql.NullInt64
+	ExistingID sql.NullInt64 `gorm:"unique"`
 	Chapter    Chapter `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
-	VolumeID uint
+	VolumeID sql.NullInt64
 	Volume   Volume `gorm:"foreignKey:VolumeID;references:id;OnDelete:SET NULL" json:"-"`
 
 	CreatorID uint
@@ -86,7 +86,7 @@ type UserOnModeration struct {
 	AboutYourself string
 	TgUserID      int64
 
-	ExistingID sql.NullInt64
+	ExistingID sql.NullInt64 `gorm:"unique"`
 	User       User `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
 	TeamID sql.NullInt64
@@ -104,7 +104,7 @@ type TeamOnModeration struct {
 	Name        string `json:"name" binding:"required" gorm:"unique"`
 	Description string `json:"description"`
 
-	ExistingID sql.NullInt64
+	ExistingID sql.NullInt64 `gorm:"unique"`
 	Team       Team `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 }
 
