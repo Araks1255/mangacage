@@ -129,7 +129,11 @@ func (h handler) EditTitle(c *gin.Context) {
 	}
 	close(errChan)
 
-	h.DB.Raw("SELECT id FROM titles_on_moderation WHERE existing_id = ?", editedTitle.ExistingID).Scan(&editedTitle.ID) // Если тайтл уже находится на модерации, то айди обращения записывается, чтобы метод Save обновил обращение, а не пытался создать заново
+	tx.Raw("SELECT id FROM titles_on_moderation WHERE existing_id = ?", editedTitle.ExistingID).Scan(&editedTitle.ID) // Если тайтл уже находится на модерации, то айди обращения записывается, чтобы метод Save обновил обращение, а не пытался создать заново
+
+	if slices.Contains(userRoles, "moder") || slices.Contains(userRoles, "admin") { // Если юзер модератор или админ, то сохраняем его id как id последнего модератора (на всякий случай)
+		editedTitle.ModeratorID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
+	}
 
 	if result := tx.Save(&editedTitle); result.Error != nil {
 		tx.Rollback()
