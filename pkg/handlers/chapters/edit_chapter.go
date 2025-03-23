@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"slices"
+	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
@@ -52,7 +53,9 @@ func (h handler) EditChapter(c *gin.Context) {
 		title, volume, desiredChapter, // Опять же, подразумевается, что запрос будет отправляться на субдомен страницы с уже найденной и отображённой главой, так что приведения к нижнему регистру необязательны
 	).Row()
 
-	row.Scan(&chapterID, &titleID)
+	if err := row.Scan(&chapterID, &titleID); err != nil {
+		log.Println(err)
+	}
 
 	if chapterID == 0 {
 		tx.Rollback()
@@ -105,15 +108,37 @@ func (h handler) EditChapter(c *gin.Context) {
 
 	tx.Raw("SELECT id FROM chapters_on_moderation WHERE existing_id = ?", editedChapter.ExistingID).Scan(&editedChapter.ID)
 
-	if result := tx.Save(&editedChapter); result.Error != nil {
-		tx.Rollback()
+	if editedChapter.ID == 0 {
+		if result := tx.Create(&editedChapter); result.Error != nil {
+			log.Println(result.Error)
+			tx.Rollback()
+			c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+			return
+		}
+		tx.Commit()
+		c.JSON(200, gin.H{"success": "изменения главы успешно отправлены на модерацию"})
+		return
+	}
+
+	if result := tx.Exec(
+		`UPDATE chapters_on_moderation SET
+		created_at = ?,
+		name = ?,
+		description = ?,
+		creator_id = ?,
+		moderator_id = ?,
+		volume_id = ?`,
+		time.Now(), editedChapter.Name, editedChapter.Description,
+		editedChapter.CreatorID, editedChapter.ModeratorID, editedChapter.VolumeID,
+	); result.Error != nil {
 		log.Println(result.Error)
+		tx.Rollback()
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"error": "изменения главы успешно отправлены на модерацию"})
+	c.JSON(201, gin.H{"error": "изменения главы успешно изменены"})
 	// Уведомление
 }

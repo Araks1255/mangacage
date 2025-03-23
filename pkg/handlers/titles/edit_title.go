@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"slices"
+	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
@@ -135,11 +136,31 @@ func (h handler) EditTitle(c *gin.Context) {
 		editedTitle.ModeratorID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
 	}
 
-	if result := tx.Save(&editedTitle); result.Error != nil {
-		tx.Rollback()
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-		return
+	if editedTitle.ID == 0 { // Пояснение этой свистопляски в edit_volume
+		if result := tx.Create(&editedTitle); result.Error != nil {
+			log.Println(result.Error)
+			tx.Rollback()
+			c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+			return
+		}
+	} else {
+		if result := tx.Exec(
+			`UPDATE titles_on_moderation SET
+			created_at = ?,
+			name = ?,
+			description = ?,
+			creator_id = ?,
+			moderator_id = ?,
+			author_id = ?,
+			genres = ?`,
+			time.Now(), editedTitle.Name, editedTitle.Description, editedTitle.CreatorID,
+			editedTitle.ModeratorID, editedTitle.AuthorID, editedTitle.Genres,
+		); result.Error != nil {
+			log.Println(result.Error)
+			tx.Rollback()
+			c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+			return
+		}
 	}
 
 	if len(form.File["cover"]) != 0 {
@@ -148,7 +169,7 @@ func (h handler) EditTitle(c *gin.Context) {
 		filter := bson.M{"title_id": editedTitle.ID}
 		update := bson.M{"$set": bson.M{"cover": newTitleCover.Cover}}
 
-		if err := h.Collection.FindOneAndUpdate(context.TODO(), filter, update); err != nil {
+		if err := h.Collection.FindOneAndUpdate(context.TODO(), filter, update); err.Err() != nil {
 			if _, err := h.Collection.InsertOne(context.TODO(), newTitleCover); err != nil {
 				tx.Rollback()
 				log.Println(err)
@@ -160,6 +181,6 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "изменения тайтла успешно отправлены на модерацию"})
+	c.JSON(201, gin.H{"success": "изменения тайтла успешно изменены"})
 	// уведомление
 }
