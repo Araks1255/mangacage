@@ -14,11 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type UsersProfilePictures struct {
-	UserID         uint   `bson:"user_id"`
-	ProfilePicture []byte `bson:"profile_picture"`
-}
-
 func (h handler) Signup(c *gin.Context) {
 	_, err := c.Cookie("mangacage_token")
 	if err == nil {
@@ -44,11 +39,18 @@ func (h handler) Signup(c *gin.Context) {
 		Roles:         pq.StringArray([]string{"user"}),
 	}
 
-	user.Password, err = utils.GenerateHashPassword(requestBody.Password) // Генерация хэша происходит заранее, чтобы не делать этого в транзации, блокируя запись в бд на секунду
-	if err != nil {
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
+	errChan := make(chan error)
+
+	go func() {
+		var errHash error
+		user.Password, errHash = utils.GenerateHashPassword(requestBody.Password)
+		if errHash != nil {
+			log.Println(errHash)
+			errChan <- errHash
+			return
+		}
+		errChan <- nil
+	}()
 
 	tx := h.DB.Begin()
 	if r := recover(); r != nil {
@@ -68,6 +70,12 @@ func (h handler) Signup(c *gin.Context) {
 	if existingUserID != 0 {
 		tx.Rollback()
 		c.AbortWithStatusJSON(403, gin.H{"error": "пользователь с таким именем уже ожидает верификации"})
+		return
+	}
+
+	if err = <-errChan; err != nil {
+		tx.Rollback()
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 

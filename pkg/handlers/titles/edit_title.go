@@ -92,6 +92,17 @@ func (h handler) EditTitle(c *gin.Context) {
 	editedTitle.ExistingID = sql.NullInt64{Int64: int64(titleID), Valid: true}
 	editedTitle.CreatorID = claims.ID // В creator_id будет записываться id того, кто отправил на модерацию (создатель записи на модерации, в целом логично)
 
+	if len(values["name"]) != 0 {
+		editedTitle.Name = values["name"][0]
+	}
+	if len(values["description"]) != 0 {
+		editedTitle.Description = values["description"][0]
+	}
+
+	if slices.Contains(userRoles, "moder") || slices.Contains(userRoles, "admin") { // Если юзер модератор или админ, то сохраняем его id как id последнего модератора (на всякий случай)
+		editedTitle.ModeratorID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
+	}
+
 	tx := h.DB.Begin() // Транзакция (так рано) нужна для гарантии того, что данные не изменятся по ходу выполнения хэндлера
 	defer func() {
 		if r := recover(); r != nil {
@@ -99,13 +110,6 @@ func (h handler) EditTitle(c *gin.Context) {
 			panic(r)
 		}
 	}()
-
-	if len(values["name"]) != 0 {
-		editedTitle.Name = values["name"][0]
-	}
-	if len(values["description"]) != 0 {
-		editedTitle.Description = values["description"][0]
-	}
 
 	if len(values["author"]) != 0 {
 		var newAuthorID uint
@@ -130,17 +134,13 @@ func (h handler) EditTitle(c *gin.Context) {
 	}
 
 	if err = <-errChan; err != nil { // Канал небуферизированный, поэтому горутина хэндлера заблокируется здесь при попытке считать пустое значение, а разблокируется только тогда, когда значение появится (то есть, после завершения выполения горутины для обработки обложкм)
-		tx.Commit() // Пока что было только чтение
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		tx.Commit()                                             // Пока что было только чтение
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()}) // Тут в случае ошибки фото останется, надо поменять
 		return
 	}
 	close(errChan)
 
 	tx.Raw("SELECT id FROM titles_on_moderation WHERE existing_id = ?", editedTitle.ExistingID).Scan(&editedTitle.ID) // Если тайтл уже находится на модерации, то айди обращения записывается, чтобы метод Save обновил обращение, а не пытался создать заново
-
-	if slices.Contains(userRoles, "moder") || slices.Contains(userRoles, "admin") { // Если юзер модератор или админ, то сохраняем его id как id последнего модератора (на всякий случай)
-		editedTitle.ModeratorID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
-	}
 
 	if editedTitle.ID == 0 { // Пояснение этой свистопляски в edit_volume
 		if result := tx.Create(&editedTitle); result.Error != nil {

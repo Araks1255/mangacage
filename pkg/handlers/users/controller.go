@@ -19,11 +19,11 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
-	usersProfilePicturesCollection := client.Database("mangacage").Collection("users_profile_pictures")
+	usersOnModerationProfilePictures := client.Database("mangacage").Collection("users_on_moderation_profile_pictures")
 
 	h := handler{
 		DB:         db,
-		Collection: usersProfilePicturesCollection,
+		Collection: usersOnModerationProfilePictures,
 	}
 
 	privateUser := r.Group("/home")
@@ -32,5 +32,5 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	privateUser.GET("/viewed_chapters/inf", h.GetViewedChapters)
 	privateUser.GET("profile/inf", h.GetSelfProfile)
 	privateUser.GET("/profile/profile_picture", h.GetSelfProfilePicture)
-	privateUser.PUT("/profile", h.EditProfile)
+	privateUser.POST("/profile/edit", h.EditProfile)
 }

@@ -2,6 +2,7 @@ package users
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"log"
 	"sync"
@@ -24,52 +25,24 @@ func (h handler) EditProfile(c *gin.Context) {
 		return
 	}
 
-	const NUMBER_OF_GORUTINES = 4
+	if len(form.Value["name"]) == 0 && len(form.Value["aboutYourself"]) == 0 && len(form.File["profilePicture"]) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "необходим хотя-бы один изменяемый параметр"})
+		return
+	}
+
+	const NUMBER_OF_GORUTINES = 2
 	errChan := make(chan error, NUMBER_OF_GORUTINES)
 
 	var wg sync.WaitGroup
 	wg.Add(NUMBER_OF_GORUTINES)
 
 	tx := h.DB.Begin()
+	if r := recover(); r != nil {
+		tx.Rollback()
+		panic(r)
+	}
 
-	go func() {
-		defer wg.Done()
-
-		if len(form.Value["userName"]) == 0 {
-			errChan <- nil
-			return
-		}
-
-		newUserName := form.Value["userName"][0]
-
-		if result := tx.Exec("UPDATE users SET user_name = ? WHERE id = ?", newUserName, claims.ID); result.Error != nil {
-			log.Println(result.Error)
-			errChan <- result.Error
-			return
-		}
-
-		errChan <- nil
-	}()
-
-	go func() {
-		defer wg.Done()
-
-		if len(form.Value["aboutYourself"]) == 0 {
-			errChan <- nil
-			return
-		}
-
-		newAboutYourself := form.Value["aboutYourself"][0]
-
-		if result := tx.Exec("UPDATE users SET about_yourself = ? WHERE id = ?", newAboutYourself, claims.ID); result.Error != nil {
-			log.Println(result.Error)
-			errChan <- result.Error
-			return
-		}
-
-		errChan <- nil
-	}()
-
+	var filter bson.M
 	go func() {
 		defer wg.Done()
 
@@ -78,20 +51,12 @@ func (h handler) EditProfile(c *gin.Context) {
 			return
 		}
 
-		newProfilePicture, err := c.FormFile("profilePicture")
+		file, err := form.File["profilePicture"][0].Open()
 		if err != nil {
 			log.Println(err)
 			errChan <- err
 			return
 		}
-
-		file, err := newProfilePicture.Open()
-		if err != nil {
-			log.Println(err)
-			errChan <- err
-			return
-		}
-		defer file.Close()
 
 		data, err := io.ReadAll(file)
 		if err != nil {
@@ -100,13 +65,25 @@ func (h handler) EditProfile(c *gin.Context) {
 			return
 		}
 
-		filter := bson.M{"user_id": claims.ID}
+		filter = bson.M{"user_id": claims.ID}
 		update := bson.M{"$set": bson.M{"profile_picture": data}}
 
-		if _, err = h.Collection.UpdateOne(context.TODO(), filter, update); err != nil {
-			log.Println(err)
-			errChan <- err
-			return
+		if result := h.Collection.FindOneAndUpdate(context.TODO(), filter, update); result.Err() != nil {
+			log.Println(result.Err())
+
+			var newProfilePicture struct {
+				UserID         uint   `bson:"user_id"`
+				ProfilePicture []byte `bson:"profile_picture"`
+			}
+
+			newProfilePicture.UserID = claims.ID
+			newProfilePicture.ProfilePicture = data
+
+			if _, err := h.Collection.InsertOne(context.TODO(), newProfilePicture); err != nil {
+				log.Println(err)
+				errChan <- err
+				return
+			}
 		}
 
 		errChan <- nil
@@ -115,7 +92,24 @@ func (h handler) EditProfile(c *gin.Context) {
 	go func() {
 		defer wg.Done()
 
-		if result := tx.Exec("UPDATE users SET on_moderation = true WHERE id = ?", claims.ID); result.Error != nil {
+		if len(form.Value["userName"]) == 0 && len(form.Value["aboutYourself"]) == 0 {
+			errChan <- nil
+			return
+		}
+
+		var editedUser models.UserOnModeration
+		editedUser.ExistingID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
+
+		if len(form.Value["userName"]) != 0 {
+			editedUser.UserName = form.Value["userName"][0]
+		}
+		if len(form.Value["aboutYourself"]) != 0 {
+			editedUser.AboutYourself = form.Value["aboutYourself"][0]
+		}
+
+		tx.Raw("SELECT id FROM users_on_moderation WHERE existing_id = ?", claims.ID).Scan(&editedUser.ID)
+
+		if result := tx.Save(&editedUser); result.Error != nil {
 			log.Println(result.Error)
 			errChan <- result.Error
 			return
@@ -127,23 +121,20 @@ func (h handler) EditProfile(c *gin.Context) {
 	wg.Wait()
 
 	for i := 0; i < NUMBER_OF_GORUTINES; i++ {
-		err = <-errChan
-		if err != nil {
-			tx.Rollback()
+		if err = <-errChan; err != nil {
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			tx.Rollback()
+			_, _ = h.Collection.DeleteOne(context.TODO(), filter)
 			return
 		}
 	}
 
 	tx.Commit()
 
-	c.JSON(200, gin.H{"success": "профиль успешно обновлён"})
+	c.JSON(201, gin.H{"success": "изменения профиля успешно отправлены на модерацию"})
 
 	var userName string
 	h.DB.Raw("SELECT user_name FROM users WHERE id = ?", claims.ID).Scan(&userName)
-	if userName == "" {
-		return
-	}
 
 	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
