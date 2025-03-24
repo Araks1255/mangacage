@@ -10,15 +10,7 @@ import (
 func (h handler) CancelAppealForTitleModeration(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
-	var requestBody struct {
-		Name string `json:"name" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
-		return
-	}
+	title := c.Param("title")
 
 	tx := h.DB.Begin()
 	if r := recover(); r != nil {
@@ -27,7 +19,7 @@ func (h handler) CancelAppealForTitleModeration(c *gin.Context) {
 	}
 
 	var titleID uint
-	tx.Raw("SELECT id FROM titles_on_moderation WHERE name = ? AND creator_id = ?", requestBody.Name, claims.ID).Scan(&titleID)
+	tx.Raw("SELECT id FROM titles_on_moderation WHERE name = ? AND creator_id = ?", title, claims.ID).Scan(&titleID)
 	if titleID == 0 {
 		tx.Rollback()
 		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден в списке ваших тайтлов на модерации"})
