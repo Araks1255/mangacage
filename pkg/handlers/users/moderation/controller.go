@@ -9,9 +9,10 @@ import (
 )
 
 type handler struct {
-	DB            *gorm.DB
-	TitlesCovers  *mongo.Collection
-	ChaptersPages *mongo.Collection
+	DB              *gorm.DB
+	TitlesCovers    *mongo.Collection
+	ChaptersPages   *mongo.Collection
+	ProfilePictures *mongo.Collection
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
@@ -22,15 +23,21 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	titlesOnModerationCovers := client.Database("mangacage").Collection("titles_on_moderation_covers")
 	chaptersOnModerationPages := client.Database("mangacage").Collection("chapters_on_moderation_pages")
+	usersOnModerationProfilePictures := client.Database("mangacage").Collection("users_on_moderation_profile_pictures")
 
 	h := handler{
-		DB:            db,
-		TitlesCovers:  titlesOnModerationCovers,
-		ChaptersPages: chaptersOnModerationPages,
+		DB:              db,
+		TitlesCovers:    titlesOnModerationCovers,
+		ChaptersPages:   chaptersOnModerationPages,
+		ProfilePictures: usersOnModerationProfilePictures,
 	}
 
 	moderation := r.Group("/home/moderation")
 	moderation.Use(middlewares.AuthMiddleware(secretKey))
+
+	moderation.GET("/profile", h.GetSelfProfileChangesOnModeration)
+	moderation.GET("/profile/picture", h.GetSelfProfilePictureOnModeration)
+	// Отмена обращения
 
 	moderation.GET("/titles/edited", h.GetSelfEditedTitlesOnModeration)
 	moderation.GET("/titles/new", h.GetSelfNewTitlesOnModeration)

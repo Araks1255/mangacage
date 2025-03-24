@@ -62,7 +62,7 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	errChan := make(chan error)
 
-	go func() { // Новая обложка обрабатывается в отдельной горутине
+	go func() { // Новая обложка обрабатывается в отдельной горутине (тут именно получение среза байт из запроса, потому-что для создания документа нужен id, который появляется только после создания записи)
 		if len(form.File["cover"]) == 0 {
 			errChan <- nil
 			return
@@ -133,14 +133,14 @@ func (h handler) EditTitle(c *gin.Context) {
 		editedTitle.Genres = values["genres"]
 	}
 
+	tx.Raw("SELECT id FROM titles_on_moderation WHERE existing_id = ?", editedTitle.ExistingID).Scan(&editedTitle.ID) // Если тайтл уже находится на модерации, то айди обращения записывается, чтобы метод Save обновил обращение, а не пытался создать заново
+
 	if err = <-errChan; err != nil { // Канал небуферизированный, поэтому горутина хэндлера заблокируется здесь при попытке считать пустое значение, а разблокируется только тогда, когда значение появится (то есть, после завершения выполения горутины для обработки обложкм)
 		tx.Commit()                                             // Пока что было только чтение
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()}) // Тут в случае ошибки фото останется, надо поменять
 		return
 	}
 	close(errChan)
-
-	tx.Raw("SELECT id FROM titles_on_moderation WHERE existing_id = ?", editedTitle.ExistingID).Scan(&editedTitle.ID) // Если тайтл уже находится на модерации, то айди обращения записывается, чтобы метод Save обновил обращение, а не пытался создать заново
 
 	if editedTitle.ID == 0 { // Пояснение этой свистопляски в edit_volume
 		if result := tx.Create(&editedTitle); result.Error != nil {
