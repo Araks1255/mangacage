@@ -35,4 +35,8 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	moderation.GET("/titles/edited", h.GetSelfEditedTitlesOnModeration)
 	moderation.GET("/titles/new", h.GetSelfNewTitlesOnModeration)
 	moderation.DELETE("/titles", h.CancelAppealForTitleModeration)
+
+	moderation.GET("/chapters/new", h.GetSelfNewChaptersOnModeration)
+	moderation.GET("/chapters/edited", h.GetSelfEditedChaptersOnModeration)
+	moderation.DELETE("/chapters/:title/:volume/:chapter", h.CancelAppealForChapterModeration)
 }

@@ -23,7 +23,8 @@ func (h handler) GetSelfNewTitlesOnModeration(c *gin.Context) {
 		`SELECT t.created_at, t.name, t.description, authors.name AS author, t.genres
 		FROM titles_on_moderation AS t
 		INNER JOIN authors ON authors.id = t.author_id
-		WHERE t.creator_id = ?`, claims.ID,
+		WHERE t.creator_id = ?
+		AND t.existing_id IS NULL`, claims.ID,
 	).Scan(&newTitles)
 
 	if len(newTitles) == 0 {

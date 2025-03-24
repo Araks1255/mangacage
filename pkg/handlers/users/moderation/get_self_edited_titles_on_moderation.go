@@ -33,7 +33,7 @@ func (h handler) GetSelfEditedTitlesOnModeration(c *gin.Context) {
 		return
 	}
 
-	response := make([]map[string]any, len(editedTitles))
+	response := make([]map[string]any, len(editedTitles), len(editedTitles))
 	for i := 0; i < len(editedTitles); i++ {
 		response[i] = make(map[string]any, 6)
 
