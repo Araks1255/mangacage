@@ -29,24 +29,33 @@ func (h handler) Login(c *gin.Context) {
 		return
 	}
 
-	var existingUser models.User
-	h.DB.Raw("SELECT * FROM users WHERE user_name = ?", requestBody.UserName).Scan(&existingUser)
-	if existingUser.ID == 0 {
-		c.AbortWithStatusJSON(401, gin.H{"error": "Аккаунт не найден. Проверьте регистр символов в имени"})
+	var (
+		userID   uint
+		password string
+	)
+
+	row := h.DB.Raw("SELECT id, password FROM users WHERE user_name = ?", requestBody.UserName).Row()
+
+	if err := row.Scan(&userID, &password); err != nil {
+		log.Println(err)
+	}
+
+	if userID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "аккаунт не найден. возможно, он ещё не прошел верификацию"}) // Сомнительная тема, но я так думаю, что неверифицированный аккаунт итак никаких привелегий не даёт, так что без разницы, войдет в него юзер или нет. Если в будующем это будет не так - поменяю
 		return
 	}
 
-	if ok := utils.CompareHashPassword(requestBody.Password, existingUser.Password); !ok {
-		c.AbortWithStatusJSON(401, gin.H{"error": "Неверный пароль"})
+	if ok := utils.CompareHashPassword(requestBody.Password, password); !ok {
+		c.AbortWithStatusJSON(401, gin.H{"error": "неверный пароль"})
 		return
 	}
 
 	expirationTime := time.Now().Add(2016 * time.Hour)
 
 	claims := models.Claims{
-		ID: existingUser.ID,
+		ID: userID,
 		StandardClaims: jwt.StandardClaims{
-			Subject:   existingUser.UserName,
+			Subject:   requestBody.UserName, // Если до сюда дошло, то юзернейм из запроса валидный
 			ExpiresAt: expirationTime.Unix(),
 		},
 	}

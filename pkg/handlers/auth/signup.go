@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"io"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -21,56 +20,67 @@ type UsersProfilePictures struct {
 }
 
 func (h handler) Signup(c *gin.Context) {
-	// Сделать проверку на наличие входа в аккаунт
-	form, err := c.MultipartForm()
-	if err != nil {
+	_, err := c.Cookie("mangacage_token")
+	if err == nil {
+		c.AbortWithStatusJSON(409, gin.H{"error": "вы уже вошли в аккаунт"})
+		return
+	}
+
+	var requestBody struct {
+		UserName      string `json:"userName" binding:"required"`
+		Password      string `json:"password" binding:"required,min=8"`
+		AboutYourself string `json:"aboutYourself"`
+	}
+
+	if err = c.ShouldBindJSON(&requestBody); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	if len(form.Value["userName"]) == 0 || len(form.Value["password"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе недостаточно данных"})
-		return
-	}
-
-	userName := form.Value["userName"][0]
-	password := form.Value["password"][0]
-
-	var aboutYourself string
-	if len(form.Value["aboutYourself"]) != 0 {
-		aboutYourself = form.Value["aboutYourself"][0]
-	}
-
 	user := models.UserOnModeration{
-		UserName:      userName,
-		AboutYourself: aboutYourself,
+		UserName:      requestBody.UserName,
+		AboutYourself: requestBody.AboutYourself,
 		Roles:         pq.StringArray([]string{"user"}),
 	}
 
+	user.Password, err = utils.GenerateHashPassword(requestBody.Password) // Генерация хэша происходит заранее, чтобы не делать этого в транзации, блокируя запись в бд на секунду
+	if err != nil {
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	tx := h.DB.Begin()
+	if r := recover(); r != nil {
+		tx.Rollback()
+		panic(r)
+	}
+
 	var existingUserID uint
-	h.DB.Raw("SELECT id FROM users WHERE user_name = ?", user.UserName).Scan(&existingUserID)
+	tx.Raw("SELECT id FROM users WHERE user_name = ?", user.UserName).Scan(&existingUserID)
 	if existingUserID != 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "вы уже зарегистрированы"})
+		tx.Rollback()
+		c.AbortWithStatusJSON(403, gin.H{"error": "пользователь с таким именем уже существует"})
 		return
 	}
 
-	var errHash error
-	user.Password, errHash = utils.GenerateHashPassword(password)
-	if errHash != nil {
-		log.Println(errHash)
-		c.AbortWithStatusJSON(500, gin.H{"error": errHash.Error()})
+	tx.Raw("SELECT id FROM users_on_moderation WHERE user_name = ?", user.UserName).Scan(&existingUserID)
+	if existingUserID != 0 {
+		tx.Rollback()
+		c.AbortWithStatusJSON(403, gin.H{"error": "пользователь с таким именем уже ожидает верификации"})
 		return
 	}
 
-	if result := h.DB.Create(&user); result.Error != nil {
-		h.DB.Rollback()
+	if result := tx.Create(&user); result.Error != nil {
+		tx.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	c.JSON(201, gin.H{"success": "регистрация прошла успешно. Ваш аккаунт находится на стадии модерации. Некторые функции сайта для вас временно ограничены"})
+	tx.Commit()
+
+	c.JSON(201, gin.H{"success": "Ваш аккаунт успешно создан и ожидает верификации"})
 
 	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -80,37 +90,7 @@ func (h handler) Signup(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutUser(context.Background(), &pb.User{Name: userName}); err != nil {
+	if _, err := client.NotifyAboutUser(context.Background(), &pb.User{Name: user.UserName}); err != nil {
 		log.Println(err)
-	}
-
-	profilePicture, err := c.FormFile("profilePicture")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	file, err := profilePicture.Open()
-	if err != nil {
-		log.Println(err)
-		file.Close()
-		return
-	}
-	defer file.Close()
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	userProfilePicture := UsersProfilePictures{
-		UserID:         user.ID,
-		ProfilePicture: data,
-	}
-
-	if _, err := h.Collection.InsertOne(context.Background(), userProfilePicture); err != nil {
-		log.Println(err)
-		return
 	}
 }
