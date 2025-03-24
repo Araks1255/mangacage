@@ -79,6 +79,7 @@ func (h handler) EditVolume(c *gin.Context) {
 		ExistingID:  sql.NullInt64{Int64: int64(volumeID), Valid: true},
 		Name:        requestBody.Name,
 		Description: requestBody.Description,
+		TitleID:     sql.NullInt64{Int64: int64(titleID), Valid: true},
 		CreatorID:   claims.ID,
 	}
 
@@ -117,6 +118,6 @@ func (h handler) EditVolume(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(200, gin.H{"success": "изменения тома успешно изменены)"})
+	c.JSON(200, gin.H{"success": "изменения тома успешно изменены"})
 	// creatorid, moderatorid
 }

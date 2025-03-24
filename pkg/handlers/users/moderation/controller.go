@@ -1,0 +1,38 @@
+package moderation
+
+import (
+	"github.com/Araks1255/mangacage/pkg/middlewares"
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
+)
+
+type handler struct {
+	DB            *gorm.DB
+	TitlesCovers  *mongo.Collection
+	ChaptersPages *mongo.Collection
+}
+
+func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
+	viper.SetConfigFile("./pkg/common/envs/.env")
+	viper.ReadInConfig()
+
+	secretKey := viper.Get("SECRET_KEY").(string)
+
+	titlesOnModerationCovers := client.Database("mangacage").Collection("titles_on_moderation_covers")
+	chaptersOnModerationPages := client.Database("mangacage").Collection("chapters_on_moderation_pages")
+
+	h := handler{
+		DB:            db,
+		TitlesCovers:  titlesOnModerationCovers,
+		ChaptersPages: chaptersOnModerationPages,
+	}
+
+	moderation := r.Group("/home/moderation")
+	moderation.Use(middlewares.AuthMiddleware(secretKey))
+
+	moderation.GET("/titles/edited", h.GetSelfEditedTitlesOnModeration)
+	moderation.GET("/titles/new", h.GetSelfNewTitlesOnModeration)
+	moderation.DELETE("/titles", h.CancelAppealForTitleModeration)
+}

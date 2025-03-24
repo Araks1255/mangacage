@@ -93,6 +93,12 @@ func (h handler) EditTitle(c *gin.Context) {
 	editedTitle.CreatorID = claims.ID // В creator_id будет записываться id того, кто отправил на модерацию (создатель записи на модерации, в целом логично)
 
 	tx := h.DB.Begin() // Транзакция (так рано) нужна для гарантии того, что данные не изменятся по ходу выполнения хэндлера
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
 	if len(values["name"]) != 0 {
 		editedTitle.Name = values["name"][0]
@@ -113,7 +119,7 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	if len(values["genres"]) != 0 {
 		var genresIDs pq.StringArray
-		tx.Raw("SELECT genres.id FROM genres JOIN UNNEST(?::TEXT) AS genre_name ON genres.name = genre_name", pq.StringArray(values["genres"])).Scan(&genresIDs)
+		tx.Raw("SELECT genres.id FROM genres JOIN UNNEST(?::TEXT[]) AS genre_name ON genres.name = genre_name", pq.StringArray(values["genres"])).Scan(&genresIDs)
 
 		if len(values["genres"]) != len(genresIDs) {
 			c.AbortWithStatusJSON(404, gin.H{"error": "указан несуществующий жанр"})
