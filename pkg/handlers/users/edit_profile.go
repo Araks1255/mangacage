@@ -144,7 +144,7 @@ func (h handler) EditProfile(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutUser(context.Background(), &pb.User{Name: userName}); err != nil {
+	if _, err := client.NotifyAboutUserOnModeration(context.Background(), &pb.User{Name: userName, New: false}); err != nil {
 		log.Println(err)
 	}
 }

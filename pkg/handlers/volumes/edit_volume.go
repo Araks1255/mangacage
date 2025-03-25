@@ -1,13 +1,17 @@
 package volumes
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"slices"
 	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (h handler) EditVolume(c *gin.Context) {
@@ -119,5 +123,17 @@ func (h handler) EditVolume(c *gin.Context) {
 	tx.Commit()
 
 	c.JSON(200, gin.H{"success": "изменения тома успешно изменены"})
-	// creatorid, moderatorid
+
+	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer conn.Close()
+
+	client := pb.NewNotificationsClient(conn)
+
+	if _, err := client.NotifyAboutVolumeOnModeration(context.TODO(), &pb.VolumeOnModeration{Name: volume, New: false}); err != nil {
+		log.Println(err)
+	}
 }

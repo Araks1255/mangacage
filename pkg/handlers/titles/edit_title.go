@@ -11,10 +11,13 @@ import (
 	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (h handler) EditTitle(c *gin.Context) {
@@ -198,5 +201,17 @@ func (h handler) EditTitle(c *gin.Context) {
 	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "изменения тайтла успешно отправлены на модерацию"})
-	// уведомление
+
+	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer conn.Close()
+
+	client := pb.NewNotificationsClient(conn)
+
+	if _, err := client.NotifyAboutTitleOnModeration(context.TODO(), &pb.TitleOnModeration{Name: desiredTitle, New: false}); err != nil {
+		log.Println(err)
+	}
 }

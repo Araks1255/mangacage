@@ -1,13 +1,17 @@
 package chapters
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"slices"
 	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (h handler) EditChapter(c *gin.Context) {
@@ -140,5 +144,17 @@ func (h handler) EditChapter(c *gin.Context) {
 	tx.Commit()
 
 	c.JSON(201, gin.H{"error": "изменения главы успешно изменены"})
-	// Уведомление
+
+	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer conn.Close()
+
+	client := pb.NewNotificationsClient(conn)
+
+	if _, err := client.NotifyAboutChapterOnModeration(context.TODO(), &pb.ChapterOnModeration{Name: desiredChapter, New: false}); err != nil {
+		log.Println(err)
+	}
 }

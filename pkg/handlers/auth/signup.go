@@ -98,7 +98,7 @@ func (h handler) Signup(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutUser(context.Background(), &pb.User{Name: user.UserName}); err != nil {
+	if _, err := client.NotifyAboutUserOnModeration(context.TODO(), &pb.User{Name: user.UserName, New: true}); err != nil {
 		log.Println(err)
 	}
 }

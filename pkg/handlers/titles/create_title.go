@@ -141,7 +141,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err = client.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{Name: title.Name}); err != nil {
+	if _, err = client.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{Name: title.Name, New: true}); err != nil {
 		log.Println(err)
 	}
 }
