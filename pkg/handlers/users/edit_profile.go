@@ -11,6 +11,7 @@ import (
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -67,23 +68,12 @@ func (h handler) EditProfile(c *gin.Context) {
 
 		filter = bson.M{"user_id": claims.ID}
 		update := bson.M{"$set": bson.M{"profile_picture": data}}
+		opts := options.Update().SetUpsert(true)
 
-		if result := h.Collection.FindOneAndUpdate(context.TODO(), filter, update); result.Err() != nil {
-			log.Println(result.Err())
-
-			var newProfilePicture struct {
-				UserID         uint   `bson:"user_id"`
-				ProfilePicture []byte `bson:"profile_picture"`
-			}
-
-			newProfilePicture.UserID = claims.ID
-			newProfilePicture.ProfilePicture = data
-
-			if _, err := h.Collection.InsertOne(context.TODO(), newProfilePicture); err != nil {
-				log.Println(err)
-				errChan <- err
-				return
-			}
+		if _, err := h.Collection.UpdateOne(context.TODO(), filter, update, opts); err != nil {
+			log.Println(err)
+			errChan <- err
+			return
 		}
 
 		errChan <- nil
@@ -101,7 +91,7 @@ func (h handler) EditProfile(c *gin.Context) {
 		editedUser.ExistingID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
 
 		if len(form.Value["userName"]) != 0 {
-			editedUser.UserName = form.Value["userName"][0]
+			editedUser.UserName = sql.NullString{String: form.Value["userName"][0], Valid: true}
 		}
 		if len(form.Value["aboutYourself"]) != 0 {
 			editedUser.AboutYourself = form.Value["aboutYourself"][0]

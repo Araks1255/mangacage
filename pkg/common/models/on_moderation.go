@@ -81,7 +81,7 @@ func (ChapterOnModeration) TableName() string {
 
 type UserOnModeration struct {
 	gorm.Model
-	UserName      string `gorm:"unique"`
+	UserName      sql.NullString `gorm:"unique"`
 	Password      string
 	AboutYourself string
 	TgUserID      int64

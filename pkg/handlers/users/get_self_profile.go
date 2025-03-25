@@ -42,7 +42,7 @@ func (h handler) GetSelfProfile(c *gin.Context) {
 	).Scan(&user)
 
 	if user.UserName == "" {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не удалось получитб профиль"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "не удалось получить профиль"})
 		return
 	}
 

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -34,7 +35,7 @@ func (h handler) Signup(c *gin.Context) {
 	}
 
 	user := models.UserOnModeration{
-		UserName:      requestBody.UserName,
+		UserName:      sql.NullString{String: requestBody.UserName, Valid: true},
 		AboutYourself: requestBody.AboutYourself,
 		Roles:         pq.StringArray([]string{"user"}),
 	}
@@ -59,14 +60,14 @@ func (h handler) Signup(c *gin.Context) {
 	}
 
 	var existingUserID uint
-	tx.Raw("SELECT id FROM users WHERE user_name = ?", user.UserName).Scan(&existingUserID)
+	tx.Raw("SELECT id FROM users WHERE user_name = ?", user.UserName.String).Scan(&existingUserID)
 	if existingUserID != 0 {
 		tx.Rollback()
 		c.AbortWithStatusJSON(403, gin.H{"error": "пользователь с таким именем уже существует"})
 		return
 	}
 
-	tx.Raw("SELECT id FROM users_on_moderation WHERE user_name = ?", user.UserName).Scan(&existingUserID)
+	tx.Raw("SELECT id FROM users_on_moderation WHERE user_name = ?", user.UserName.String).Scan(&existingUserID)
 	if existingUserID != 0 {
 		tx.Rollback()
 		c.AbortWithStatusJSON(403, gin.H{"error": "пользователь с таким именем уже ожидает верификации"})
@@ -98,7 +99,7 @@ func (h handler) Signup(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutUserOnModeration(context.TODO(), &pb.User{Name: user.UserName, New: true}); err != nil {
+	if _, err := client.NotifyAboutUserOnModeration(context.TODO(), &pb.User{Name: user.UserName.String, New: true}); err != nil {
 		log.Println(err)
 	}
 }
