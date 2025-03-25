@@ -3,15 +3,18 @@ package titles
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"io"
 	"log"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (h handler) EditTitle(c *gin.Context) {
@@ -19,15 +22,22 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	desiredTitle := c.Param("title")
 
+	tx := h.DB.Begin()
+	if r := recover(); r != nil {
+		tx.Rollback()
+		panic(r)
+	}
+	defer tx.Rollback()
+
 	var titleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE name = ?", desiredTitle).Scan(&titleID) // Здесь нет приведения к нижнему регситру, так-как по задумке запрос будет отправляться с уже отрисованной страницы просмотра тайтла (ну и ещё - таблица не гарантирует уникальности при приведении к нижнему регистру, это обеспечивается только при создании тайтла)
+	tx.Raw("SELECT id FROM titles WHERE name = ?", desiredTitle).Scan(&titleID) // Здесь нет приведения к нижнему регситру, так-как по задумке запрос будет отправляться с уже отрисованной страницы просмотра тайтла (ну и ещё - таблица не гарантирует уникальности при приведении к нижнему регистру, это обеспечивается только при создании тайтла)
 	if titleID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
 		return
 	}
 
 	var userRoles []string
-	h.DB.Raw("SELECT roles.name FROM roles INNER JOIN user_roles ON roles.id = user_roles.role_id WHERE user_roles.user_id = ?", claims.ID).Scan(&userRoles)
+	tx.Raw("SELECT roles.name FROM roles INNER JOIN user_roles ON roles.id = user_roles.role_id WHERE user_roles.user_id = ?", claims.ID).Scan(&userRoles)
 
 	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь лидером команды перевода"})
@@ -35,7 +45,7 @@ func (h handler) EditTitle(c *gin.Context) {
 	}
 
 	var doesUserTeamTranslatesDesiredTitle bool
-	h.DB.Raw("SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)", titleID, claims.ID).Scan(&doesUserTeamTranslatesDesiredTitle)
+	tx.Raw("SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)", titleID, claims.ID).Scan(&doesUserTeamTranslatesDesiredTitle)
 	if !doesUserTeamTranslatesDesiredTitle && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "ваша команда не переводит данный тайтл"})
 		return
@@ -55,14 +65,16 @@ func (h handler) EditTitle(c *gin.Context) {
 		return
 	}
 
-	var newTitleCover struct {
-		TitleID uint   `bson:"title_id"`
-		Cover   []byte `bson:"cover"`
-	}
+	const NUMBER_OF_GORUTINES = 2
+	errChan := make(chan error, NUMBER_OF_GORUTINES)
 
-	errChan := make(chan error)
+	var wg sync.WaitGroup
+	wg.Add(NUMBER_OF_GORUTINES)
 
-	go func() { // Новая обложка обрабатывается в отдельной горутине (тут именно получение среза байт из запроса, потому-что для создания документа нужен id, который появляется только после создания записи)
+	filter := bson.M{}
+	go func() {
+		defer wg.Done()
+
 		if len(form.File["cover"]) == 0 {
 			errChan <- nil
 			return
@@ -74,7 +86,6 @@ func (h handler) EditTitle(c *gin.Context) {
 			errChan <- err
 			return
 		}
-		defer file.Close()
 
 		data, err := io.ReadAll(file)
 		if err != nil {
@@ -83,110 +94,109 @@ func (h handler) EditTitle(c *gin.Context) {
 			return
 		}
 
-		newTitleCover.Cover = data
+		filter = bson.M{"title_id": titleID}
+		update := bson.M{"$set": bson.M{"cover": data}}
+		opts := options.Update().SetUpsert(true)
+
+		if _, err := h.Collection.UpdateOne(context.TODO(), filter, update, opts); err != nil {
+			log.Println(err)
+			errChan <- err
+			return
+		}
 
 		errChan <- nil
 	}()
 
-	var editedTitle models.TitleOnModeration
-	editedTitle.ExistingID = sql.NullInt64{Int64: int64(titleID), Valid: true}
-	editedTitle.CreatorID = claims.ID // В creator_id будет записываться id того, кто отправил на модерацию (создатель записи на модерации, в целом логично)
+	go func() {
+		defer wg.Done()
 
-	if len(values["name"]) != 0 {
-		editedTitle.Name = values["name"][0]
-	}
-	if len(values["description"]) != 0 {
-		editedTitle.Description = values["description"][0]
-	}
+		var editedTitle models.TitleOnModeration
 
-	if slices.Contains(userRoles, "moder") || slices.Contains(userRoles, "admin") { // Если юзер модератор или админ, то сохраняем его id как id последнего модератора (на всякий случай)
-		editedTitle.ModeratorID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
-	}
+		editedTitle.ExistingID = sql.NullInt64{Int64: int64(titleID), Valid: true}
+		editedTitle.CreatorID = claims.ID // В creator_id будет записываться id того, кто отправил на модерацию (создатель записи на модерации, в целом логично)
 
-	tx := h.DB.Begin() // Транзакция (так рано) нужна для гарантии того, что данные не изменятся по ходу выполнения хэндлера
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
+		if len(values["name"]) != 0 {
+			editedTitle.Name = values["name"][0]
 		}
-	}()
-
-	if len(values["author"]) != 0 {
-		var newAuthorID uint
-		tx.Raw("SELECT id FROM authors WHERE lower(name) = lower(?)", values["author"][0]).Scan(&newAuthorID)
-		if newAuthorID == 0 {
-			c.AbortWithStatusJSON(404, gin.H{"error": "автор не найден"})
-			return
-		}
-		editedTitle.AuthorID = sql.NullInt64{Int64: int64(newAuthorID), Valid: true}
-	}
-
-	if len(values["genres"]) != 0 {
-		var genresIDs pq.StringArray
-		tx.Raw("SELECT genres.id FROM genres JOIN UNNEST(?::TEXT[]) AS genre_name ON genres.name = genre_name", pq.StringArray(values["genres"])).Scan(&genresIDs)
-
-		if len(values["genres"]) != len(genresIDs) {
-			c.AbortWithStatusJSON(404, gin.H{"error": "указан несуществующий жанр"})
-			return
+		if len(values["description"]) != 0 {
+			editedTitle.Description = values["description"][0]
 		}
 
-		editedTitle.Genres = values["genres"]
-	}
-
-	tx.Raw("SELECT id FROM titles_on_moderation WHERE existing_id = ?", editedTitle.ExistingID).Scan(&editedTitle.ID) // Если тайтл уже находится на модерации, то айди обращения записывается, чтобы метод Save обновил обращение, а не пытался создать заново
-
-	if err = <-errChan; err != nil { // Канал небуферизированный, поэтому горутина хэндлера заблокируется здесь при попытке считать пустое значение, а разблокируется только тогда, когда значение появится (то есть, после завершения выполения горутины для обработки обложкм)
-		tx.Commit()                                             // Пока что было только чтение
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()}) // Тут в случае ошибки фото останется, надо поменять
-		return
-	}
-	close(errChan)
-
-	if editedTitle.ID == 0 { // Пояснение этой свистопляски в edit_volume
-		if result := tx.Create(&editedTitle); result.Error != nil {
-			log.Println(result.Error)
-			tx.Rollback()
-			c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-			return
+		if slices.Contains(userRoles, "moder") || slices.Contains(userRoles, "admin") { // Если юзер модератор или админ, то сохраняем его id как id последнего модератора (на всякий случай)
+			editedTitle.ModeratorID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
 		}
-	} else {
-		if result := tx.Exec(
-			`UPDATE titles_on_moderation SET
-			created_at = ?,
-			name = ?,
-			description = ?,
-			creator_id = ?,
-			moderator_id = ?,
-			author_id = ?,
-			genres = ?`,
-			time.Now(), editedTitle.Name, editedTitle.Description, editedTitle.CreatorID,
-			editedTitle.ModeratorID, editedTitle.AuthorID, editedTitle.Genres,
-		); result.Error != nil {
-			log.Println(result.Error)
-			tx.Rollback()
-			c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-			return
-		}
-	}
 
-	if len(form.File["cover"]) != 0 {
-		newTitleCover.TitleID = editedTitle.ID
-
-		filter := bson.M{"title_id": editedTitle.ID}
-		update := bson.M{"$set": bson.M{"cover": newTitleCover.Cover}}
-
-		if err := h.Collection.FindOneAndUpdate(context.TODO(), filter, update); err.Err() != nil {
-			if _, err := h.Collection.InsertOne(context.TODO(), newTitleCover); err != nil {
-				tx.Rollback()
-				log.Println(err)
-				c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		if len(values["author"]) != 0 {
+			var newAuthorID uint
+			tx.Raw("SELECT id FROM authors WHERE lower(name) = lower(?)", values["author"][0]).Scan(&newAuthorID)
+			if newAuthorID == 0 {
+				errChan <- errors.New("автор не найден")
 				return
 			}
+			editedTitle.AuthorID = sql.NullInt64{Int64: int64(newAuthorID), Valid: true}
+		}
+
+		if len(values["genres"]) != 0 {
+			var genresIDs pq.StringArray
+			tx.Raw("SELECT genres.id FROM genres JOIN UNNEST(?::TEXT[]) AS genre_name ON genres.name = genre_name", pq.StringArray(values["genres"])).Scan(&genresIDs)
+
+			if len(values["genres"]) != len(genresIDs) {
+				errChan <- errors.New("указан несуществующий жанр")
+				return
+			}
+
+			editedTitle.Genres = values["genres"]
+		}
+
+		tx.Raw("SELECT id FROM titles_on_moderation WHERE existing_id = ?", editedTitle.ExistingID).Scan(&editedTitle.ID) // Если тайтл уже находится на модерации, то айди обращения записывается, чтобы метод Save обновил обращение, а не пытался создать заново
+
+		if editedTitle.ID == 0 { // Пояснение этой свистопляски в edit_volume
+			if result := tx.Create(&editedTitle); result.Error != nil {
+				log.Println(result.Error)
+				errChan <- result.Error
+				return
+			}
+		} else {
+			if result := tx.Exec(
+				`UPDATE titles_on_moderation SET
+				created_at = ?,
+				name = ?,
+				description = ?,
+				creator_id = ?,
+				moderator_id = ?,
+				author_id = ?,
+				genres = ?
+				WHERE existing_id = ?`,
+				time.Now(), editedTitle.Name, editedTitle.Description, editedTitle.CreatorID,
+				editedTitle.ModeratorID, editedTitle.AuthorID, editedTitle.Genres, editedTitle.ExistingID,
+			); result.Error != nil {
+				log.Println(result.Error)
+				errChan <- result.Error
+				return
+			}
+		}
+
+		errChan <- nil
+	}()
+
+	wg.Wait()
+
+	for i := 0; i < NUMBER_OF_GORUTINES; i++ {
+		if err = <-errChan; err != nil {
+			_, _ = h.Collection.DeleteOne(context.TODO(), filter)
+
+			if err.Error() == "автор не найден" || err.Error() == "указан несуществующий жанр" {
+				c.AbortWithStatusJSON(404, gin.H{"error": err.Error()})
+				return
+			}
+
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
 		}
 	}
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "изменения тайтла успешно изменены"})
+	c.JSON(201, gin.H{"success": "изменения тайтла успешно отправлены на модерацию"})
 	// уведомление
 }
