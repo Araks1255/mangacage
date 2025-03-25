@@ -148,7 +148,7 @@ func (h handler) EditTitle(c *gin.Context) {
 			editedTitle.Genres = values["genres"]
 		}
 
-		tx.Raw("SELECT id FROM titles_on_moderation WHERE existing_id = ?", editedTitle.ExistingID).Scan(&editedTitle.ID) // Если тайтл уже находится на модерации, то айди обращения записывается, чтобы метод Save обновил обращение, а не пытался создать заново
+		tx.Raw("SELECT id FROM titles_on_moderation WHERE existing_id = ?", editedTitle.ExistingID).Scan(&editedTitle.ID) // Если тайтл уже находится на модерации, то айди обращения записывается
 
 		if editedTitle.ID == 0 { // Пояснение этой свистопляски в edit_volume
 			if result := tx.Create(&editedTitle); result.Error != nil {

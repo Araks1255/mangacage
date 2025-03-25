@@ -2,6 +2,7 @@ package moderation
 
 import (
 	"context"
+	"database/sql"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -14,19 +15,31 @@ func (h handler) GetSelfTitleOnModerationCover(c *gin.Context) {
 
 	title := c.Param("title")
 
-	var titleID uint
-	h.DB.Raw("SELECT id FROM titles_on_moderation WHERE name = ? AND creator_id = ?", title, claims.ID).Scan(&titleID)
-	if titleID == 0 {
+	var titleID, titleOnModerationID sql.NullInt64
+
+	row := h.DB.Raw("SELECT existing_id, id FROM titles_on_moderation WHERE name = ? AND creator_id = ?", title, claims.ID).Row()
+
+	if err := row.Scan(&titleID, &titleOnModerationID); err != nil {
+		log.Println(err)
+	}
+
+	if !titleID.Valid && !titleOnModerationID.Valid {
 		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден в ваших тайтлах на модерации"})
 		return
 	}
 
-	var titleCover struct {
-		TitleID uint   `bson:"title_id"`
-		Cover   []byte `bson:"cover"`
+	var filter bson.M
+	if titleID.Valid {
+		filter = bson.M{"title_id": titleID.Int64}
+	} else {
+		filter = bson.M{"title_on_moderation_id": titleOnModerationID.Int64}
 	}
 
-	filter := bson.M{"title_id": titleID}
+	var titleCover struct {
+		TitleID             uint   `bson:"title_id"`
+		TitleOnModerationID uint   `bson:"title_on_moderation_id"`
+		Cover               []byte `bson:"cover"`
+	}
 
 	if err := h.TitlesCovers.FindOne(context.TODO(), filter).Decode(&titleCover); err != nil {
 		log.Println(err)

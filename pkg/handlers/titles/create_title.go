@@ -46,10 +46,38 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
+	var titleCover struct {
+		TitleOnModerationID uint   `bson:"title_on_moderation_id"`
+		Cover               []byte `bson:"cover"`
+	}
+
+	errChan := make(chan error)
+
+	go func() {
+		file, err := cover.Open()
+		if err != nil {
+			log.Println(err)
+			errChan <- err
+			return
+		}
+		defer file.Close()
+
+		data, err := io.ReadAll(file)
+		if err != nil {
+			log.Println(err)
+			errChan <- err
+			return
+		}
+
+		titleCover.Cover = data
+
+		errChan <- nil
+	}()
+
 	var existingTitleID uint
 	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", name).Scan(&existingTitleID)
 	if existingTitleID != 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Тайтл уже существует"})
+		c.AbortWithStatusJSON(403, gin.H{"error": "тайтл уже существует"})
 		return
 	}
 
@@ -76,6 +104,10 @@ func (h handler) CreateTitle(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
+	if r := recover(); r != nil {
+		tx.Rollback()
+		panic(r)
+	}
 
 	if result := tx.Create(&title); result.Error != nil {
 		tx.Rollback()
@@ -84,30 +116,11 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	var titleCover struct {
-		TitleID uint   `bson:"title_id"`
-		Cover   []byte `bson:"cover"`
-	}
-
-	file, err := cover.Open()
-	if err != nil {
-		tx.Rollback()
-		log.Println(err)
+	if err = <-errChan; err != nil {
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-	defer file.Close()
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		tx.Rollback()
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
 	}
 
-	titleCover.TitleID = title.ID
-	titleCover.Cover = data
+	titleCover.TitleOnModerationID = title.ID
 
 	if _, err := h.Collection.InsertOne(context.Background(), titleCover); err != nil {
 		tx.Rollback()
