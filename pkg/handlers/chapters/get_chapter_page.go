@@ -11,29 +11,17 @@ import (
 )
 
 func (h handler) GetChapterPage(c *gin.Context) {
-	title := c.Param("title")
-	volume := c.Param("volume")
-	chapter := c.Param("chapter")
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "id главы должен быть числом"})
+	}
 
 	numberOfPage, err := strconv.Atoi(c.Param("page"))
 	if err != nil {
-		c.AbortWithStatusJSON(401, gin.H{"error": "номер страницы должен быть числом"})
-		return
+		c.AbortWithStatusJSON(400, gin.H{"error": "номер страницы должен быть числом"})
 	}
 
-	var chapterID uint
-	h.DB.Raw(`SELECT chapters.id FROM chapters
-		INNER JOIN volumes ON chapters.volume_id = volumes.id
-		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE lower(titles.name) = lower(?)
-		AND lower(volumes.name) = lower(?)
-		AND lower(chapters.name) = lower(?)`, title, volume, chapter).Scan(&chapterID)
-	if chapterID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена"})
-		return
-	}
-
-	filter := bson.M{"chapter_id": chapterID}
+	filter := bson.M{"chapter_id": id}
 
 	projection := bson.M{"pages": bson.M{"$slice": []int{numberOfPage, 1}}}
 
@@ -41,7 +29,7 @@ func (h handler) GetChapterPage(c *gin.Context) {
 		Pages [][]byte `bson:"pages"`
 	}
 
-	err = h.Collection.FindOne(context.TODO(), filter, options.FindOne().SetProjection(projection)).Decode(&result)
+	err = h.ChaptersPages.FindOne(context.TODO(), filter, options.FindOne().SetProjection(projection)).Decode(&result)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

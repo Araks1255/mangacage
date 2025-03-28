@@ -9,8 +9,9 @@ import (
 )
 
 type handler struct {
-	DB         *gorm.DB
-	Collection *mongo.Collection
+	DB                        *gorm.DB
+	ChaptersOnModerationPages *mongo.Collection
+	ChaptersPages             *mongo.Collection
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
@@ -19,11 +20,13 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
-	chapterPagesCollection := client.Database("mangacage").Collection("chapters_on_moderation_pages")
+	chaptersOnModerationPagesCollection := client.Database("mangacage").Collection("chapters_on_moderation_pages")
+	chapterPagesCollection := client.Database("mangacage").Collection("chapters_pages")
 
 	h := handler{
-		DB:         db,
-		Collection: chapterPagesCollection,
+		DB:                        db,
+		ChaptersOnModerationPages: chaptersOnModerationPagesCollection,
+		ChaptersPages:             chapterPagesCollection,
 	}
 
 	privateChapter := r.Group("/chapters")
@@ -36,6 +39,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	publicChapter := r.Group("/chapters/:title/:volume")
 
 	publicChapter.GET("/:chapter/inf", h.GetChapter)
-	publicChapter.GET("/:chapter/:page", h.GetChapterPage)
 	publicChapter.GET("/", h.GetVolumeChapters)
+
+	r.GET("/chapters/id/:id/page/:page", h.GetChapterPage)
 }

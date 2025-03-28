@@ -158,7 +158,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 		}
 	}
 
-	if _, err := h.Collection.InsertOne(context.Background(), chapterPages); err != nil {
+	if _, err := h.ChaptersOnModerationPages.InsertOne(context.Background(), chapterPages); err != nil {
 		tx.Rollback()
 		c.AbortWithStatusJSON(500, gin.H{"error": err})
 		return

@@ -64,7 +64,7 @@ func (h handler) DeleteChapter(c *gin.Context) {
 		return
 	}
 
-	if result, err := h.Collection.DeleteOne(context.TODO(), bson.M{"chapter_id": chapterID}); result.DeletedCount == 0 {
+	if result, err := h.ChaptersOnModerationPages.DeleteOne(context.TODO(), bson.M{"chapter_id": chapterID}); result.DeletedCount == 0 {
 		tx.Rollback()
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
