@@ -2,27 +2,31 @@ package teams
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"log"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (h handler) EditTeam(c *gin.Context) { // Это старая функция, сейчас буду переделывать, как с транзакциями закончу
 	claims := c.MustGet("claims").(*models.Claims)
 
 	var userRoles []string
-	h.DB.Raw(`SELECT roles.name FROM roles
+	h.DB.Raw(
+		`SELECT roles.name FROM roles
 		INNER JOIN user_roles ON roles.id = user_roles.role_id
 		WHERE user_roles.user_id = ?`, claims.ID,
 	).Scan(&userRoles)
 
-	if !slices.Contains(userRoles, "team_leader") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "редактировать команду может только её лидер"})
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
+		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь владельцем команды перевода"})
 		return
 	}
 
@@ -38,14 +42,7 @@ func (h handler) EditTeam(c *gin.Context) { // Это старая функци�
 		return
 	}
 
-	var teamID uint
-	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&teamID)
-	if teamID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "произошла ошибка. команда не найдена"}) // логически это невозможно, но мало ли
-		return
-	}
-
-	const NUMBER_OF_GORUTINES = 3
+	const NUMBER_OF_GORUTINES = 2 // Это вынесено наверх, чтобы не занимать время транзакции
 	errChan := make(chan error, NUMBER_OF_GORUTINES)
 
 	var wg sync.WaitGroup
@@ -58,44 +55,14 @@ func (h handler) EditTeam(c *gin.Context) { // Это старая функци�
 			panic(r)
 		}
 	}()
+	defer tx.Rollback()
 
-	go func() {
-		defer wg.Done()
-
-		if len(form.Value["name"]) == 0 {
-			errChan <- nil
-			return
-		}
-
-		newName := form.Value["name"][0]
-
-		if result := tx.Exec("UPDATE teams SET name = ? WHERE id = ?", newName, teamID); result.Error != nil {
-			log.Println(result.Error)
-			errChan <- result.Error
-			return
-		}
-
-		errChan <- nil
-	}()
-
-	go func() {
-		defer wg.Done()
-
-		if len(form.Value["description"]) == 0 {
-			errChan <- nil
-			return
-		}
-
-		newDescription := form.Value["description"][0]
-
-		if result := tx.Exec("UPDATE teams SET description = ? WHERE id = ?", newDescription, teamID); result.Error != nil {
-			log.Println(result.Error)
-			errChan <- result.Error
-			return
-		}
-
-		errChan <- nil
-	}()
+	var userTeamID uint // Поиск команды юзера на всякий случай производится в транзакции. Мало ли кто-то попробует одновременно выйти из команды и отредактировать её. И получится трындец
+	tx.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
+	if userTeamID == 0 {
+		c.AbortWithStatusJSON(403, gin.H{"error": "вы не состоите в команде перевода"})
+		return
+	}
 
 	go func() {
 		defer wg.Done()
@@ -105,15 +72,12 @@ func (h handler) EditTeam(c *gin.Context) { // Это старая функци�
 			return
 		}
 
-		newCover := form.File["cover"][0]
-
-		file, err := newCover.Open()
+		file, err := form.File["cover"][0].Open()
 		if err != nil {
 			log.Println(err)
 			errChan <- err
 			return
 		}
-		defer file.Close()
 
 		data, err := io.ReadAll(file)
 		if err != nil {
@@ -122,10 +86,11 @@ func (h handler) EditTeam(c *gin.Context) { // Это старая функци�
 			return
 		}
 
-		filter := bson.M{"team_id": teamID}
+		filter := bson.M{"team_id": userTeamID}
 		update := bson.M{"$set": bson.M{"cover": data}}
+		opts := options.Update().SetUpsert(true)
 
-		if _, err = h.Collection.UpdateOne(context.TODO(), filter, update); err != nil {
+		if _, err := h.TeamsOnModerationCovers.UpdateOne(context.TODO(), filter, update, opts); err != nil {
 			log.Println(err)
 			errChan <- err
 			return
@@ -134,19 +99,51 @@ func (h handler) EditTeam(c *gin.Context) { // Это старая функци�
 		errChan <- nil
 	}()
 
+	go func() {
+		defer wg.Done()
+
+		if len(form.Value["name"]) == 0 && len(form.Value["description"]) == 0 {
+			errChan <- nil
+			return
+		}
+
+		editedTeam := models.TeamOnModeration{
+			ExistingID: sql.NullInt64{Int64: int64(userTeamID), Valid: true},
+			CreatorID:  claims.ID,
+		}
+
+		if len(form.Value["name"]) != 0 {
+			editedTeam.Name = form.Value["name"][0]
+		}
+		if len(form.Value["description"]) != 0 {
+			editedTeam.Description = form.Value["description"][0]
+		}
+
+		tx.Raw("SELECT id FROM teams_on_moderation WHERE existing_id = ?", userTeamID).Scan(&editedTeam.ID)
+
+		editedTeam.CreatedAt = time.Now() // Попытка обновить уже существующее обращение считается новым обращением, поэтому CreatedAt меняется
+
+		if result := tx.Save(&editedTeam); result.Error != nil {
+			log.Println(result.Error)
+			errChan <- result.Error
+			return
+		}
+
+		errChan <- nil
+	}()
+
 	wg.Wait()
-	close(errChan)
 
 	for i := 0; i < NUMBER_OF_GORUTINES; i++ {
-		err = <-errChan
-		if err != nil {
-			tx.Rollback()
+		if err := <-errChan; err != nil {
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
+			return // любой return в хэндлере так или иначе означает tx.Rollback() (так-как этот метод вызван в defer)
 		}
 	}
 
 	tx.Commit()
 
-	c.JSON(200, gin.H{"success": "команда успешно обновлена"})
+	c.JSON(201, gin.H{"success": "изменения команды успешно отправлены на модерацию"})
 }
+
+// git commit -m "Переделал создание "

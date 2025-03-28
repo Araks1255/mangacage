@@ -16,16 +16,16 @@ type TitleOnModeration struct {
 	Title      Title         `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
 	CreatorID uint
-	Creator   User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
 
 	ModeratorID sql.NullInt64
-	Moderator   User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
 
 	AuthorID sql.NullInt64
-	Author   Author `gorm:"foreignKey:AuthorID;references:id;OnDelete:SET NULL"`
+	Author   *Author `gorm:"foreignKey:AuthorID;references:id;OnDelete:SET NULL"`
 
 	TeamID sql.NullInt64
-	Team   Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
+	Team   *Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
 
 	Genres pq.StringArray `gorm:"type:text[]"`
 }
@@ -40,16 +40,16 @@ type VolumeOnModeration struct {
 	Description string
 
 	ExistingID sql.NullInt64 `gorm:"unique"`
-	Volume     Volume        `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
+	Volume     *Volume       `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
 	TitleID sql.NullInt64
-	Title   Title `gorm:"foreignKey:TitleID;references:id;OnDelete:SET NULL"`
+	Title   *Title `gorm:"foreignKey:TitleID;references:id;OnDelete:SET NULL"`
 
 	CreatorID uint
-	Creator   User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
 
 	ModeratorID sql.NullInt64
-	Moderator   User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
 }
 
 func (VolumeOnModeration) TableName() string {
@@ -63,16 +63,16 @@ type ChapterOnModeration struct {
 	NumberOfPages int
 
 	ExistingID sql.NullInt64 `gorm:"unique"`
-	Chapter    Chapter       `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
+	Chapter    *Chapter      `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
 	VolumeID sql.NullInt64
-	Volume   Volume `gorm:"foreignKey:VolumeID;references:id;OnDelete:SET NULL" json:"-"`
+	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id;OnDelete:SET NULL" json:"-"`
 
 	CreatorID uint
-	Creator   User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
 
 	ModeratorID sql.NullInt64
-	Moderator   User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL" json:"-"`
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL" json:"-"`
 }
 
 func (ChapterOnModeration) TableName() string {
@@ -87,10 +87,10 @@ type UserOnModeration struct {
 	TgUserID      int64
 
 	ExistingID sql.NullInt64 `gorm:"unique"`
-	User       User          `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
+	User       *User         `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
 	TeamID sql.NullInt64
-	Team   Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
+	Team   *Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
 
 	Roles pq.StringArray `gorm:"type:text[]"`
 }
@@ -105,7 +105,10 @@ type TeamOnModeration struct {
 	Description string `json:"description"`
 
 	ExistingID sql.NullInt64 `gorm:"unique"`
-	Team       Team          `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
+	Team       *Team         `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
+
+	CreatorID uint
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:CASCADE"`
 }
 
 func (TeamOnModeration) TableName() string {

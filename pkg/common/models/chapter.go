@@ -13,11 +13,11 @@ type Chapter struct {
 	NumberOfPages int
 
 	VolumeID uint
-	Volume   Volume `gorm:"foreignKey:VolumeID;references:id;OnDelete:SET NULL" json:"-"`
+	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id;OnDelete:SET NULL" json:"-"`
 
 	CreatorID uint
-	Creator   User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
 
 	ModeratorID sql.NullInt64
-	Moderator   User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL" json:"-"`
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL" json:"-"`
 }

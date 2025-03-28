@@ -9,8 +9,8 @@ import (
 )
 
 type handler struct {
-	DB         *gorm.DB
-	Collection *mongo.Collection
+	DB                      *gorm.DB
+	TeamsOnModerationCovers *mongo.Collection
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
@@ -19,11 +19,11 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
-	teamsCoversCollection := client.Database("mangacage").Collection("teams_covers")
+	teamsOnModerationCoversCollection := client.Database("mangacage").Collection("teams_on_moderation_covers")
 
 	h := handler{
-		DB:         db,
-		Collection: teamsCoversCollection,
+		DB:                      db,
+		TeamsOnModerationCovers: teamsOnModerationCoversCollection,
 	}
 
 	privateTeam := r.Group("/teams")
@@ -32,7 +32,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	privateTeam.POST("/", h.CreateTeam)
 	privateTeam.POST("/join/:team", h.JoinTeam)
 	privateTeam.DELETE("/leave", h.LeaveTeam)
-	privateTeam.PUT("/", h.EditTeam)
+	privateTeam.POST("/edit", h.EditTeam)
 
 	publicTeam := r.Group("/teams")
 

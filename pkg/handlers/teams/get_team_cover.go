@@ -25,7 +25,7 @@ func (h handler) GetTeamCover(c *gin.Context) {
 		Cover  []byte `bson:"cover"`
 	}
 
-	if err := h.Collection.FindOne(context.TODO(), filter).Decode(&result); err != nil {
+	if err := h.TeamsOnModerationCovers.FindOne(context.TODO(), filter).Decode(&result); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
