@@ -11,6 +11,7 @@ import (
 type handler struct {
 	DB                      *gorm.DB
 	TeamsOnModerationCovers *mongo.Collection
+	TeamsCovers *mongo.Collection
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
@@ -20,10 +21,12 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	secretKey := viper.Get("SECRET_KEY").(string)
 
 	teamsOnModerationCoversCollection := client.Database("mangacage").Collection("teams_on_moderation_covers")
+	teamsCoversCollection := client.Database("mangacage").Collection("teams_covers")
 
 	h := handler{
 		DB:                      db,
 		TeamsOnModerationCovers: teamsOnModerationCoversCollection,
+		TeamsCovers: teamsCoversCollection,
 	}
 
 	privateTeam := r.Group("/teams")

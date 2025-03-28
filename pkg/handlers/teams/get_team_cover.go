@@ -8,13 +8,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func (h handler) GetTeamCover(c *gin.Context) {
+func (h handler) GetTeamCover(c *gin.Context) { // Это хрень
 	team := c.Param("team")
 
 	var teamID uint
-	h.DB.Raw("SELECT id FROM teams WHERE lower(name) = lower(?)", team).Scan(&teamID)
+	h.DB.Raw("SELECT id FROM teams WHERE name = ?", team).Scan(&teamID)
 	if teamID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "команда не найдена"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "команда перевода не найдена"})
 		return
 	}
 
@@ -25,7 +25,7 @@ func (h handler) GetTeamCover(c *gin.Context) {
 		Cover  []byte `bson:"cover"`
 	}
 
-	if err := h.TeamsOnModerationCovers.FindOne(context.TODO(), filter).Decode(&result); err != nil {
+	if err := h.TeamsCovers.FindOne(context.TODO(), filter).Decode(&result); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
