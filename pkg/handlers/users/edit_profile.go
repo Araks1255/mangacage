@@ -38,10 +38,12 @@ func (h handler) EditProfile(c *gin.Context) {
 	wg.Add(NUMBER_OF_GORUTINES)
 
 	tx := h.DB.Begin()
-	if r := recover(); r != nil {
-		tx.Rollback()
-		panic(r)
-	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
 	var filter bson.M
 	go func() {

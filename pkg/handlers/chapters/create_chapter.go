@@ -100,6 +100,12 @@ func (h handler) CreateChapter(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
 	if result := tx.Create(&chapter); result.Error != nil {
 		tx.Rollback()

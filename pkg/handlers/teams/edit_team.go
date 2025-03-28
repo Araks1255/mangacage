@@ -12,13 +12,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func (h handler) EditTeam(c *gin.Context) {
+func (h handler) EditTeam(c *gin.Context) { // Это старая функция, сейчас буду переделывать, как с транзакциями закончу
 	claims := c.MustGet("claims").(*models.Claims)
 
 	var userRoles []string
 	h.DB.Raw(`SELECT roles.name FROM roles
 		INNER JOIN user_roles ON roles.id = user_roles.role_id
-		WHERE user_roles.user_id = ?`, claims.ID).Scan(&userRoles)
+		WHERE user_roles.user_id = ?`, claims.ID,
+	).Scan(&userRoles)
 
 	if !slices.Contains(userRoles, "team_leader") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "редактировать команду может только её лидер"})
@@ -51,6 +52,12 @@ func (h handler) EditTeam(c *gin.Context) {
 	wg.Add(NUMBER_OF_GORUTINES)
 
 	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
 	go func() {
 		defer wg.Done()

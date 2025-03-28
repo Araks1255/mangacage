@@ -104,10 +104,12 @@ func (h handler) CreateTitle(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
-	if r := recover(); r != nil {
-		tx.Rollback()
-		panic(r)
-	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
 	if result := tx.Create(&title); result.Error != nil {
 		tx.Rollback()

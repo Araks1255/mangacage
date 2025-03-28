@@ -16,8 +16,8 @@ func (h handler) DeleteChapter(c *gin.Context) {
 	var userRoles []string
 	h.DB.Raw(`SELECT roles.name FROM roles
 		INNER JOIN user_roles ON roles.id = user_roles.role_id
-		INNER JOIN users ON user_roles.user_id = users.id 
-		WHERE users.id = ?`, claims.ID).Scan(&userRoles)
+		WHERE user_roles.user_id = ?`, claims.ID,
+	).Scan(&userRoles)
 
 	if isUserTeamLeader := slices.Contains(userRoles, "team_leader"); !isUserTeamLeader {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Вы не являетесь лидером команды перевода"})
@@ -36,19 +36,22 @@ func (h handler) DeleteChapter(c *gin.Context) {
 		AND lower(volumes.name) = lower(?)
 		AND lower(chapters.name) = lower(?)
 		AND NOT chapters.on_moderation`,
-		title,
-		volume,
-		chapter).Row()
+		title, volume, chapter,
+	).Row()
 
 	if err := row.Scan(&titleID, &chapterID); err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+	}
+
+	if chapterID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена"})
 		return
 	}
 
 	var doesUserTeamTranslatesDesiredTitle bool
 	h.DB.Raw("SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)",
-		titleID, claims.ID).Scan(&doesUserTeamTranslatesDesiredTitle)
+		titleID, claims.ID,
+	).Scan(&doesUserTeamTranslatesDesiredTitle)
 
 	if !doesUserTeamTranslatesDesiredTitle {
 		c.AbortWithStatusJSON(403, gin.H{"error": "удалить главу может только команда, выложившая её"})
@@ -56,6 +59,12 @@ func (h handler) DeleteChapter(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
 	if result := tx.Exec("DELETE FROM chapters CASCADE WHERE id = ?", chapterID); result.RowsAffected == 0 {
 		tx.Rollback()
@@ -64,7 +73,7 @@ func (h handler) DeleteChapter(c *gin.Context) {
 		return
 	}
 
-	if result, err := h.ChaptersOnModerationPages.DeleteOne(context.TODO(), bson.M{"chapter_id": chapterID}); result.DeletedCount == 0 {
+	if result, err := h.ChaptersPages.DeleteOne(context.TODO(), bson.M{"chapter_id": chapterID}); result.DeletedCount == 0 {
 		tx.Rollback()
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -73,5 +82,5 @@ func (h handler) DeleteChapter(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(200, gin.H{"success": "Глава успешно удалена"})
+	c.JSON(200, gin.H{"success": "глава успешно удалена"})
 }

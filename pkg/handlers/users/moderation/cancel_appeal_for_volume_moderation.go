@@ -14,10 +14,12 @@ func (h handler) CancelAppealForVolumeModeration(c *gin.Context) {
 	volume := c.Param("volume")
 
 	tx := h.DB.Begin()
-	if r := recover(); r != nil {
-		tx.Rollback()
-		panic(r)
-	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
 	var volumeID uint
 	tx.Raw(

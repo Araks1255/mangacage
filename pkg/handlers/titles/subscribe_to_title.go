@@ -13,9 +13,9 @@ func (h handler) SubscribeToTitle(c *gin.Context) {
 	desiredTitle := c.Param("title")
 
 	var desiredTitleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", desiredTitle).Scan(&desiredTitleID)
+	h.DB.Raw("SELECT id FROM titles WHERE name = ?", desiredTitle).Scan(&desiredTitleID)
 	if desiredTitleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "Тайтл не найден"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
 		return
 	}
 
@@ -25,5 +25,5 @@ func (h handler) SubscribeToTitle(c *gin.Context) {
 		return
 	}
 
-	c.JSON(201, gin.H{"succes": "Вы успешно подписались на тайтл"})
+	c.JSON(201, gin.H{"succes": "вы успешно подписались на тайтл"})
 }

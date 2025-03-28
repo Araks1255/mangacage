@@ -21,7 +21,8 @@ func (h handler) CreateTeam(c *gin.Context) {
 	var userRoles []string
 	h.DB.Raw(`SELECT roles.name FROM roles
 		INNER JOIN user_roles ON roles.id = user_roles.role_id
-		WHERE user_roles.user_id = ?`, claims.ID).Scan(&userRoles)
+		WHERE user_roles.user_id = ?`, claims.ID,
+	).Scan(&userRoles)
 
 	if slices.Contains(userRoles, "team_leader") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "вы уже являетесь владельцем другой команды"})
@@ -51,35 +52,44 @@ func (h handler) CreateTeam(c *gin.Context) {
 		Description: description,
 	}
 
-	transaction := h.DB.Begin()
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
-	if result := transaction.Create(&newTeam); result.Error != nil {
-		transaction.Rollback()
+	if result := tx.Create(&newTeam); result.Error != nil {
+		tx.Rollback()
 		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": "Не удалось создать команду"})
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	if result := transaction.Exec("UPDATE users SET team_id = ? WHERE id = ?", newTeam.ID, claims.ID); result.Error != nil {
-		transaction.Rollback()
+	if result := tx.Exec("UPDATE users SET team_id = ? WHERE id = ?", newTeam.ID, claims.ID); result.Error != nil {
+		tx.Rollback()
 		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": "Не удалось присоеденить вас к команде"})
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	if result := transaction.Exec(`INSERT INTO user_roles (user_id, role_id)
-		VALUES (?, (SELECT id FROM roles WHERE name = 'team_leader')),
+	if result := tx.Exec(
+		`INSERT INTO user_roles (user_id, role_id)
+		VALUES
+		(?, (SELECT id FROM roles WHERE name = 'team_leader')),
 		(?, (SELECT id FROM roles WHERE name = 'translater'))`,
-		claims.ID, claims.ID); result.Error != nil {
-		transaction.Rollback()
+		claims.ID, claims.ID,
+	); result.Error != nil {
+		tx.Rollback()
 		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": "Не удалось назначить вас лидером команды"})
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	transaction.Commit()
+	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "Команда успешно создана, и вы являетесь её лидером"})
+	c.JSON(201, gin.H{"success": "команда успешно создана, и вы являетесь её лидером"})
 
 	cover, err := c.FormFile("cover")
 	if err != nil {

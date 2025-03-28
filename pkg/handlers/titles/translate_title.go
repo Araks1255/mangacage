@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h handler) TranslateTitle(c *gin.Context) {
+func (h handler) TranslateTitle(c *gin.Context) { // Это тоже сейчас поменяю
 	claims := c.MustGet("claims").(*models.Claims)
 
 	var userRoles []string

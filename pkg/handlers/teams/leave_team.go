@@ -20,6 +20,12 @@ func (h handler) LeaveTeam(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		} 
+	}()
 
 	if result := tx.Exec("UPDATE users SET team_id = null WHERE id = ?", claims.ID); result.Error != nil {
 		tx.Rollback()
@@ -37,5 +43,5 @@ func (h handler) LeaveTeam(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(200, gin.H{"success": "Вы успешно покинули команду перевода"})
+	c.JSON(200, gin.H{"success": "вы успешно покинули команду перевода"})
 }

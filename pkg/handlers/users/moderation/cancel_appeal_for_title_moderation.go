@@ -13,10 +13,12 @@ func (h handler) CancelAppealForTitleModeration(c *gin.Context) {
 	title := c.Param("title")
 
 	tx := h.DB.Begin()
-	if r := recover(); r != nil {
-		tx.Rollback()
-		panic(r)
-	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
 	var titleID uint
 	tx.Raw("SELECT id FROM titles_on_moderation WHERE name = ? AND creator_id = ?", title, claims.ID).Scan(&titleID)

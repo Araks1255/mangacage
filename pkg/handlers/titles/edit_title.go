@@ -26,10 +26,12 @@ func (h handler) EditTitle(c *gin.Context) {
 	desiredTitle := c.Param("title")
 
 	tx := h.DB.Begin()
-	if r := recover(); r != nil {
-		tx.Rollback()
-		panic(r)
-	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 	defer tx.Rollback()
 
 	var titleID uint

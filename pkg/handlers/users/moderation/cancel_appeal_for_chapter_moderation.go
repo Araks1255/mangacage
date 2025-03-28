@@ -15,10 +15,12 @@ func (h handler) CancelAppealForChapterModeration(c *gin.Context) {
 	chapter := c.Param("chapter")
 
 	tx := h.DB.Begin()
-	if r := recover(); r != nil {
-		tx.Rollback()
-		panic(r)
-	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
 	var chapterID uint
 	tx.Raw(

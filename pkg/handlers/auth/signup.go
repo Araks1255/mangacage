@@ -54,10 +54,12 @@ func (h handler) Signup(c *gin.Context) {
 	}()
 
 	tx := h.DB.Begin()
-	if r := recover(); r != nil {
-		tx.Rollback()
-		panic(r)
-	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
 
 	var existingUserID uint
 	tx.Raw("SELECT id FROM users WHERE user_name = ?", user.UserName.String).Scan(&existingUserID)
