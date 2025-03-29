@@ -12,22 +12,14 @@ import (
 func (h handler) DeleteTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
-	var requestBody struct {
-		Title string `json:"name" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
-		return
-	}
+	title := c.Param("title")
 
 	var (
 		titleID     uint
 		titleTeamID sql.NullInt64
 	)
 
-	row := h.DB.Raw("SELECT id, team_id FROM titles WHERE lower(name) = lower(?)", requestBody.Title).Row()
+	row := h.DB.Raw("SELECT id, team_id FROM titles WHERE lower(name) = lower(?)", title).Row()
 	row.Scan(&titleID, &titleTeamID)
 
 	if titleID == 0 {
@@ -38,7 +30,7 @@ func (h handler) DeleteTitle(c *gin.Context) {
 	var titleVolumeID uint
 	h.DB.Raw(`SELECT id FROM volumes WHERE title_id = ? LIMIT 1`, titleID).Scan(&titleVolumeID)
 	if titleVolumeID != 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error":"удалить можно только тайтл без томов"})
+		c.AbortWithStatusJSON(409, gin.H{"error": "удалить можно только тайтл без томов"})
 		return
 	}
 
@@ -52,7 +44,7 @@ func (h handler) DeleteTitle(c *gin.Context) {
 
 		if result := h.DB.Exec("DELETE FROM titles WHERE id = ? AND team_id IS NULL", titleID); result.Error != nil {
 			log.Println(result.Error)
-			c.AbortWithStatusJSON(500, gin.H{"error":result.Error.Error()})
+			c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 			return
 		}
 	}
@@ -63,14 +55,14 @@ func (h handler) DeleteTitle(c *gin.Context) {
 		WHERE user_roles.user_id = ?`, claims.ID).Scan(&userRoles)
 
 	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "admin") {
-		c.AbortWithStatusJSON(403, gin.H{"error":"вы не являетесь лидером команды перевода"})
+		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь лидером команды перевода"})
 		return
 	}
 
 	var doesUserTeamTranslatesDesiredTitle bool
 	h.DB.Raw("SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)", titleID, claims.ID).Scan(&doesUserTeamTranslatesDesiredTitle)
 	if !doesUserTeamTranslatesDesiredTitle && !slices.Contains(userRoles, "admin") {
-		c.AbortWithStatusJSON(403, gin.H{"error":"ваша команда не переводит данный тайтл"})
+		c.AbortWithStatusJSON(403, gin.H{"error": "ваша команда не переводит данный тайтл"})
 		return
 	}
 
@@ -78,9 +70,9 @@ func (h handler) DeleteTitle(c *gin.Context) {
 
 	if result := h.DB.Exec("DELETE FROM titles CASCADE WHERE id = ?", titleID); result.Error != nil {
 		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error":result.Error.Error()})
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	c.JSON(200, gin.H{"success":"тайтл успешно удалён"})
+	c.JSON(200, gin.H{"success": "тайтл успешно удалён"})
 }

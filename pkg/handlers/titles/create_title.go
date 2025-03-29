@@ -96,7 +96,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 	}
 
 	title := models.TitleOnModeration{
-		Name:        name,
+		Name:        sql.NullString{String: name, Valid: true},
 		Description: description,
 		CreatorID:   claims.ID,
 		AuthorID:    sql.NullInt64{Int64: int64(authorID), Valid: true},
@@ -143,7 +143,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err = client.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{Name: title.Name, New: true}); err != nil {
+	if _, err = client.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{Name: title.Name.String, New: true}); err != nil {
 		log.Println(err)
 	}
 }

@@ -29,12 +29,12 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		ChaptersPages:             chapterPagesCollection,
 	}
 
-	privateChapter := r.Group("/chapters")
+	privateChapter := r.Group("/chapters/:title/:volume/:chapter")
 	privateChapter.Use(middlewares.AuthMiddleware(secretKey))
 
 	privateChapter.POST("/", h.CreateChapter)
-	privateChapter.POST("/:title/:volume/:chapter/edit", h.EditChapter)
-	privateChapter.DELETE("/:chapter", h.DeleteChapter)
+	privateChapter.POST("/edit", h.EditChapter)
+	privateChapter.DELETE("/", h.DeleteChapter)
 
 	publicChapter := r.Group("/chapters/:title/:volume")
 

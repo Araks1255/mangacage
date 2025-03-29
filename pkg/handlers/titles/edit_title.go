@@ -121,7 +121,7 @@ func (h handler) EditTitle(c *gin.Context) {
 		editedTitle.CreatorID = claims.ID // В creator_id будет записываться id того, кто отправил на модерацию (создатель записи на модерации, в целом логично)
 
 		if len(values["name"]) != 0 {
-			editedTitle.Name = values["name"][0]
+			editedTitle.Name = sql.NullString{String: values["name"][0], Valid: true}
 		}
 		if len(values["description"]) != 0 {
 			editedTitle.Description = values["description"][0]

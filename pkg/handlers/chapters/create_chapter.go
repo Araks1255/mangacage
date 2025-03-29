@@ -45,8 +45,9 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	title := form.Value["title"][0]
-	volume := form.Value["volume"][0]
+	title := c.Param("title")
+	volume := c.Param("volume")
+
 	name := form.Value["name"][0]
 
 	var description string

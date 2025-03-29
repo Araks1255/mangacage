@@ -2,6 +2,7 @@ package teams
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"log"
 	"slices"
@@ -28,6 +29,13 @@ func (h handler) CreateTeam(c *gin.Context) {
 	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
 	if userTeamID != 0 {
 		c.AbortWithStatusJSON(403, gin.H{"error": "вы уже состоите в другой команде"})
+		return
+	}
+
+	var teamCreatedByUserID uint // Команда созданная пользователем
+	h.DB.Raw("SELECT id FROM teams_on_moderation WHERE creator_id = ? LIMIT 1", claims.ID).Scan(&teamCreatedByUserID)
+	if teamCreatedByUserID != 0 {
+		c.AbortWithStatusJSON(403, gin.H{"error": "команда, созданная вами, уже ожидает модерации"})
 		return
 	}
 
@@ -95,7 +103,7 @@ func (h handler) CreateTeam(c *gin.Context) {
 	}
 
 	newTeam := models.TeamOnModeration{
-		Name:        name,
+		Name:        sql.NullString{String: name, Valid: true},
 		Description: description,
 		CreatorID:   claims.ID,
 	}

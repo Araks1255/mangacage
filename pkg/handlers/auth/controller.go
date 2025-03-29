@@ -7,17 +7,11 @@ import (
 )
 
 type handler struct {
-	DB         *gorm.DB
-	Collection *mongo.Collection
+	DB *gorm.DB
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
-	usersProfilePicturesCollection := client.Database("mangacage").Collection("users_on_moderation_profile_pictures")
-
-	h := handler{
-		DB:         db,
-		Collection: usersProfilePicturesCollection,
-	}
+	h := handler{DB: db}
 
 	r.POST("/signup", h.Signup)
 	r.POST("/login", h.Login)

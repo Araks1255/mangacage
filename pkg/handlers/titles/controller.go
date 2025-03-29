@@ -41,5 +41,5 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	publicTitle.GET("/most_popular/:limit", h.GetMostPopularTitles)
 	publicTitle.GET("/recently_updated/:limit", h.GetRecentlyUpdatedTitles)
 	publicTitle.GET("/new/:limit", h.GetNewTitles)
-	publicTitle.GET(":title/inf", h.GetTitle)
+	publicTitle.GET("/:title/inf", h.GetTitle)
 }

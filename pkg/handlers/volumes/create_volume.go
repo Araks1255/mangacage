@@ -15,8 +15,9 @@ import (
 func (h handler) CreateVolume(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
+	title := c.Param("title")
+
 	var requestBody struct {
-		Title       string `json:"title" binding:"required"`
 		Name        string `json:"name" binding:"required"`
 		Description string `json:"description"`
 	}
@@ -28,7 +29,7 @@ func (h handler) CreateVolume(c *gin.Context) {
 	}
 
 	var titleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", requestBody.Title).Scan(&titleID)
+	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", title).Scan(&titleID)
 	if titleID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
 		return

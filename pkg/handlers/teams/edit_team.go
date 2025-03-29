@@ -15,7 +15,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func (h handler) EditTeam(c *gin.Context) { // Это старая функция, сейчас буду переделывать, как с транзакциями закончу
+func (h handler) EditTeam(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
 	var userRoles []string
@@ -113,7 +113,7 @@ func (h handler) EditTeam(c *gin.Context) { // Это старая функци�
 		}
 
 		if len(form.Value["name"]) != 0 {
-			editedTeam.Name = form.Value["name"][0]
+			editedTeam.Name = sql.NullString{String: form.Value["name"][0], Valid: true}
 		}
 		if len(form.Value["description"]) != 0 {
 			editedTeam.Description = form.Value["description"][0]

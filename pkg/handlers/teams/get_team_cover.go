@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func (h handler) GetTeamCover(c *gin.Context) { // Это хрень
+func (h handler) GetTeamCover(c *gin.Context) {
 	team := c.Param("team")
 
 	var teamID uint
