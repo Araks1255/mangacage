@@ -3,21 +3,19 @@ package search
 import (
 	"fmt"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 type Chapter struct {
-	ID uint
-	CreatedAt time.Time
-	Name string
-	Description string
+	ID            uint
+	CreatedAt     time.Time
+	Name          string
+	Description   string
 	NumberOfPages int
-	Volume string
-	Title string
+	Volume        string
+	Title         string
 }
 
-func (h handler) SearchChapters(query string, limit int) (chapters *[]Chapter, quantity string){
+func (h handler) SearchChapters(query string, limit int) (chapters *[]Chapter, quantity int) {
 	var result []Chapter
 
 	h.DB.Raw(
@@ -31,4 +29,4 @@ func (h handler) SearchChapters(query string, limit int) (chapters *[]Chapter, q
 	).Scan(&result)
 
 	return &result, len(result)
-}	
+}
