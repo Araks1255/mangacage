@@ -1,36 +1,39 @@
 package search
 
 import (
+	"github.com/lib/pq"
 	"fmt"
-
-	"github.com/gin-gonic/gin"
+	"time"
 )
 
-func (h handler) SearchTitles(c *gin.Context) {
-	query := c.Param("query")
+type Title struct {
+	ID uint
+	CreatedAt time.Time
+	Name string
+	Description string
+	Author string
+	Team string
+	Genres pq.StringArray
+}
 
-	type result struct {
-		Title  string `gorm:"column:name"`
-		Author string `gorm:"column:name"`
-	}
+func (h handler) SearchTitles(query string, limit int) (titles *[]Title, quantity int) {
+	var result []Title
 
-	var results []result
-	h.DB.Raw(`SELECT titles.name, authors.name FROM titles
-		INNER JOIN authors ON titles.author_id = authors.id
-		WHERE lower(titles.name) ILIKE lower(?)
-		AND NOT titles.on_moderation`,
-		fmt.Sprintf("%%%s%%", query),
-	).Scan(&results)
+	h.DB.Raw(
+		`SELECT t.id, t.created_at, t.name, t.description, authors.name AS author, teams.name AS team,
+		(
+			SELECT ARRAY(
+				SELECT genres.name FROM genres
+				INNER JOIN title_genres ON genres.id = title_genres.genre_id
+				INNER JOIN titles ON title_genres.title_id = titles.id
+				WHERE titles.id = t.id
+			) AS genres
+		) FROM titles AS t
+		INNER JOIN authors ON authors.id = t.author_id
+		LEFT JOIN teams ON teams.id = t.team_id
+		WHERE lower(t.name) ILIKE lower(?)
+		LIMIT ?`, fmt.Sprintf("%%%s%%", query), limit,
+	).Scan(&result)
 
-	if len(results) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено тайтлов по вашему запросу"})
-		return
-	}
-
-	response := make(map[int]result, len(results))
-	for i := 0; i < len(results); i++ {
-		response[i] = results[i]
-	}
-
-	c.JSON(200, &response)
+	return &result, len(result)
 }

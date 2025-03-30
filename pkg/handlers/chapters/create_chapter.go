@@ -40,8 +40,8 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	if len(form.Value["title"]) == 0 || len(form.Value["volume"]) == 0 || len(form.Value["name"]) == 0 || len(form.File["pages"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает названия тайтла, тома, главы или страниц главы"})
+	if len(form.Value["name"]) == 0 || len(form.File["pages"]) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает названия или страниц главы"})
 		return
 	}
 

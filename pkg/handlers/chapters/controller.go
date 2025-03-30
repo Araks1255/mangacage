@@ -29,17 +29,19 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		ChaptersPages:             chapterPagesCollection,
 	}
 
-	privateChapter := r.Group("/chapters/:title/:volume/:chapter")
+	privateChapter := r.Group("/api/chapters/:title/:volume/:chapter")
 	privateChapter.Use(middlewares.AuthMiddleware(secretKey))
+	{
+		privateChapter.POST("/", h.CreateChapter)
+		privateChapter.DELETE("/", h.DeleteChapter)
+		privateChapter.POST("/edited", h.EditChapter) // Тут идёт создание отредактированной главы (прямо отдельная сущность в отдельной таблице базы данных), поэтому post а не put
+	}
 
-	privateChapter.POST("/", h.CreateChapter)
-	privateChapter.POST("/edit", h.EditChapter)
-	privateChapter.DELETE("/", h.DeleteChapter)
+	publicChapter := r.Group("api/chapters/:title/:volume")
+	{
+		publicChapter.GET("/:chapter", h.GetChapter)
+		publicChapter.GET("/", h.GetVolumeChapters)
+	}
 
-	publicChapter := r.Group("/chapters/:title/:volume")
-
-	publicChapter.GET("/:chapter/inf", h.GetChapter)
-	publicChapter.GET("/", h.GetVolumeChapters)
-
-	r.GET("/chapters/id/:id/page/:page", h.GetChapterPage)
+	r.GET("api/chapters/id/:id/page/:page", h.GetChapterPage)
 }

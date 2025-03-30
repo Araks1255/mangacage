@@ -2,37 +2,33 @@ package search
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-func (h handler) SearchChapters(c *gin.Context) {
-	query := c.Param("query")
-
-	type result struct {
-		Title   string `gorm:"column:name"`
-		Volume  string `gorm:"column:name"`
-		Chapter string `gorm:"column:name"`
-	}
-
-	var results []result
-	h.DB.Raw(`SELECT titles.name, volumes.name, chapters.name FROM chapters
-		INNER JOIN volumes ON chapters.volume_id = volumes.id
-		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE lower(chapters.name) ILIKE lower(?)
-		AND NOT chapters.on_moderation`,
-		fmt.Sprintf("%%%s%%", query),
-	).Scan(&results)
-
-	if len(results) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено глав по вашему запросу"})
-		return
-	}
-
-	response := make(map[int]result, len(results))
-	for i := 0; i < len(results); i++ {
-		response[i] = results[i]
-	}
-
-	c.JSON(200, &response)
+type Chapter struct {
+	ID uint
+	CreatedAt time.Time
+	Name string
+	Description string
+	NumberOfPages int
+	Volume string
+	Title string
 }
+
+func (h handler) SearchChapters(query string, limit int) (chapters *[]Chapter, quantity string){
+	var result []Chapter
+
+	h.DB.Raw(
+		`SELECT c.id, c.created_at, c.name, c.description, c.number_of_pages,
+		volumes.name AS volume, titles.name AS title
+		FROM chapters AS c
+		INNER JOIN volumes ON volumes.id = c.volume_id
+		INNER JOIN titles ON titles.id = volumes.title_id
+		WHERE lower(c.name) ILIKE lower(?)
+		LIMIT ?`, fmt.Sprintf("%%%s%%", query), limit,
+	).Scan(&result)
+
+	return &result, len(result)
+}	
