@@ -2,24 +2,30 @@ package search
 
 import (
 	"fmt"
-
-	"github.com/gin-gonic/gin"
+	"time"
 )
 
-func (h handler) SearchTeams(c *gin.Context) {
-	query := c.Param("query")
+type Team struct {
+	ID          uint
+	CreatedAt   time.Time
+	Name        string
+	Description string
+	Leader      string
+}
 
-	var teams []string
-	h.DB.Raw("SELECT name FROM teams WHERE lower(name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", query)).Scan(&teams)
-	if len(teams) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено команд перевода по вашему запросу"})
-		return
-	}
+func (h handler) SearchTeams(query string, limit int) (teams *[]Team, quantity int) {
+	var result []Team
 
-	response := make(map[int]string, len(teams))
-	for i := 0; i < len(teams); i++ {
-		response[i] = teams[i]
-	}
+	h.DB.Raw(
+		`SELECT t.id, t.created_at, t.name, t.description, users.user_name AS leader
+		FROM teams AS t
+		INNER JOIN users ON t.id = users.team_id
+		INNER JOIN user_roles ON users.id = user_roles.user_id
+		INNER JOIN roles ON user_roles.role_id = roles.id
+		WHERE roles.name = 'team_leader'
+		AND lower(t.name) ILIKE lower(?)
+		LIMIT ?`, fmt.Sprintf("%%%s%%", query), limit,
+	).Scan(&result)
 
-	c.JSON(200, &response)
+	return &result, len(result)
 }

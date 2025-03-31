@@ -2,35 +2,27 @@ package search
 
 import (
 	"fmt"
-
-	"github.com/gin-gonic/gin"
+	"time"
 )
 
-func (h handler) SearchVolumes(c *gin.Context) {
-	query := c.Param("query")
+type Volume struct {
+	ID          uint
+	CreatedAt   time.Time
+	Name        string
+	Description string
+	Title       string
+}
 
-	type result struct {
-		Title  string `gorm:"column:name"`
-		Volume string `gorm:"column:name"`
-	}
+func (h handler) SearchVolumes(query string, limit int) (volumes *[]Volume, quantity int) {
+	var result []Volume
 
-	var results []result
-	h.DB.Raw(`SELECT titles.name, volumes.name FROM volumes
-	INNER JOIN titles ON volumes.title_id = titles.id
-	WHERE lower(volumes.name) ILIKE lower(?)
-	AND NOT volumes.on_moderation`,
-		fmt.Sprintf("%%%s%%", query),
-	).Scan(&results)
+	h.DB.Raw(
+		`SELECT v.id, v.created_at, v.name, v.description, titles.name AS title
+		FROM volumes AS v
+		INNER JOIN titles ON titles.id = v.title_id
+		WHERE lower(v.name) ILIKE lower(?)
+		LIMIT ?`, fmt.Sprintf("%%%s%%", query), limit,
+	).Scan(&result)
 
-	if len(results) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено томов по вашему запросу"})
-		return
-	}
-
-	response := make(map[int]result, len(results))
-	for i := 0; i < len(results); i++ {
-		response[i] = results[i]
-	}
-
-	c.JSON(200, &response)
+	return &result, len(result)
 }

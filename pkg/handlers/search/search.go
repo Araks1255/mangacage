@@ -22,15 +22,29 @@ func (h handler) Search(c *gin.Context) {
 	}
 
 	var (
-		result any
+		result   any
 		quantity int
 	)
 
 	switch searchingType {
-	case "title":
+	case "titles":
 		result, quantity = h.SearchTitles(query, limit)
-	case "chapter":
+
+	case "chapters":
 		result, quantity = h.SearchChapters(query, limit)
+
+	case "volumes":
+		result, quantity = h.SearchVolumes(query, limit)
+
+	case "teams":
+		result, quantity = h.SearchTeams(query, limit)
+
+	case "authors":
+		result, quantity = h.SearchAuthors(query, limit)
+
+	default:
+		c.AbortWithStatusJSON(400, gin.H{"error": "недопустимая область поиска"})
+		return
 	}
 
 	if quantity == 0 {

@@ -3,23 +3,31 @@ package search
 import (
 	"fmt"
 
-	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 )
 
-func (h handler) SearchAuthors(c *gin.Context) {
-	query := c.Param("query")
+type Author struct {
+	ID     uint
+	Name   string
+	About  string
+	Genres pq.StringArray `gorm:"type:TEXT[]"`
+}
 
-	var authors []string
-	h.DB.Raw("SELECT name FROM authors WHERE lower(name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", query)).Scan(&authors)
-	if len(authors) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено авторов по вашему запросу"})
-		return
-	}
+func (h handler) SearchAuthors(query string, limit int) (authors *[]Author, quantity int) {
+	var result []Author
 
-	response := make(map[int]string, len(authors))
-	for i := 0; i < len(authors); i++ {
-		response[i] = authors[i]
-	}
+	h.DB.Raw(
+		`SELECT a.id, a.name, a.about,
+		(
+			SELECT ARRAY(
+				SELECT genres.name FROM genres
+				INNER JOIN author_genres ON genres.id = author_genres.genre_id
+				WHERE author_genres.author_id = a.id
+			) AS genres
+		) FROM authors AS a
+		WHERE lower(a.name) ILIKE lower(?)
+		LIMIT ?`, fmt.Sprintf("%%%s%%", query), limit,
+	).Scan(&result)
 
-	c.JSON(200, &response)
+	return &result, len(result)
 }
