@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"io"
 	"log"
+	"net/http"
 	"slices"
-	"sync"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	pb "github.com/Araks1255/mangacage_protos"
@@ -23,57 +23,97 @@ type ChapterPages struct {
 func (h handler) CreateChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 500<<20)
+
 	var userRoles []string
 	h.DB.Raw(`SELECT roles.name FROM roles
 		INNER JOIN user_roles ON roles.id = user_roles.role_id
-		WHERE user_roles.user_id = ?`, claims.ID).Scan(&userRoles)
+		WHERE user_roles.user_id = ?`, claims.ID,
+	).Scan(&userRoles)
 
 	if !slices.Contains(userRoles, "team_leader") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "Добавлять главы может только лидер команды"})
 		return
 	}
 
-	form, err := c.MultipartForm()
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+	contentType := c.Request.Header.Get("Content-Type")
+	if contentType[:19] != "multipart/form-data" {
+		c.AbortWithStatusJSON(400, gin.H{"error": "тип тела запроса должен быть multipart/form-data"})
 		return
 	}
 
-	if len(form.Value["name"]) == 0 || len(form.File["pages"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает названия или страниц главы"})
+	reader, err := c.Request.MultipartReader()
+	if err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	var name, description string
+
+	var chapterPages ChapterPages
+	chapterPages.Pages = make([][]byte, 0, 50)
+
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		if part.FileName() != "" && part.FormName() == "pages" {
+			data, err := io.ReadAll(part)
+			if err != nil {
+				log.Println(err)
+				c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+				return
+			}
+
+			chapterPages.Pages = append(chapterPages.Pages, data)
+		}
+
+		if part.FormName() == "name" || part.FormName() == "description" {
+			data, err := io.ReadAll(part)
+			if err != nil {
+				log.Println(err)
+				c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+				return
+			}
+
+			if part.FormName() == "name" {
+				name = string(data)
+			} else {
+				description = string(data)
+			}
+		}
+	}
+
+	if name == "" || len(chapterPages.Pages) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает страниц главы или её названия"})
 		return
 	}
 
 	title := c.Param("title")
 	volume := c.Param("volume")
 
-	name := form.Value["name"][0]
-
-	var description string
-	if len(form.Value["description"]) != 0 {
-		description = form.Value["description"][0]
-	}
-
-	pages := form.File["pages"]
-
 	var titleID, volumeID uint
-	row := h.DB.Raw(`SELECT titles.id, volumes.id FROM titles
-		INNER JOIN volumes ON titles.id = volumes.title_id
-		WHERE lower(titles.name) = lower(?)
-		AND lower(volumes.name) = lower(?)
-		AND NOT titles.on_moderation
-		AND NOT volumes.on_moderation`, title, volume).Row()
+
+	row := h.DB.Raw(
+		`SELECT titles.id, volumes.id FROM volumes
+		INNER JOIN titles ON titles.id = volumes.title_id
+		WHERE titles.name = ?
+		AND volumes.name = ?`,
+		title, volume,
+	).Row()
 
 	row.Scan(&titleID, &volumeID)
 
-	if titleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
-		return
-	}
-
 	if volumeID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл или том не найден"})
 		return
 	}
 
@@ -95,7 +135,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 	chapter := models.ChapterOnModeration{
 		Name:          name,
 		Description:   description,
-		NumberOfPages: len(pages),
+		NumberOfPages: len(chapterPages.Pages),
 		VolumeID:      sql.NullInt64{Int64: int64(volumeID), Valid: true},
 		CreatorID:     claims.ID,
 	}
@@ -107,66 +147,17 @@ func (h handler) CreateChapter(c *gin.Context) {
 			panic(r)
 		}
 	}()
+	defer tx.Rollback()
 
 	if result := tx.Create(&chapter); result.Error != nil {
-		tx.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	chapterPages := ChapterPages{
-		ChapterID: chapter.ID,
-		Pages:     make([][]byte, len(pages), len(pages)),
-	}
-
-	errChan := make(chan error, len(pages))
-	var wg sync.WaitGroup
-	wg.Add(len(pages))
-
-	for i := 0; i < len(pages); i++ {
-		go func(index int) {
-			defer wg.Done()
-
-			page := pages[index]
-
-			file, err := page.Open()
-			if err != nil {
-				errChan <- err
-				file.Close()
-				log.Println(err)
-				return
-			}
-			defer file.Close()
-
-			data, err := io.ReadAll(file)
-			if err != nil {
-				errChan <- err
-				log.Println(err)
-				return
-			}
-
-			chapterPages.Pages[index] = data
-
-			errChan <- nil
-		}(i)
-
-	}
-
-	wg.Wait()
-
-	for i := 0; i < len(errChan); i++ {
-		err = <-errChan
-		if err != nil {
-			tx.Rollback()
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
-		}
-	}
+	chapterPages.ChapterID = chapter.ID
 
 	if _, err := h.ChaptersOnModerationPages.InsertOne(context.Background(), chapterPages); err != nil {
-		tx.Rollback()
 		c.AbortWithStatusJSON(500, gin.H{"error": err})
 		return
 	}
