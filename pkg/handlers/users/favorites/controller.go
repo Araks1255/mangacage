@@ -19,21 +19,29 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 
 	h := handler{DB: db}
 
-	privateFavorites := r.Group("/home/favorites")
+	privateFavorites := r.Group("api/home/favorites")
 	privateFavorites.Use(middlewares.AuthMiddleware(secretKey))
+	{
+		privateFavoriteTitles := privateFavorites.Group("/titles")
+		{
+			privateFavoriteTitles.POST("/", h.AddTitleToFavorites)
+			privateFavoriteTitles.GET("/", h.GetFavoriteTitles)
+			privateFavoriteTitles.DELETE("/:title", h.DeleteTitleFromFavorites)
+		}
 
-	privateFavoriteTitles := privateFavorites.Group("/titles")
-	privateFavoriteTitles.POST("/", h.AddTitleToFavorites)
-	privateFavoriteTitles.GET("/", h.GetFavoriteTitles)
-	privateFavoriteTitles.DELETE("/", h.DeleteTitleFromFavorites)
+		privateFavoriteChapters := privateFavorites.Group("/chapters")
+		{
+			privateFavoriteChapters.POST("/", h.AddChapterToFavorites)
+			privateFavoriteChapters.GET("/", h.GetFavoriteChapters)
+			privateFavoriteChapters.DELETE("/:title/:volume/:chapter", h.DeleteChapterFromFavorites)
+		}
 
-	privateFavoriteChapters := privateFavorites.Group("/chapters")
-	privateFavoriteChapters.POST("/", h.AddChapterToFavorites)
-	privateFavoriteChapters.GET("/", h.GetFavoriteChapters)
-	privateFavoriteChapters.DELETE("/", h.DeleteChapterFromFavorites)
+		privateFavoriteGenres := privateFavorites.Group("/genres")
+		{
+			privateFavoriteGenres.POST("/", h.AddGenreToFavorites)
+			privateFavoriteGenres.GET("/", h.GetFavoriteGenres)
+			privateFavoriteGenres.DELETE("/:genre", h.DeleteGenreFromFavorites)
+		}
+	}
 
-	privateFavoriteGenres := privateFavorites.Group("/genres")
-	privateFavoriteGenres.POST("/", h.AddGenreToFavorites)
-	privateFavoriteGenres.GET("/", h.GetFavoriteGenres)
-	privateFavoriteGenres.DELETE("/", h.DeleteGenreFromFavorites)
 }

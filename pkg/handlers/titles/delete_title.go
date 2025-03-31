@@ -19,8 +19,10 @@ func (h handler) DeleteTitle(c *gin.Context) {
 		titleTeamID sql.NullInt64
 	)
 
-	row := h.DB.Raw("SELECT id, team_id FROM titles WHERE lower(name) = lower(?)", title).Row()
-	row.Scan(&titleID, &titleTeamID)
+	row := h.DB.Raw("SELECT id, team_id FROM titles WHERE name = ?", title).Row()
+	if err := row.Scan(&titleID, &titleTeamID); err != nil {
+		log.Println(err)
+	}
 
 	if titleID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": " тайтл не найден"})

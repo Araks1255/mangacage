@@ -29,15 +29,17 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		TeamsCovers:             teamsCoversCollection,
 	}
 
-	privateTeam := r.Group("/teams")
+	privateTeam := r.Group("api/teams")
 	privateTeam.Use(middlewares.AuthMiddleware(secretKey))
+	{
+		privateTeam.POST("/", h.CreateTeam)
+		privateTeam.PUT("/:team/join", h.JoinTeam) // Глаголы в маршрутах вроде являются плохой практикой, но выдумывать какие-то "/team/members/self" с post запросом для "создания себя как участника команды" я не очень хочу.
+		privateTeam.DELETE("/self/leave", h.LeaveTeam)
+		privateTeam.POST("/self/edited", h.EditTeam) // Редактирование команды подразумевает создание отредактированной команды. Поэтому post. И ещё self добавил, для явного указания того, что команда ищется по юзеру, совершившему запрос (не уверен, что это нормальная практика, но вроде не плохая)
+	}
 
-	privateTeam.POST("/", h.CreateTeam)
-	privateTeam.POST("/:team/join", h.JoinTeam)
-	privateTeam.DELETE("/leave", h.LeaveTeam)
-	privateTeam.POST("/edit", h.EditTeam)
-
-	publicTeam := r.Group("/teams")
-
-	publicTeam.GET("/:team/cover", h.GetTeamCover)
+	publicTeam := r.Group("api/teams")
+	{
+		publicTeam.GET("/:team/cover", h.GetTeamCover)
+	}
 }

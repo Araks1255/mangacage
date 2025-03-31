@@ -26,11 +26,16 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		Collection: usersOnModerationProfilePictures,
 	}
 
-	privateUser := r.Group("/home")
+	privateUser := r.Group("/api/home")
 	privateUser.Use(middlewares.AuthMiddleware(secretKey))
+	{
+		privateUser.GET("/viewed_chapters", h.GetViewedChapters)
 
-	privateUser.GET("/viewed_chapters/inf", h.GetViewedChapters)
-	privateUser.GET("profile/inf", h.GetSelfProfile)
-	privateUser.GET("/profile/profile_picture", h.GetSelfProfilePicture)
-	privateUser.POST("/profile/edit", h.EditProfile)
+		profile := privateUser.Group("/profile")
+		{
+			profile.GET("/", h.GetSelfProfile)
+			profile.GET("/picture", h.GetSelfProfilePicture)
+			profile.POST("/edited", h.EditProfile)
+		}
+	}
 }

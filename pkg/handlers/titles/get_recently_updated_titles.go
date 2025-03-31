@@ -3,30 +3,43 @@ package titles
 import (
 	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetRecentlyUpdatedTitles(c *gin.Context) {
-	limit, err := strconv.Atoi(c.Param("limit"))
-	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error":err.Error()})
-		return
+	limit := 10
+
+	if c.Query("limit") != "" {
+		var err error
+		limit, err = strconv.Atoi(c.Query("limit"))
+		if err != nil {
+			c.AbortWithStatusJSON(400, gin.H{"error": "лимит должен быть числом"})
+			return
+		}
 	}
 
-	var titles []string
-	h.DB.Raw(`SELECT titles.name FROM chapters
-		INNER JOIN volumes ON chapters.volume_id = volumes.id
-		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE NOT titles.on_moderation
-		ORDER BY chapters.updated_at DESC
-		LIMIT ?`, limit).Scan(&titles)
+	var titles []struct {
+		ID     uint
+		Name   string
+		Author string
+		Team   string
+	}
+
+	h.DB.Raw(
+		`SELECT t.id, t.name, a.name AS author, teams.name AS team
+		FROM titles AS t
+		INNER JOIN volumes AS v ON t.id = v.title_id
+		INNER JOIN chapters AS c ON v.id = c.volume_id
+		INNER JOIN authors AS a ON a.id = t.author_id
+		INNER JOIN teams ON teams.id = t.team_id
+		ORDER BY c.updated_at DESC
+		LIMIT ?`, limit,
+	).Scan(&titles)
 
 	if len(titles) == 0 { // Ну мало ли
-		c.AbortWithStatusJSON(404, gin.H{"error":"не найдено недавно обновлённых тайтлов"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено недавно обновлённых тайтлов"})
 		return
 	}
 
-	response := utils.ConvertToMap(titles)
-	c.JSON(200, &response)
+	c.JSON(200, &titles)
 }

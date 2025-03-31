@@ -26,20 +26,23 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		Collection: titlesCoversCollection,
 	}
 
-	privateTitle := r.Group("/titles")
+	privateTitle := r.Group("/api/titles")
 	privateTitle.Use(middlewares.AuthMiddleware(secretKey))
+	{
+		privateTitle.POST("/", h.CreateTitle)
+		privateTitle.PUT("/:title/translate", h.TranslateTitle)
+		privateTitle.POST("/:title/subscribe", h.SubscribeToTitle)
+		privateTitle.POST("/:title/edited", h.EditTitle)
+		privateTitle.DELETE("/:title", h.DeleteTitle)
+		privateTitle.PUT("/:title/quit", h.QuitTranslatingTitle)
+	}
 
-	privateTitle.POST("/", h.CreateTitle)
-	privateTitle.POST("/:title/translate", h.TranslateTitle)
-	privateTitle.POST("/:title/subscribe", h.SubscribeToTitle)
-	privateTitle.POST("/:title/edit", h.EditTitle)
-	privateTitle.DELETE("/", h.DeleteTitle)
-	privateTitle.PUT("/:title/quit", h.QuitTranslatingTitle)
-
-	publicTitle := r.Group("/titles")
-	publicTitle.GET("/:title/cover", h.GetTitleCover)
-	publicTitle.GET("/most_popular/:limit", h.GetMostPopularTitles)
-	publicTitle.GET("/recently_updated/:limit", h.GetRecentlyUpdatedTitles)
-	publicTitle.GET("/new/:limit", h.GetNewTitles)
-	publicTitle.GET("/:title/inf", h.GetTitle)
+	publicTitle := r.Group("/api/titles")
+	{
+		publicTitle.GET("/:title/cover", h.GetTitleCover)
+		publicTitle.GET("/most_popular", h.GetMostPopularTitles)
+		publicTitle.GET("/recently_updated", h.GetRecentlyUpdatedTitles)
+		publicTitle.GET("/new", h.GetNewTitles)
+		publicTitle.GET("/:title", h.GetTitle)
+	}
 }

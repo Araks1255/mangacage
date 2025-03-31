@@ -19,8 +19,8 @@ func (h handler) DeleteChapter(c *gin.Context) {
 		WHERE user_roles.user_id = ?`, claims.ID,
 	).Scan(&userRoles)
 
-	if isUserTeamLeader := slices.Contains(userRoles, "team_leader"); !isUserTeamLeader {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Вы не являетесь лидером команды перевода"})
+	if !slices.Contains(userRoles, "team_leader") {
+		c.AbortWithStatusJSON(403, gin.H{"error": "удалять главы могут только лидеры команд перевода"})
 		return
 	}
 
@@ -29,13 +29,13 @@ func (h handler) DeleteChapter(c *gin.Context) {
 	chapter := c.Param("chapter")
 
 	var titleID, chapterID uint
-	row := h.DB.Raw(`SELECT titles.id, chapters.id FROM chapters
+	row := h.DB.Raw(
+		`SELECT titles.id, chapters.id FROM chapters
 		INNER JOIN volumes ON chapters.volume_id = volumes.id
 		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE lower(titles.name) = lower(?)
-		AND lower(volumes.name) = lower(?)
-		AND lower(chapters.name) = lower(?)
-		AND NOT chapters.on_moderation`,
+		WHERE titles.name = ?
+		AND volumes.name = ?
+		AND chapters.name = ?`,
 		title, volume, chapter,
 	).Row()
 
@@ -49,7 +49,8 @@ func (h handler) DeleteChapter(c *gin.Context) {
 	}
 
 	var doesUserTeamTranslatesDesiredTitle bool
-	h.DB.Raw("SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)",
+	h.DB.Raw(
+		"SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)",
 		titleID, claims.ID,
 	).Scan(&doesUserTeamTranslatesDesiredTitle)
 
@@ -65,16 +66,15 @@ func (h handler) DeleteChapter(c *gin.Context) {
 			panic(r)
 		}
 	}()
+	defer tx.Rollback()
 
 	if result := tx.Exec("DELETE FROM chapters CASCADE WHERE id = ?", chapterID); result.RowsAffected == 0 {
-		tx.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
 	if result, err := h.ChaptersPages.DeleteOne(context.TODO(), bson.M{"chapter_id": chapterID}); result.DeletedCount == 0 {
-		tx.Rollback()
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
