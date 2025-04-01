@@ -56,34 +56,31 @@ func (h handler) Signup(c *gin.Context) {
 	tx := h.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+
 			panic(r)
 		}
 	}()
+	defer tx.Rollback()
 
 	var existingUserID uint
 	tx.Raw("SELECT id FROM users WHERE user_name = ?", user.UserName.String).Scan(&existingUserID)
 	if existingUserID != 0 {
-		tx.Rollback()
 		c.AbortWithStatusJSON(403, gin.H{"error": "пользователь с таким именем уже существует"})
 		return
 	}
 
 	tx.Raw("SELECT id FROM users_on_moderation WHERE user_name = ?", user.UserName.String).Scan(&existingUserID)
 	if existingUserID != 0 {
-		tx.Rollback()
 		c.AbortWithStatusJSON(403, gin.H{"error": "пользователь с таким именем уже ожидает верификации"})
 		return
 	}
 
 	if err = <-errChan; err != nil {
-		tx.Rollback()
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
 	if result := tx.Create(&user); result.Error != nil {
-		tx.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return

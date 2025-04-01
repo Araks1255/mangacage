@@ -37,9 +37,9 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	{
 		profile := moderation.Group("/profile")
 		{
-			profile.GET("/", h.GetSelfProfileChangesOnModeration)
+			profile.GET("/edited", h.GetSelfProfileChangesOnModeration)
 			profile.GET("/picture", h.GetSelfProfilePictureOnModeration)
-			// Отмена обращения
+			profile.DELETE("/edited", h.CancelAppealForProfileChanges)
 		}
 
 		titles := moderation.Group("/titles")
@@ -54,8 +54,8 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		{
 			chapters.GET("/new", h.GetSelfNewChaptersOnModeration)
 			chapters.GET("/edited", h.GetSelfEditedChaptersOnModeration)
-			chapters.DELETE("/:title/:volume/:chapter", h.CancelAppealForChapterModeration)
 			chapters.GET("/:title/:volume/:chapter/:page", h.GetSelfChapterOnModerationPage)
+			chapters.DELETE("/:title/:volume/:chapter", h.CancelAppealForChapterModeration)
 		}
 
 		volumes := moderation.Group("/volumes")

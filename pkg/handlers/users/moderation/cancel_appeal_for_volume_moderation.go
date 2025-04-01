@@ -26,8 +26,7 @@ func (h handler) CancelAppealForVolumeModeration(c *gin.Context) {
 		`SELECT v.id FROM volumes_on_moderation AS v
 		INNER JOIN titles ON titles.id = v.title_id
 		WHERE v.creator_id = ?
-		AND titles.name = ?
-		AND v.name = ?`,
+		AND titles.name = ? AND v.name = ?`,
 		claims.ID, title, volume,
 	).Scan(&volumeID)
 
