@@ -12,7 +12,7 @@ type Volume struct {
 	Description string
 
 	TitleID uint
-	Title   *Title `gorm:"foreignKey:TitleID;references:id;OnDelete:SET NULL"`
+	Title   *Title `gorm:"foreignKey:TitleID;references:id"`
 
 	CreatorID uint
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`

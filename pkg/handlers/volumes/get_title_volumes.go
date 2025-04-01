@@ -1,27 +1,31 @@
 package volumes
 
 import (
-	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetTitleVolumes(c *gin.Context) {
 	title := c.Param("title")
 
-	var volumes []string
-	h.DB.Raw(
-		`SELECT volumes.name FROM volumes
-		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE lower(titles.name) = lower(?)
-		AND NOT volumes.on_moderation`,
-		title,
-	).Scan(&volumes)
-
-	if len(volumes) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "в этом тайтле ещё нет томов"})
+	var titleID uint
+	h.DB.Raw("SELECT id FROM titles WHERE name = ?", title).Scan(&titleID)
+	if titleID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error":"тайтл не найден"})
 		return
 	}
 
-	response := utils.ConvertToMap(volumes)
-	c.JSON(200, &response)
+	var volumes []struct {
+		ID uint
+		Name string
+		Description string
+	}
+
+	h.DB.Raw("SELECT id, name, description FROM volumes WHERE title_id = ?", titleID).Scan(&volumes)
+
+	if len(volumes) == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error":"не найдено томов тайтла"})
+		return
+	}
+
+	c.JSON(200, &volumes)
 }

@@ -16,9 +16,9 @@ type User struct {
 	TeamID sql.NullInt64
 	Team   *Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
 
-	Roles                    []Role    `gorm:"many2many:user_roles;OnDelete:SET NULL"`
-	TitlesUserIsSubscribedTo []Title   `gorm:"many2many:user_titles_subscribed_to;OnDelete:SET NULL"`
-	ViewedChapters           []Chapter `gorm:"many2many:user_viewed_chapters;OnDelete:SET NULL"`
+	Roles                    []Role    `gorm:"many2many:user_roles;constraint:OnDelete:CASCADE"`
+	TitlesUserIsSubscribedTo []Title   `gorm:"many2many:user_titles_subscribed_to;constraint:OnDelete:CASCADE"`
+	ViewedChapters           []Chapter `gorm:"many2many:user_viewed_chapters;constraint:OnDelete:CASCADE"`
 
 	FavoriteTitles   []Title   `gorm:"many2many:user_favorite_titles;constraint:OnDelete:CASCADE"`
 	FavoriteChapters []Chapter `gorm:"many2many:user_favorite_chapters;constraint:OnDelete:CASCADE"`

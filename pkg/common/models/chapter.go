@@ -13,7 +13,7 @@ type Chapter struct {
 	NumberOfPages int
 
 	VolumeID uint
-	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id;OnDelete:SET NULL" json:"-"`
+	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id" json:"-"`
 
 	CreatorID uint
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`

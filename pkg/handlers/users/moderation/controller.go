@@ -34,34 +34,35 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	moderation := r.Group("/api/home/moderation")
 	moderation.Use(middlewares.AuthMiddleware(secretKey))
-
-	profile := moderation.Group("/profile")
 	{
-		profile.GET("/", h.GetSelfProfileChangesOnModeration)
-		profile.GET("/picture", h.GetSelfProfilePictureOnModeration)
-		// Отмена обращения
-	}
+		profile := moderation.Group("/profile")
+		{
+			profile.GET("/", h.GetSelfProfileChangesOnModeration)
+			profile.GET("/picture", h.GetSelfProfilePictureOnModeration)
+			// Отмена обращения
+		}
 
-	titles := moderation.Group("/titles")
-	{
-		titles.GET("/edited", h.GetSelfEditedTitlesOnModeration)
-		titles.GET("/new", h.GetSelfNewTitlesOnModeration)
-		titles.GET("/:title/cover", h.GetSelfTitleOnModerationCover)
-		titles.DELETE("/:title", h.CancelAppealForTitleModeration)
-	}
+		titles := moderation.Group("/titles")
+		{
+			titles.GET("/edited", h.GetSelfEditedTitlesOnModeration)
+			titles.GET("/new", h.GetSelfNewTitlesOnModeration)
+			titles.GET("/:title/cover", h.GetSelfTitleOnModerationCover)
+			titles.DELETE("/:title", h.CancelAppealForTitleModeration)
+		}
 
-	chapters := moderation.Group("/chapters")
-	{
-		chapters.GET("/new", h.GetSelfNewChaptersOnModeration)
-		chapters.GET("/edited", h.GetSelfEditedChaptersOnModeration)
-		chapters.DELETE("/:title/:volume/:chapter", h.CancelAppealForChapterModeration)
-		chapters.GET("/:title/:volume/:chapter/:page", h.GetSelfChapterOnModerationPage)
-	}
+		chapters := moderation.Group("/chapters")
+		{
+			chapters.GET("/new", h.GetSelfNewChaptersOnModeration)
+			chapters.GET("/edited", h.GetSelfEditedChaptersOnModeration)
+			chapters.DELETE("/:title/:volume/:chapter", h.CancelAppealForChapterModeration)
+			chapters.GET("/:title/:volume/:chapter/:page", h.GetSelfChapterOnModerationPage)
+		}
 
-	volumes := moderation.Group("/volumes")
-	{
-		volumes.GET("/new", h.GetSelfNewVolumesOnModeration)
-		volumes.GET("/edited", h.GetSelfEditedVolumesOnModeration)
-		volumes.DELETE("/:title/:volume", h.CancelAppealForVolumeModeration)
+		volumes := moderation.Group("/volumes")
+		{
+			volumes.GET("/new", h.GetSelfNewVolumesOnModeration)
+			volumes.GET("/edited", h.GetSelfEditedVolumesOnModeration)
+			volumes.DELETE("/:title/:volume", h.CancelAppealForVolumeModeration)
+		}
 	}
 }

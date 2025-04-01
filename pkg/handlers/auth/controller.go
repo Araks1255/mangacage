@@ -13,7 +13,10 @@ type handler struct {
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	h := handler{DB: db}
 
-	r.POST("/signup", h.Signup)
-	r.POST("/login", h.Login)
-	r.POST("/logout", h.Logout)
+	api := r.Group("/api")
+	{
+		api.POST("/signup", h.Signup)
+		api.POST("/login", h.Login)
+		api.POST("/logout", h.Logout)
+	}
 }
