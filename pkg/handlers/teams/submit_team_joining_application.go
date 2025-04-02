@@ -39,8 +39,6 @@ func (h handler) SubmitTeamJoiningRequest(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
-		return
 	}
 
 	application := models.TeamJoiningApplication{

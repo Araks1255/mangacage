@@ -41,6 +41,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		privateTeam.GET("/self/applications", h.GetTeamJoiningApplications)
 		privateTeam.GET("/applications/self", h.GetSelfJoiningApplications)
 		privateTeam.POST("/self/applications/:candidate/accept", h.AcceptTeamJoiningApplication) // Тут я вообще не знаю как обойтись без глагола в маршруте, обновляется пользователь, а заявка удаляется. Но при этом логически, действие относится к заявке (она принимается)
+		privateTeam.DELETE("/self/applications/:candidate", h.DeclineTeamJoiningApplication)
 	}
 
 	publicTeam := r.Group("api/teams")
