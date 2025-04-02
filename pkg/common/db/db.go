@@ -20,6 +20,7 @@ func Init(dbUrl string) (db *gorm.DB, err error) {
 
 	db.AutoMigrate(&models.Title{}, &models.Chapter{}, &models.User{}, &models.Team{}, &models.Genre{}, &models.Author{}, &models.Role{},
 		&models.TitleOnModeration{}, &models.VolumeOnModeration{}, &models.ChapterOnModeration{}, &models.UserOnModeration{}, &models.TeamOnModeration{},
+		&models.TeamJoiningApplication{},
 	)
 
 	if result := db.Exec("INSERT INTO roles (name) VALUES ('user'), ('moder'), ('admin'), ('team_leader'), ('translater')"); result.Error != nil { // Создание необходимых для работы ролей
