@@ -23,7 +23,12 @@ func Init(dbUrl string) (db *gorm.DB, err error) {
 		&models.TeamJoiningApplication{},
 	)
 
-	if result := db.Exec("INSERT INTO roles (name) VALUES ('user'), ('moder'), ('admin'), ('team_leader'), ('translater')"); result.Error != nil { // Создание необходимых для работы ролей
+	if result := db.Exec(
+		`INSERT INTO roles (name) VALUES
+		('user'), ('moder'), ('admin'),
+		('team_leader'), ('ex_team_leader'),
+		('translater'), ('cleaner'), ('typer')`,
+	); result.Error != nil { // Создание необходимых для работы ролей
 		log.Println(result.Error)
 	}
 

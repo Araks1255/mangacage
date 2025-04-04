@@ -30,7 +30,14 @@ func (h handler) AcceptTeamJoiningApplication(c *gin.Context) {
 		return
 	}
 
-	candidate := c.Param("candidate")
+	candidateName := c.Param("candidate")
+
+	var candidate struct {
+		ID              uint
+		TeamID          uint
+		ApplicationID   uint
+		ApplicationRole string
+	}
 
 	tx := h.DB.Begin()
 	defer func() {
@@ -41,16 +48,26 @@ func (h handler) AcceptTeamJoiningApplication(c *gin.Context) {
 	}()
 	defer tx.Rollback()
 
-	var applicationID uint
 	tx.Raw(
-		`SELECT tja.id FROM team_joining_applications AS tja
-		INNER JOIN users AS u ON u.id = tja.candidate_id
-		WHERE tja.team_id = ? AND u.user_name = ?`,
-		teamID, candidate,
-	).Scan(&applicationID)
+		`SELECT u.id, u.team_id, tja.id AS application_id, tja.role AS application_role
+		FROM users AS u
+		INNER JOIN team_joining_applications AS tja ON tja.candidate_id = u.id
+		WHERE u.user_name = ? AND tja.team_id = ?`,
+		candidateName, teamID,
+	).Scan(&candidate)
 
-	if applicationID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "пользователь с таким именем не подавал заявку на вступление в вашу команду"})
+	if candidate.ID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "кандидат не найден"})
+		return
+	}
+
+	if candidate.ApplicationID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "данный пользователь не подавал заявку на вступлнение в вашу команду"})
+		return
+	}
+
+	if candidate.TeamID != 0 {
+		c.AbortWithStatusJSON(409, gin.H{"error": "кандидат уже является участником другой команды"})
 		return
 	}
 
@@ -60,13 +77,18 @@ func (h handler) AcceptTeamJoiningApplication(c *gin.Context) {
 		return
 	}
 
-	// Тут ещё надо будет роль назначить
+	if result := tx.Exec(
+		"INSERT INTO user_roles (user_id, role_id) VALUES (?, (SELECT id FROM roles WHERE name = ?))",
+		claims.ID, candidate.ApplicationRole,
+	); result.Error != nil {
+		log.Println(result.Error) // Тут ничего страшного, лидер сам поставит если что
+	}
 
 	tx.Commit()
 
 	c.JSON(200, gin.H{"success": "пользователь успешно присоеденён к вашей команде"})
 
-	if result := h.DB.Exec("DELETE FROM team_joining_applications WHERE id = ?", applicationID); result.Error != nil {
+	if result := h.DB.Exec("DELETE FROM team_joining_applications WHERE candidate_id = ?", claims.ID); result.Error != nil { //  Удаление всех других заявок юзера
 		log.Println(result.Error)
 	}
 	// Возможно уведомление юзеру которого приняли сделать

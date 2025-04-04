@@ -5,6 +5,7 @@ import "time"
 type TeamJoiningApplication struct {
 	ID                  uint `gorm:"primaryKey;autoIncrement:true"`
 	CreatedAt           time.Time
+	Role                string
 	IntroductoryMessage string
 
 	CandidateID uint

@@ -35,6 +35,7 @@ func (h handler) SubmitTeamJoiningRequest(c *gin.Context) {
 
 	var requestBody struct {
 		IntroductoryMessage string `json:"introductoryMessage"`
+		Role                string `json:"role"`
 	}
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
@@ -45,6 +46,7 @@ func (h handler) SubmitTeamJoiningRequest(c *gin.Context) {
 		CandidateID:         claims.ID,
 		TeamID:              teamID,
 		IntroductoryMessage: requestBody.IntroductoryMessage,
+		Role:                requestBody.Role, // Тут пишут что хотят, но будут реальные варианты предложены, если выберут один из них - сразу получат при попадании в команду
 	}
 
 	if result := h.DB.Create(&application); result.Error != nil {
