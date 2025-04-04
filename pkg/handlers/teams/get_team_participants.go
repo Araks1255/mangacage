@@ -21,7 +21,7 @@ func (h handler) GetTeamParticipants(c *gin.Context) {
 	}
 
 	h.DB.Raw(
-		`SELECT u.id, u.user_name, r.name FROM users AS u
+		`SELECT u.id, u.user_name, r.name AS role FROM users AS u
 		INNER JOIN user_roles AS ur ON u.id = ur.user_id
 		INNER JOIN roles AS r ON r.id = ur.role_id
 		INNER JOIN teams AS t ON t.id = u.team_id

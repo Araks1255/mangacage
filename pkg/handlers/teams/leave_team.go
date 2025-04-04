@@ -24,7 +24,7 @@ func (h handler) LeaveTeam(c *gin.Context) {
 		if r := recover(); r != nil {
 			tx.Rollback()
 			panic(r)
-		} 
+		}
 	}()
 
 	if result := tx.Exec("UPDATE users SET team_id = null WHERE id = ?", claims.ID); result.Error != nil {
@@ -34,7 +34,12 @@ func (h handler) LeaveTeam(c *gin.Context) {
 		return
 	}
 
-	if result := tx.Exec("DELETE FROM user_roles WHERE user_id = ? AND role_id = (SELECT id FROM roles WHERE name = 'translater')", claims.ID); result.Error != nil {
+	if result := tx.Exec(
+		`DELETE FROM user_roles AS ur
+		INNER JOIN roles AS r ON ur.role_id = r.id
+		WHERE ur.user_id = ?
+		AND r.type = 'team'`, claims.ID,
+	); result.Error != nil {
 		tx.Rollback()
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
