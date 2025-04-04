@@ -19,8 +19,8 @@ func (h handler) TranslateTitle(c *gin.Context) { // Это тоже сейча�
 		"INNER JOIN users ON user_roles.user_id = users.id "+
 		"WHERE users.id = ?", claims.ID).Scan(&userRoles)
 
-	if IsUserTeamOwner := slices.Contains(userRoles, "team_leader"); !IsUserTeamOwner {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Взять тайтл на перевод может только владелец команды перевода"})
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
+		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для взятия тайтла на перевод"})
 		return
 	}
 

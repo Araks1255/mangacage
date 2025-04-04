@@ -56,7 +56,7 @@ func (h handler) DeleteTitle(c *gin.Context) {
 		INNER JOIN user_roles ON roles.id = user_roles.role_id
 		WHERE user_roles.user_id = ?`, claims.ID).Scan(&userRoles)
 
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "admin") {
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") && !slices.Contains(userRoles, "admin") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь лидером команды перевода"})
 		return
 	}

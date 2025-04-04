@@ -19,8 +19,8 @@ func (h handler) DeleteChapter(c *gin.Context) {
 		WHERE user_roles.user_id = ?`, claims.ID,
 	).Scan(&userRoles)
 
-	if !slices.Contains(userRoles, "team_leader") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "удалять главы могут только лидеры команд перевода"})
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
+		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для удаления главы"})
 		return
 	}
 

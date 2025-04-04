@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"io"
 	"log"
-	"slices"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
@@ -13,17 +12,6 @@ import (
 
 func (h handler) CreateTeam(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
-
-	var userRoles []string
-	h.DB.Raw(`SELECT roles.name FROM roles
-		INNER JOIN user_roles ON roles.id = user_roles.role_id
-		WHERE user_roles.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
-
-	if slices.Contains(userRoles, "team_leader") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "вы уже являетесь владельцем другой команды"})
-		return
-	}
 
 	var userTeamID uint // Тут можно было бы получить роли юзера и его id команды одним запросом, но это довольно избыточно, + добавляет опасное место на сканировании ряда
 	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)

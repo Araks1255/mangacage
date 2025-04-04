@@ -25,7 +25,7 @@ func (h handler) EditTeam(c *gin.Context) {
 		WHERE user_roles.user_id = ?`, claims.ID,
 	).Scan(&userRoles)
 
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь владельцем команды перевода"})
 		return
 	}

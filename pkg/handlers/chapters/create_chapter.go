@@ -31,8 +31,8 @@ func (h handler) CreateChapter(c *gin.Context) {
 		WHERE user_roles.user_id = ?`, claims.ID,
 	).Scan(&userRoles)
 
-	if !slices.Contains(userRoles, "team_leader") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "Добавлять главы может только лидер команды"})
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
+		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для добавления глав"})
 		return
 	}
 
