@@ -12,8 +12,9 @@ type handler struct {
 func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 	h := handler{DB: db}
 
-	r.LoadHTMLFiles("html/reading_page.html")
-	r.Static("/static", "./static")
+	r.LoadHTMLFiles("html/reading_page.html", "html/title_page.html")
+	r.Static("/static", "static")
 
 	r.GET("chapters/:title/:volume/:chapter", h.ShowReadingPage)
+	r.GET("/titles/:title", h.ShowTitlePage)
 }
