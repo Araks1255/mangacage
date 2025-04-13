@@ -70,14 +70,5 @@ func GormMigrate(db *gorm.DB) error {
 		return err
 	}
 
-	if result = db.Exec(
-		`INSERT INTO roles (name) VALUES
-		('user'), ('moder'), ('admin'),
-		('team_leader'), ('ex_team_leader'),
-		('translater'), ('cleaner'), ('typer')`,
-	); result.Error != nil {
-		log.Println(result.Error)
-	}
-
 	return nil
 }
