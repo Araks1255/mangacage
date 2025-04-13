@@ -69,7 +69,7 @@ func (h handler) Login(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("mangacage_token", tokenString, int(expirationTime.Unix()), "/", "localhost", false, true)
+	c.SetCookie("mangacage_token", tokenString, int(expirationTime.Unix()), "/", "localhost", false, true) // ПОМЕНЯТЬ НА ПРОДЕ
 
 	c.JSON(200, gin.H{"success": "Вход в аккаунт выполнен успешно"})
 }

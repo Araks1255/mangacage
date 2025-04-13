@@ -1,25 +1,25 @@
 package chapters
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetVolumeChapters(c *gin.Context) {
-	title := c.Param("title")
-	volume := c.Param("volume")
+	volumeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "id тома должен быть числом"})
+		return
+	}
 
 	var chapters []struct {
+		ID          uint
 		Name        string
 		Description string
 	}
 
-	h.DB.Raw(
-		`SELECT c.name, c.description FROM chapters AS c
-		INNER JOIN volumes AS v on v.id = c.volume_id
-		INNER JOIN titles AS t ON t.id = v.title_id
-		WHERE t.name = ? AND v.name = ?`,
-		title, volume,
-	).Scan(&chapters)
+	h.DB.Raw("SELECT id, name, description FROM chapters WHERE volume_id = ?", volumeID).Scan(&chapters)
 
 	c.JSON(200, &chapters)
 }

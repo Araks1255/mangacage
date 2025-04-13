@@ -45,3 +45,11 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	r.GET("/api/chapters/id/:id/page/:page", h.GetChapterPage)
 }
+
+func NewHandler(db *gorm.DB, chaptersOnModerationPages *mongo.Collection, chaptersPages *mongo.Collection) handler {
+	return handler{
+		DB:                        db,
+		ChaptersOnModerationPages: chaptersOnModerationPages,
+		ChaptersPages:             chaptersPages,
+	}
+}

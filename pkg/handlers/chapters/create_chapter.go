@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"slices"
+	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	pb "github.com/Araks1255/mangacage_protos"
@@ -26,7 +27,8 @@ func (h handler) CreateChapter(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 500<<20)
 
 	var userRoles []string
-	h.DB.Raw(`SELECT roles.name FROM roles
+	h.DB.Raw(
+		`SELECT roles.name FROM roles
 		INNER JOIN user_roles ON roles.id = user_roles.role_id
 		WHERE user_roles.user_id = ?`, claims.ID,
 	).Scan(&userRoles)
@@ -97,23 +99,16 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	title := c.Param("title")
-	volume := c.Param("volume")
+	volumeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "id тома должен быть числом"})
+		return
+	}
 
-	var titleID, volumeID uint
-
-	row := h.DB.Raw(
-		`SELECT titles.id, volumes.id FROM volumes
-		INNER JOIN titles ON titles.id = volumes.title_id
-		WHERE titles.name = ?
-		AND volumes.name = ?`,
-		title, volume,
-	).Row()
-
-	row.Scan(&titleID, &volumeID)
-
-	if volumeID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл или том не найден"})
+	var titleID uint
+	h.DB.Raw("SELECT title_id FROM volumes WHERE id = ?", volumeID).Scan(&titleID)
+	if titleID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
 		return
 	}
 
@@ -164,7 +159,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "Глава успешно отправлена на модерацию"})
+	c.JSON(201, gin.H{"success": "глава успешно отправлена на модерацию"})
 
 	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

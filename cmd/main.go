@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"flag"
 
+	"github.com/Araks1255/mangacage/internal/migrations"
+	"github.com/Araks1255/mangacage/internal/seeder"
 	"github.com/Araks1255/mangacage/pkg/common/db"
 	"github.com/Araks1255/mangacage/pkg/handlers/auth"
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
@@ -35,6 +38,23 @@ func main() {
 	db, err := db.Init(dbUrl)
 	if err != nil {
 		panic(err)
+	}
+
+	migrateFlag := flag.Bool("migrate", false, "Run migrations with api") // Получение cli флага. Если будет запуск: go run cmd/main.go --migrate, то запустится миграция бд
+	seedMode := flag.String("seed", "", "Mode of seed")
+
+	flag.Parse()
+
+	if *migrateFlag {
+		if err := migrations.GormMigrate(db); err != nil {
+			panic(err)
+		}
+	}
+
+	if *seedMode != "" {
+		if err = seeder.Seed(db, mongoClient.Database("mangacage"), *seedMode); err != nil {
+			panic(err)
+		}
 	}
 
 	router := gin.Default()
