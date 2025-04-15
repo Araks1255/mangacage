@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"slices"
+	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
@@ -14,7 +15,8 @@ func (h handler) DeleteChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
 	var userRoles []string
-	h.DB.Raw(`SELECT roles.name FROM roles
+	h.DB.Raw(
+		`SELECT roles.name FROM roles
 		INNER JOIN user_roles ON roles.id = user_roles.role_id
 		WHERE user_roles.user_id = ?`, claims.ID,
 	).Scan(&userRoles)
@@ -24,27 +26,31 @@ func (h handler) DeleteChapter(c *gin.Context) {
 		return
 	}
 
-	title := c.Param("title")
-	volume := c.Param("volume")
-	chapter := c.Param("chapter")
-
-	var titleID, chapterID uint
-	row := h.DB.Raw(
-		`SELECT titles.id, chapters.id FROM chapters
-		INNER JOIN volumes ON chapters.volume_id = volumes.id
-		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE titles.name = ?
-		AND volumes.name = ?
-		AND chapters.name = ?`,
-		title, volume, chapter,
-	).Row()
-
-	if err := row.Scan(&titleID, &chapterID); err != nil {
-		log.Println(err)
+	chapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "id главы должен быть числом"})
+		return
 	}
 
-	if chapterID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена"})
+	tx := h.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+	defer tx.Rollback()
+
+	var titleID uint
+	h.DB.Raw(
+		`SELECT t.id FROM titles AS t
+		INNER JOIN volumes AS v ON t.id = v.title_id
+		INNER JOIN chapters AS c ON v.id = c.volume_id
+		WHERE c.id = ?`, chapterID,
+	).Scan(&titleID)
+
+	if titleID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена"}) // Глава не может существовать без тома и тайтла (по ограничению бд, это буквально невозможно), так что если не нашелся тайтл, то и главы такой нет
 		return
 	}
 
@@ -59,22 +65,13 @@ func (h handler) DeleteChapter(c *gin.Context) {
 		return
 	}
 
-	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
-	defer tx.Rollback()
-
-	if result := tx.Exec("DELETE FROM chapters CASCADE WHERE id = ?", chapterID); result.RowsAffected == 0 {
+	if result := tx.Exec("DELETE FROM chapters WHERE id = ?", chapterID); result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	if result, err := h.ChaptersPages.DeleteOne(context.TODO(), bson.M{"chapter_id": chapterID}); result.DeletedCount == 0 {
+	if _, err := h.ChaptersPages.DeleteOne(context.TODO(), bson.M{"chapter_id": chapterID}); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return

@@ -1,20 +1,22 @@
 package chapters
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetChapter(c *gin.Context) {
-	title := c.Param("title")
-	volume := c.Param("volume")
-	chapterName := c.Param("chapter")
+	chapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "id главы должен быть числом"})
+		return
+	}
 
 	var chapter struct {
 		ID            uint
-		RawCreatedAt  time.Time `json:"-"`
-		CreatedAt     string
+		CreatedAt     time.Time
 		Name          string
 		Description   string
 		NumberOfPages int
@@ -23,15 +25,12 @@ func (h handler) GetChapter(c *gin.Context) {
 	}
 
 	h.DB.Raw(
-		`SELECT c.id, c.created_at AS raw_created_at, c.name, c.description, c.number_of_pages,
-		volumes.name AS volume, titles.name AS title
+		`SELECT c.id, c.created_at, c.name, c.description, c.number_of_pages,
+		v.name AS volume, t.name AS title
 		FROM chapters AS c
-		INNER JOIN volumes ON volumes.id = c.volume_id
-		INNER JOIN titles ON titles.id = volumes.title_id
-		WHERE titles.name = ?
-		AND volumes.name = ?
-		AND c.name = ?`,
-		title, volume, chapterName,
+		INNER JOIN volumes AS v ON v.id = c.volume_id
+		INNER JOIN titles AS t ON t.id = v.title_id
+		WHERE c.id = ?`, chapterID,
 	).Scan(&chapter)
 
 	if chapter.ID == 0 {
@@ -39,6 +38,5 @@ func (h handler) GetChapter(c *gin.Context) {
 		return
 	}
 
-	chapter.CreatedAt = chapter.RawCreatedAt.Format(time.DateTime)
 	c.JSON(200, &chapter)
 }

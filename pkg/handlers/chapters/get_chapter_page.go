@@ -11,17 +11,19 @@ import (
 )
 
 func (h handler) GetChapterPage(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+	chapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "id главы должен быть числом"})
+		return
 	}
 
 	numberOfPage, err := strconv.Atoi(c.Param("page"))
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "номер страницы должен быть числом"})
+		return
 	}
 
-	filter := bson.M{"chapter_id": id}
+	filter := bson.M{"chapter_id": chapterID}
 
 	projection := bson.M{"pages": bson.M{"$slice": []int{numberOfPage, 1}}}
 

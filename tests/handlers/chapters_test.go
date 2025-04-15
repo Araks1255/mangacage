@@ -2,58 +2,39 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/internal/testhelpers"
+	"github.com/Araks1255/mangacage/pkg/constants"
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 func TestCreateChapter(t *testing.T) {
-	key := viper.Get("SECRET_KEY").(string)
+	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
+	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
 
-	chaptersOnModerationCollection := mongoDB.Collection("chapters_on_moderation_pages")
-	chaptersPagesCollection := mongoDB.Collection("chapters_pages")
-
-	defer func() {
-		chaptersOnModerationCollection.DeleteMany(nil, bson.M{})
-		chaptersPagesCollection.DeleteMany(nil, bson.M{})
-	}()
-
-	h := chapters.NewHandler(db, chaptersOnModerationCollection, chaptersPagesCollection)
+	h := chapters.NewHandler(env.DB, chaptersOnModerationPages, chaptersPages)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(key))
+	r.Use(middlewares.AuthMiddleware(env.SecretKey))
 
 	r.POST("/volume/:id/chapters", h.CreateChapter)
 
 	var userID uint
-	db.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&userID)
+	env.DB.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&userID)
 	if userID == 0 {
 		t.Fatal("Юзер не найден")
 	}
 
-	claims := models.Claims{
-		ID: userID,
-		StandardClaims: jwt.StandardClaims{
-			Subject:   "test",
-			ExpiresAt: time.Now().Add(1 * time.Hour).Unix(),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	tokenString, err := token.SignedString([]byte(key))
+	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +64,7 @@ func TestCreateChapter(t *testing.T) {
 	writer.Close()
 
 	var volumeID uint
-	db.Raw("SELECT id FROM volumes WHERE name = 'volume_test'").Scan(&volumeID)
+	env.DB.Raw("SELECT id FROM volumes WHERE name = 'volume_test'").Scan(&volumeID)
 	if volumeID == 0 {
 		t.Fatal("Том не найден")
 	}
@@ -102,6 +83,187 @@ func TestCreateChapter(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	if w.Code != 201 {
+		t.Fatal(w.Body.String())
+	}
+}
+
+func TestDeleteChapter(t *testing.T) {
+	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
+	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
+
+	var userID uint
+	env.DB.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&userID)
+	if userID == 0 {
+		t.Fatal("Юзер не найден")
+	}
+
+	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h := chapters.NewHandler(env.DB, chaptersOnModerationPages, chaptersPages)
+
+	r := gin.New()
+	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+
+	r.DELETE("/chapters/:id", h.DeleteChapter)
+
+	chapterID, err := testhelpers.CreateTestChapter(env.DB, chaptersPages)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	url := fmt.Sprintf("/chapters/%d", chapterID)
+
+	req := httptest.NewRequest("DELETE", url, nil)
+
+	req.AddCookie(&http.Cookie{
+		Name:  "mangacage_token",
+		Value: tokenString,
+	})
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatal(w.Body.String())
+	}
+}
+
+func TestEditChapter(t *testing.T) {
+	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
+	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
+
+	var userID uint
+	env.DB.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&userID)
+	if userID == 0 {
+		t.Fatal("Юзер не найден")
+	}
+
+	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h := chapters.NewHandler(env.DB, chaptersOnModerationPages, chaptersPages)
+
+	r := gin.New()
+	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+
+	r.POST("/chapters/:id/edited", h.EditChapter)
+
+	body := map[string]any{
+		"name":        "chapterTest",
+		"description": "someDescription",
+	}
+
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	chapterID, err := testhelpers.CreateTestChapter(env.DB, chaptersPages)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	url := fmt.Sprintf("/chapters/%d/edited", chapterID)
+
+	req := httptest.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	req.AddCookie(&http.Cookie{
+		Name:  "mangacage_token",
+		Value: tokenString,
+	})
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != 201 {
+		t.Fatal(w.Body.String())
+	}
+}
+
+func TestGetChapterPage(t *testing.T) {
+	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
+	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
+
+	var chapterID uint
+	env.DB.Raw("SELECT id FROM chapters WHERE name = 'chapter_test'").Scan(&chapterID)
+	if chapterID == 0 {
+		t.Fatal("Тестовая глава не найдена")
+	}
+
+	h := chapters.NewHandler(env.DB, chaptersPages, chaptersOnModerationPages)
+
+	r := gin.New()
+	r.GET("/chapters/:id/page/:page", h.GetChapterPage)
+
+	url := fmt.Sprintf("/chapters/%d/page/0", chapterID)
+	req := httptest.NewRequest("GET", url, nil)
+
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatal(w.Body.String())
+	}
+}
+
+func TestGetChapter(t *testing.T) {
+	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
+	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
+
+	var chapterID uint
+	env.DB.Raw("SELECT id FROM chapters WHERE name = 'chapter_test'").Scan(&chapterID)
+	if chapterID == 0 {
+		t.Fatal("Тестовая глава не найдена")
+	}
+
+	h := chapters.NewHandler(env.DB, chaptersOnModerationPages, chaptersPages)
+
+	r := gin.New()
+
+	r.GET("/chapters/:id", h.GetChapter)
+
+	url := fmt.Sprintf("/chapters/%d", chapterID)
+	req := httptest.NewRequest("GET", url, nil)
+
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatal(w.Body.String())
+	}
+}
+
+func TestGetVolumeChapters(t *testing.T) {
+	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
+	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
+
+	var volumeID uint
+	env.DB.Raw("SELECT volume_id FROM chapters WHERE name = 'chapter_test'").Scan(&volumeID)
+	if volumeID == 0 {
+		t.Fatal("Тестовый том не найден")
+	}
+
+	h := chapters.NewHandler(env.DB, chaptersOnModerationPages, chaptersPages)
+
+	r := gin.New()
+	r.GET("/volume/:id/chapters", h.GetVolumeChapters)
+
+	url := fmt.Sprintf("/volume/%d/chapters", volumeID)
+	req := httptest.NewRequest("GET", url, nil)
+
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	if w.Code != 200 {
 		t.Fatal(w.Body.String())
 	}
 }

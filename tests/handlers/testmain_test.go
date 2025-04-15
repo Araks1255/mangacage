@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"flag"
 	"os"
 	"testing"
@@ -8,15 +9,18 @@ import (
 	"github.com/Araks1255/mangacage/internal/migrations"
 	"github.com/Araks1255/mangacage/internal/seeder"
 	dbPackage "github.com/Araks1255/mangacage/pkg/common/db"
+	"github.com/Araks1255/mangacage/pkg/constants"
 	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
 
-var (
-	db      *gorm.DB // Я не нашёл другого нормального способа организовать доступ к бд в тестах. Выбор был между глобальными переменными и инициализацией отдельного подключения в каждом тесте
-	mongoDB *mongo.Database
-)
+var env struct {
+	DB        *gorm.DB
+	SecretKey string
+	MongoDB   *mongo.Database
+}
 
 func TestMain(m *testing.M) {
 	os.Chdir("./../..")
@@ -26,21 +30,24 @@ func TestMain(m *testing.M) {
 	}
 
 	dbUrl := viper.Get("DB_TEST_URL").(string)
+	mongoUrl := viper.Get("MONGO_URL").(string)
+	secretKey := viper.Get("SECRET_KEY").(string)
 
-	var err error
-	db, err = dbPackage.Init(dbUrl)
+	db, err := dbPackage.Init(dbUrl)
 	if err != nil {
 		panic(err)
 	}
-
-	mongoUrl := viper.Get("MONGO_URL").(string)
 
 	mongoClient, err := dbPackage.MongoInit(mongoUrl)
 	if err != nil {
 		panic(err)
 	}
 
-	mongoDB = mongoClient.Database("mangacage_test")
+	mongoDB := mongoClient.Database("mangacage_test")
+
+	env.DB = db
+	env.MongoDB = mongoDB
+	env.SecretKey = secretKey
 
 	migrateFlag := flag.Bool("migrate", false, "Run migrations with api")
 
@@ -62,7 +69,23 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	db.Exec("TRUNCATE TABLE authors, chapters, titles, users, teams, volumes RESTART IDENTITY CASCADE") // В конце всех тестов бд очищается. Иначе там с транзакциями бы запара была. Так что запуск тестов должен сопровождаться флагом --seed=test
+	cleanTestDB(env.DB, env.MongoDB)
 
 	os.Exit(code)
+}
+
+func cleanTestDB(db *gorm.DB, mongoDB *mongo.Database) {
+	db.Exec("TRUNCATE TABLE authors, chapters, titles, users, teams, volumes RESTART IDENTITY CASCADE")
+
+	ctx := context.Background()
+	coll := mongoDB.Collection
+
+	coll(constants.ChaptersOnModerationPagesCollection).DeleteMany(ctx, bson.M{})
+	coll(constants.ChaptersPagesCollection).DeleteMany(ctx, bson.M{})
+	coll(constants.TeamsCoversCollection).DeleteMany(ctx, bson.M{})
+	coll(constants.TeamsOnModerationCoversCollection).DeleteMany(ctx, bson.M{})
+	coll(constants.TitlesCoversCollection).DeleteMany(ctx, bson.M{})
+	coll(constants.TitlesOnModerationCoversCollection).DeleteMany(ctx, bson.M{})
+	coll(constants.UsersOnModerationProfilePicturesCollection).DeleteMany(ctx, bson.M{})
+	coll(constants.UsersProfilePicturesCollection).DeleteMany(ctx, bson.M{})
 }
