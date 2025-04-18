@@ -1,9 +1,9 @@
-package teams
+package participants
 
 import (
-	"database/sql"
 	"log"
 	"slices"
+	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
@@ -11,6 +11,13 @@ import (
 
 func (h handler) ChangeParticipantRole(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
+
+	var teamID uint
+	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&teamID)
+	if teamID == 0 {
+		c.AbortWithStatusJSON(409, gin.H{"error": "вы не состоите в команде перевода"})
+		return
+	}
 
 	var userRoles []string
 	h.DB.Raw(
@@ -34,9 +41,11 @@ func (h handler) ChangeParticipantRole(c *gin.Context) {
 		return
 	}
 
-	participant := c.Param("participant")
-
-	var participantID, currentRoleID, newRoleID sql.NullInt64
+	desiredParticipantID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "id участника должно быть числом"})
+		return
+	}
 
 	tx := h.DB.Begin()
 	defer func() {
@@ -47,42 +56,34 @@ func (h handler) ChangeParticipantRole(c *gin.Context) {
 	}()
 	defer tx.Rollback()
 
-	row := tx.Raw(
-		`SELECT
-		(
-			SELECT id from users WHERE team_id = 
-			(SELECT team_id FROM users WHERE id = ?)
-			AND user_name = ?
-		),
-		(
-			SELECT r.id FROM roles AS r
-			INNER JOIN user_roles AS ur ON ur.role_id = r.id
-			INNER JOIN users AS u ON u.id = ur.user_id
-			WHERE u.user_name = ? AND r.name = ?
-		),
-		(SELECT id FROM roles WHERE name = ?)`,
-		claims.ID, participant, participant, requestBody.CurrentRole, requestBody.NewRole,
-	).Row()
-
-	if err := row.Scan(&participantID, &currentRoleID, &newRoleID); err != nil {
-		log.Println(err)
-	}
-
-	if !participantID.Valid {
+	var existingParticipantID uint
+	tx.Raw("SELECT id FROM users WHERE id = ? AND team_id = ?", desiredParticipantID, teamID).Scan(&existingParticipantID)
+	if existingParticipantID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "участник команды не найден"})
 		return
 	}
 
-	if !currentRoleID.Valid {
+	var currentRoleID, newRoleID uint
+
+	row := tx.Raw(
+		"SELECT (SELECT id FROM roles WHERE name = ?), (SELECT id FROM roles WHERE name = ?)",
+		requestBody.CurrentRole, requestBody.NewRole,
+	).Row()
+
+	if err := row.Scan(&currentRoleID, &newRoleID); err != nil {
+		log.Println(err)
+	}
+
+	if currentRoleID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "текущая роль участника указана неверно"})
 		return
 	}
-	if !newRoleID.Valid {
-		c.AbortWithStatusJSON(404, gin.H{"error": "новая роль указана неверно"})
+	if newRoleID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "новая роль участника указана неверно"})
 		return
 	}
 
-	if result := tx.Exec("UPDATE user_roles SET role_id = ? WHERE user_id = ? AND role_id = ?", newRoleID, participantID, currentRoleID); result.Error != nil { // !!!!!!!!
+	if result := tx.Exec("UPDATE user_roles SET role_id = ? WHERE user_id = ? AND role_id = ?", newRoleID, existingParticipantID, currentRoleID); result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return

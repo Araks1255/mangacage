@@ -1,16 +1,14 @@
-package teams
+package participants
 
 import (
+	"strconv"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetTeamParticipants(c *gin.Context) {
-	team := c.Param("team")
-
-	var teamID uint
-	h.DB.Raw("SELECT id FROM teams WHERE name = ?", team).Scan(&teamID)
-	if teamID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "команда не найдена"})
+	teamID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error":"id команды должен быть числом"})
 		return
 	}
 

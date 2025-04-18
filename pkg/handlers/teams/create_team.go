@@ -13,20 +13,6 @@ import (
 func (h handler) CreateTeam(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
-	var userTeamID uint // Тут можно было бы получить роли юзера и его id команды одним запросом, но это довольно избыточно, + добавляет опасное место на сканировании ряда
-	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
-	if userTeamID != 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "вы уже состоите в другой команде"})
-		return
-	}
-
-	var teamCreatedByUserID uint // Команда созданная пользователем
-	h.DB.Raw("SELECT id FROM teams_on_moderation WHERE creator_id = ? LIMIT 1", claims.ID).Scan(&teamCreatedByUserID)
-	if teamCreatedByUserID != 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "команда, созданная вами, уже ожидает модерации"})
-		return
-	}
-
 	form, err := c.MultipartForm()
 	if err != nil {
 		log.Println(err)
@@ -36,24 +22,6 @@ func (h handler) CreateTeam(c *gin.Context) {
 
 	if len(form.Value["name"]) == 0 || len(form.File["cover"]) == 0 {
 		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе нет имени команды или её обложки"})
-		return
-	}
-
-	var existing struct { // Там со сканированием ряда пришлось бы создавать две переменные sql.NullInt64, а это памяти много жрёт. Поэтому так
-		TeamID             uint
-		TeamOnModerationID uint
-	}
-
-	h.DB.Raw(
-		`SELECT teams.id AS team_id, teams_on_moderation.id AS team_on_moderation_id FROM teams
-		RIGHT JOIN teams_on_moderation ON teams.id = teams_on_moderation.existing_id
-		WHERE lower(teams.name) = lower(?)
-		OR lower(teams_on_moderation.name) = lower(?)`,
-		form.Value["name"][0], form.Value["name"][0], // Тут в запросе приведение к нижнему регистру, чтобы нельзя было создать 2 команды с одинаковым именем но разным регистром
-	).Scan(&existing)
-
-	if existing.TeamID != 0 || existing.TeamOnModerationID != 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "команда с таким названием уже существует"})
 		return
 	}
 
@@ -84,18 +52,6 @@ func (h handler) CreateTeam(c *gin.Context) {
 		errChan <- nil
 	}()
 
-	name := form.Value["name"][0]
-	var description string
-	if len(form.Value["description"]) != 0 {
-		description = form.Value["description"][0]
-	}
-
-	newTeam := models.TeamOnModeration{
-		Name:        sql.NullString{String: name, Valid: true},
-		Description: description,
-		CreatorID:   claims.ID,
-	}
-
 	tx := h.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -104,6 +60,50 @@ func (h handler) CreateTeam(c *gin.Context) {
 		}
 	}()
 	defer tx.Rollback()
+
+	var userTeamID uint // Тут можно было бы получить роли юзера и его id команды одним запросом, но это довольно избыточно, + добавляет опасное место на сканировании ряда
+	tx.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
+	if userTeamID != 0 {
+		c.AbortWithStatusJSON(403, gin.H{"error": "вы уже состоите в другой команде"})
+		return
+	}
+
+	var teamCreatedByUserID uint // Команда созданная пользователем
+	tx.Raw("SELECT id FROM teams_on_moderation WHERE creator_id = ? LIMIT 1", claims.ID).Scan(&teamCreatedByUserID)
+	if teamCreatedByUserID != 0 {
+		c.AbortWithStatusJSON(403, gin.H{"error": "команда, созданная вами, уже ожидает модерации"})
+		return
+	}
+
+	name := form.Value["name"][0]
+	var description string
+	if len(form.Value["description"]) != 0 {
+		description = form.Value["description"][0]
+	}
+
+	var existing struct {
+		TeamID             uint
+		TeamOnModerationID uint
+	}
+
+	tx.Raw(
+		`SELECT t.id AS team_id, tom.id AS team_on_moderation_id FROM teams AS t
+		RIGHT JOIN teams_on_moderation AS tom ON t.id = tom.existing_id
+		WHERE lower(t.name) = lower(?)
+		OR lower(tom.name) = lower(?)`,
+		name, name,
+	).Scan(&existing)
+
+	if existing.TeamID != 0 || existing.TeamOnModerationID != 0 {
+		c.AbortWithStatusJSON(403, gin.H{"error": "команда с таким названием уже существует"})
+		return
+	}
+
+	newTeam := models.TeamOnModeration{
+		Name:        sql.NullString{String: name, Valid: true},
+		Description: description,
+		CreatorID:   claims.ID,
+	}
 
 	if result := tx.Create(&newTeam); result.Error != nil {
 		log.Println(result.Error)

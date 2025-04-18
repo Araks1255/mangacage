@@ -1,4 +1,4 @@
-package teams
+package joinrequests
 
 import (
 	"time"
@@ -7,27 +7,28 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h handler) GetSelfJoiningApplications(c *gin.Context) {
+func (h handler) GetMyTeamJoinRequests(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
-	var applications []struct {
+	var requests []struct {
 		ID                  uint
 		CreatedAt           time.Time
 		IntroductoryMessage string
+		Role                string
 		Team                string
 	}
 
 	h.DB.Raw(
-		`SELECT tja.id, tja.created_at, tja.introductory_message, t.name AS team
-		FROM team_joining_applications AS tja
-		INNER JOIN teams AS t ON t.id = tja.team_id
-		WHERE tja.candidate_id = ?`, claims.ID,
-	).Scan(&applications)
+		`SELECT tjr.id, tjr.created_at, tjr.introductory_message, tjr.role, t.name AS team
+		FROM team_join_requests AS tjr
+		INNER JOIN teams AS t ON t.id = tjr.team_id
+		WHERE tjr.candidate_id = ?`, claims.ID,
+	).Scan(&requests)
 
-	if len(applications) == 0 {
+	if len(requests) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "у вас нет заявок на вступление в команду перевода"})
 		return
 	}
 
-	c.JSON(200, &applications)
+	c.JSON(200, &requests)
 }

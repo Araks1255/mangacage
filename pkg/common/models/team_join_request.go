@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-type TeamJoiningApplication struct {
+type TeamJoinRequest struct {
 	ID                  uint `gorm:"primaryKey;autoIncrement:true"`
 	CreatedAt           time.Time
 	Role                string

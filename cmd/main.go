@@ -11,6 +11,8 @@ import (
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
 	"github.com/Araks1255/mangacage/pkg/handlers/search"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams"
+	"github.com/Araks1255/mangacage/pkg/handlers/teams/joinrequests"
+	"github.com/Araks1255/mangacage/pkg/handlers/teams/participants"
 	"github.com/Araks1255/mangacage/pkg/handlers/titles"
 	"github.com/Araks1255/mangacage/pkg/handlers/users"
 	"github.com/Araks1255/mangacage/pkg/handlers/users/favorites"
@@ -62,6 +64,8 @@ func main() {
 	auth.RegisterRoutes(db, mongoClient, router)
 	titles.RegisterRoutes(db, mongoClient, router)
 	teams.RegisterRoutes(db, mongoClient, router)
+	joinrequests.RegisterRoutes(db, router)
+	participants.RegisterRoutes(db, router)
 	chapters.RegisterRoutes(db, mongoClient, router)
 	volumes.RegisterRoutes(db, mongoClient, router)
 	search.RegisterRoutes(db, router)

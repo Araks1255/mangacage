@@ -1,14 +1,15 @@
-package teams
+package joinrequests
 
 import (
 	"log"
 	"slices"
+	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
 
-func (h handler) DeclineTeamJoiningApplication(c *gin.Context) {
+func (h handler) DeclineTeamJoinRequest(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
 	var teamID uint
@@ -30,7 +31,11 @@ func (h handler) DeclineTeamJoiningApplication(c *gin.Context) {
 		return
 	}
 
-	candidate := c.Param("candidate")
+	desiredRequestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "id заявки должен быть числом"})
+		return
+	}
 
 	tx := h.DB.Begin()
 	defer func() {
@@ -41,20 +46,14 @@ func (h handler) DeclineTeamJoiningApplication(c *gin.Context) {
 	}()
 	defer tx.Rollback()
 
-	var applicationID uint
-	tx.Raw(
-		`SELECT tja.id FROM team_joining_applications AS tja
-		INNER JOIN users AS u ON u.id = tja.candidate_id
-		WHERE tja.team_id = ? AND u.user_name = ?`,
-		teamID, candidate,
-	).Scan(&applicationID)
-
-	if applicationID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "пользователь с таким именем не подавал заявку на вступление в вашу команду"})
+	var existingRequestID uint
+	tx.Raw("SELECT id FROM team_join_requests WHERE id = ? AND team_id = ?", desiredRequestID, teamID).Scan(&existingRequestID)
+	if existingRequestID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "заявка не найдена"})
 		return
 	}
 
-	if result := tx.Exec("DELETE FROM team_joining_applications WHERE id = ?", applicationID); result.Error != nil {
+	if result := tx.Exec("DELETE FROM team_join_requests WHERE id = ?", existingRequestID); result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return

@@ -3,18 +3,16 @@ package teams
 import (
 	"context"
 	"log"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 func (h handler) GetTeamCover(c *gin.Context) {
-	team := c.Param("team")
-
-	var teamID uint
-	h.DB.Raw("SELECT id FROM teams WHERE name = ?", team).Scan(&teamID)
-	if teamID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "команда перевода не найдена"})
+	teamID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error":" id команды должен быть числом"})
 		return
 	}
 
@@ -28,6 +26,11 @@ func (h handler) GetTeamCover(c *gin.Context) {
 	if err := h.TeamsCovers.FindOne(context.TODO(), filter).Decode(&result); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(result.Cover) == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error":"обложка команды не найдена"})
 		return
 	}
 
