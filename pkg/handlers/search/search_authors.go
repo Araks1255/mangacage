@@ -3,29 +3,19 @@ package search
 import (
 	"fmt"
 
-	"github.com/lib/pq"
+	"github.com/Araks1255/mangacage/pkg/common/models"
 )
 
-type Author struct {
-	ID     uint
-	Name   string
-	About  string
-	Genres pq.StringArray `gorm:"type:TEXT[]"`
-}
-
-func (h handler) SearchAuthors(query string, limit int) (authors *[]Author, quantity int) {
-	var result []Author
+func (h handler) SearchAuthors(query string, limit int) (authors *[]models.AuthorDTO, quantity int) {
+	var result []models.AuthorDTO
 
 	h.DB.Raw(
-		`SELECT a.id, a.name, a.about,
-		(
-			SELECT ARRAY(
-				SELECT genres.name FROM genres
-				INNER JOIN author_genres ON genres.id = author_genres.genre_id
-				WHERE author_genres.author_id = a.id
-			) AS genres
-		) FROM authors AS a
+		`SELECT a.id, a.name, a.about, ARRAY_AGG(g.name)::TEXT[] AS genres
+		FROM authors AS a
+		INNER JOIN author_genres AS ag ON ag.author_id = a.id
+		INNER JOIN genres AS g ON g.id = ag.genre_id
 		WHERE lower(a.name) ILIKE lower(?)
+		GROUP BY a.id
 		LIMIT ?`, fmt.Sprintf("%%%s%%", query), limit,
 	).Scan(&result)
 

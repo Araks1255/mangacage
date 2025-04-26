@@ -15,6 +15,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func TestCreateChapter(t *testing.T) {
@@ -28,16 +29,7 @@ func TestCreateChapter(t *testing.T) {
 
 	r.POST("/volume/:id/chapters", h.CreateChapter)
 
-	var userID uint
-	env.DB.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&userID)
-	if userID == 0 {
-		t.Fatal("Юзер не найден")
-	}
-
-	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
-	if err != nil {
-		t.Fatal(err)
-	}
+	var err error
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -63,10 +55,19 @@ func TestCreateChapter(t *testing.T) {
 
 	writer.Close()
 
-	var volumeID uint
-	env.DB.Raw("SELECT id FROM volumes WHERE name = 'volume_test'").Scan(&volumeID)
-	if volumeID == 0 {
-		t.Fatal("Том не найден")
+	userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	volumeID, err := CreateVolumeWithDependencies(env.DB, userID)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	url := fmt.Sprintf("/volume/%d/chapters", volumeID)
@@ -91,17 +92,6 @@ func TestDeleteChapter(t *testing.T) {
 	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
 	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
 
-	var userID uint
-	env.DB.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&userID)
-	if userID == 0 {
-		t.Fatal("Юзер не найден")
-	}
-
-	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	h := chapters.NewHandler(env.DB, chaptersOnModerationPages, chaptersPages)
 
 	r := gin.New()
@@ -109,7 +99,22 @@ func TestDeleteChapter(t *testing.T) {
 
 	r.DELETE("/chapters/:id", h.DeleteChapter)
 
-	chapterID, err := testhelpers.CreateTestChapter(env.DB, chaptersPages)
+	userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	volumeID, err := CreateVolumeWithDependencies(env.DB, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	chapterID, err := testhelpers.CreateChapter(env.DB, volumeID, userID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,17 +140,6 @@ func TestEditChapter(t *testing.T) {
 	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
 	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
 
-	var userID uint
-	env.DB.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&userID)
-	if userID == 0 {
-		t.Fatal("Юзер не найден")
-	}
-
-	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	h := chapters.NewHandler(env.DB, chaptersOnModerationPages, chaptersPages)
 
 	r := gin.New()
@@ -163,7 +157,22 @@ func TestEditChapter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	chapterID, err := testhelpers.CreateTestChapter(env.DB, chaptersPages)
+	userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	volumeID, err := CreateVolumeWithDependencies(env.DB, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	chapterID, err := testhelpers.CreateChapter(env.DB, volumeID, userID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,10 +199,25 @@ func TestGetChapterPage(t *testing.T) {
 	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
 	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
 
-	var chapterID uint
-	env.DB.Raw("SELECT id FROM chapters WHERE name = 'chapter_test'").Scan(&chapterID)
-	if chapterID == 0 {
-		t.Fatal("Тестовая глава не найдена")
+	userID, err := testhelpers.CreateUser(env.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	volumeID, err := CreateVolumeWithDependencies(env.DB, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pages := make([][]byte, 1, 1)
+	pages[0], err = os.ReadFile("./test_data/chapter_page.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	chapterID, err := testhelpers.CreateChapter(env.DB, volumeID, userID, testhelpers.CreateChapterOptions{Pages: pages, Collection: chaptersPages})
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	h := chapters.NewHandler(env.DB, chaptersPages, chaptersOnModerationPages)
@@ -217,10 +241,19 @@ func TestGetChapter(t *testing.T) {
 	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
 	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
 
-	var chapterID uint
-	env.DB.Raw("SELECT id FROM chapters WHERE name = 'chapter_test'").Scan(&chapterID)
-	if chapterID == 0 {
-		t.Fatal("Тестовая глава не найдена")
+	userID, err := testhelpers.CreateUser(env.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	volumeID, err := CreateVolumeWithDependencies(env.DB, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	chapterID, err := testhelpers.CreateChapter(env.DB, volumeID, userID)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	h := chapters.NewHandler(env.DB, chaptersOnModerationPages, chaptersPages)
@@ -245,10 +278,18 @@ func TestGetVolumeChapters(t *testing.T) {
 	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
 	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
 
-	var volumeID uint
-	env.DB.Raw("SELECT volume_id FROM chapters WHERE name = 'chapter_test'").Scan(&volumeID)
-	if volumeID == 0 {
-		t.Fatal("Тестовый том не найден")
+	userID, err := testhelpers.CreateUser(env.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	volumeID, err := CreateVolumeWithDependencies(env.DB, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = testhelpers.CreateChapter(env.DB, volumeID, userID); err != nil {
+		t.Fatal(err)
 	}
 
 	h := chapters.NewHandler(env.DB, chaptersOnModerationPages, chaptersPages)
@@ -266,4 +307,38 @@ func TestGetVolumeChapters(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatal(w.Body.String())
 	}
+}
+
+// Setup
+
+func CreateVolumeWithDependencies(db *gorm.DB, userID uint) (uint, error) {
+	teamID, err := testhelpers.CreateTeam(db, userID)
+	if err != nil {
+		return 0, err
+	}
+
+	if err = testhelpers.AddUserToTeam(db, userID, teamID); err != nil {
+		return 0, err
+	}
+
+	authorID, err := testhelpers.CreateAuthor(db)
+	if err != nil {
+		return 0, err
+	}
+
+	titleID, err := testhelpers.CreateTitle(db, userID, authorID)
+	if err != nil {
+		return 0, err
+	}
+
+	if err = testhelpers.TranslateTitle(db, teamID, titleID); err != nil {
+		return 0, err
+	}
+
+	volumeID, err := testhelpers.CreateVolume(db, titleID, userID)
+	if err != nil {
+		return 0, err
+	}
+
+	return volumeID, nil
 }

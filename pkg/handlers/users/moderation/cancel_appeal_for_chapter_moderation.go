@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -18,12 +19,7 @@ func (h handler) CancelAppealForChapterModeration(c *gin.Context) {
 	chapter := c.Param("chapter")
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	var (

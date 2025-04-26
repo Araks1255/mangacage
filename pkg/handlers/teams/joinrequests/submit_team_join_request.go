@@ -1,9 +1,11 @@
 package joinrequests
 
 import (
+	"database/sql"
 	"log"
 	"strconv"
 
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
@@ -24,13 +26,18 @@ func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 		return
 	}
 
+	var requestBody struct {
+		IntroductoryMessage string `json:"introductoryMessage"`
+		RoleID              uint   `json:"roleId"`
+	}
+
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		c.AbortWithStatusJSON(404, gin.H{"error": err.Error()})
+		return
+	}
+
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	var existingTeamID uint
@@ -40,6 +47,15 @@ func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 		return
 	}
 
+	if requestBody.RoleID != 0 {
+		var existingRoleID uint
+		tx.Raw("SELECT id FROM roles WHERE id = ?", requestBody.RoleID).Scan(&existingRoleID)
+		if existingRoleID == 0 {
+			c.AbortWithStatusJSON(404, gin.H{"error": "роль не найдена"})
+			return
+		}
+	}
+
 	var userRequestToThisTeamID uint
 	h.DB.Raw("SELECT id FROM team_join_requests WHERE candidate_id = ? AND team_id = ?", claims.ID, existingTeamID).Scan(&userRequestToThisTeamID)
 	if userRequestToThisTeamID != 0 {
@@ -47,23 +63,16 @@ func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 		return
 	}
 
-	var requestBody struct {
-		IntroductoryMessage string `json:"introductoryMessage"`
-		Role                string `json:"role"`
-	}
-
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
-		log.Println(err) // Тут оба значения опциональны, так что запрос может выполнится даже с пустым телом. Поэтому на валидации json запрос не обрывается, даже при ошибке
-	}
-
-	application := models.TeamJoinRequest{
+	joinRequest := models.TeamJoinRequest{
 		CandidateID:         claims.ID,
 		TeamID:              existingTeamID,
 		IntroductoryMessage: requestBody.IntroductoryMessage,
-		Role:                requestBody.Role, // Тут пишут что хотят, но будут реальные варианты предложены, если выберут один из них - сразу получат при попадании в команду
+	}
+	if requestBody.RoleID != 0 {
+		joinRequest.RoleID = sql.NullInt64{Int64: int64(requestBody.RoleID), Valid: true}
 	}
 
-	if result := tx.Create(&application); result.Error != nil {
+	if result := tx.Create(&joinRequest); result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return

@@ -1,6 +1,7 @@
 package titles
 
 import (
+	"github.com/Araks1255/mangacage/pkg/constants"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -9,8 +10,9 @@ import (
 )
 
 type handler struct {
-	DB         *gorm.DB
-	Collection *mongo.Collection
+	DB                       *gorm.DB
+	TitlesCovers             *mongo.Collection
+	TitlesOnModerationCovers *mongo.Collection
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
@@ -19,30 +21,42 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
-	titlesCoversCollection := client.Database("mangacage").Collection("titles_on_moderation_covers")
+	mongoDB := client.Database("mangacage")
+
+	titlesCoversCollection := mongoDB.Collection(constants.TitlesCoversCollection)
+	titlesOnModerationCovers := mongoDB.Collection(constants.TitlesOnModerationCoversCollection)
 
 	h := handler{
-		DB:         db,
-		Collection: titlesCoversCollection,
+		DB:                       db,
+		TitlesCovers:             titlesCoversCollection,
+		TitlesOnModerationCovers: titlesOnModerationCovers,
 	}
 
 	privateTitle := r.Group("/api/titles")
 	privateTitle.Use(middlewares.AuthMiddleware(secretKey))
 	{
 		privateTitle.POST("/", h.CreateTitle)
-		privateTitle.PUT("/:title/translate", h.TranslateTitle)
-		privateTitle.POST("/:title/subscribe", h.SubscribeToTitle)
-		privateTitle.POST("/:title/edited", h.EditTitle)
-		privateTitle.DELETE("/:title", h.DeleteTitle)
-		privateTitle.PUT("/:title/quit", h.QuitTranslatingTitle)
+		privateTitle.PATCH("/:id/translate", h.TranslateTitle)
+		privateTitle.POST("/:id/subscriptions", h.SubscribeToTitle)
+		privateTitle.POST("/:id/edited", h.EditTitle)
+		privateTitle.DELETE("/:id", h.DeleteTitle)
+		privateTitle.PATCH("/:id/quit-translating", h.QuitTranslatingTitle)
 	}
 
 	publicTitle := r.Group("/api/titles")
 	{
-		publicTitle.GET("/:title/cover", h.GetTitleCover)
-		publicTitle.GET("/most_popular", h.GetMostPopularTitles)
-		publicTitle.GET("/recently_updated", h.GetRecentlyUpdatedTitles)
+		publicTitle.GET("/:id/cover", h.GetTitleCover)
+		publicTitle.GET("/most-popular", h.GetMostPopularTitles)
+		publicTitle.GET("/recently-updated", h.GetRecentlyUpdatedTitles)
 		publicTitle.GET("/new", h.GetNewTitles)
-		publicTitle.GET("/:title", h.GetTitle)
+		publicTitle.GET("/:id", h.GetTitle)
+	}
+}
+
+func NewHandler(db *gorm.DB, titlesCovers, titlesOnModerationCovers *mongo.Collection) handler {
+	return handler{
+		DB:                       db,
+		TitlesCovers:             titlesCovers,
+		TitlesOnModerationCovers: titlesOnModerationCovers,
 	}
 }

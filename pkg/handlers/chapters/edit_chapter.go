@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
@@ -17,7 +18,7 @@ import (
 func (h handler) EditChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
-	chapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	desiredChapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "id главы должен быть числом"})
 		return
@@ -53,12 +54,7 @@ func (h handler) EditChapter(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	var titleID uint
@@ -66,7 +62,7 @@ func (h handler) EditChapter(c *gin.Context) {
 		`SELECT t.id FROM titles AS t
 		INNER JOIN volumes AS v ON t.id = v.title_id
 		INNER JOIN chapters AS c ON v.id = c.volume_id
-		WHERE c.id = ?`, chapterID,
+		WHERE c.id = ?`, desiredChapterID,
 	).Scan(&titleID)
 
 	if titleID == 0 {
@@ -82,7 +78,7 @@ func (h handler) EditChapter(c *gin.Context) {
 	}
 
 	editedChapter := models.ChapterOnModeration{
-		ExistingID:  sql.NullInt64{Int64: int64(chapterID), Valid: true},
+		ExistingID:  sql.NullInt64{Int64: int64(desiredChapterID), Valid: true},
 		Name:        requestBody.Name,
 		Description: requestBody.Description,
 		CreatorID:   claims.ID,
@@ -112,9 +108,6 @@ func (h handler) EditChapter(c *gin.Context) {
 
 	c.JSON(201, gin.H{"error": "изменения главы успешно отправлены на модерацию"})
 
-	var chapterName string
-	h.DB.Raw("SELECT name FROM chapters WHERE id = ?", chapterID).Scan(&chapterName)
-
 	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Println(err)
@@ -124,7 +117,7 @@ func (h handler) EditChapter(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutChapterOnModeration(context.TODO(), &pb.ChapterOnModeration{Name: chapterName, New: false}); err != nil {
+	if _, err := client.NotifyAboutChapterOnModeration(context.TODO(), &pb.ChapterOnModeration{ID: uint64(editedChapter.ExistingID.Int64), New: false}); err != nil {
 		log.Println(err)
 	}
 }

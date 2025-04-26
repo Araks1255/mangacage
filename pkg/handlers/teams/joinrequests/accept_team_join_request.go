@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
@@ -12,10 +13,16 @@ import (
 func (h handler) AcceptTeamJoinRequest(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
-	var teamID uint
-	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&teamID)
-	if teamID == 0 {
+	var userTeamID uint
+	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
+	if userTeamID == 0 {
 		c.AbortWithStatusJSON(409, gin.H{"error": "вы не состоите в команде перевода"})
+		return
+	}
+
+	desiredRequestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "id запроса на вступление в команду должен быть числом"})
 		return
 	}
 
@@ -31,63 +38,41 @@ func (h handler) AcceptTeamJoinRequest(c *gin.Context) {
 		return
 	}
 
-	desiredRequestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "id заявки должен быть числом"})
-		return
-	}
-
-	var candidate struct {
-		ID          uint
-		TeamID      uint
-		RequestID   uint
-		RequestRole string
-	}
-
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	tx.Raw(
-		`SELECT u.id, u.team_id, tjr.id AS request_id, tjr.role AS request_role
-		FROM team_join_requests AS tjr
-		INNER JOIN users AS u ON tjr.candidate_id = u.id
-		WHERE tjr.id = ?`, desiredRequestID,
-	).Scan(&candidate)
-
-	if candidate.RequestID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "заявка не найдена"})
-		return
-	}
-	if candidate.TeamID != 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "кандидат уже является участником другой команды"})
+	var teamJoinRequest models.TeamJoinRequest
+	tx.Raw("SELECT * FROM team_join_requests WHERE id = ?", desiredRequestID).Scan(&teamJoinRequest)
+	if teamJoinRequest.ID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "запрос на вступление в команду не найден"})
 		return
 	}
 
-	if result := tx.Exec("UPDATE users SET team_id = ? WHERE id = ?", teamID, candidate.ID); result.Error != nil {
+	if teamJoinRequest.TeamID != userTeamID {
+		c.AbortWithStatusJSON(409, gin.H{"error": "запрос на вступление в команду отправлен не в вашу команду"})
+		return
+	}
+
+	if result := tx.Exec("UPDATE users SET team_id = ? WHERE id = ?", teamJoinRequest.TeamID, teamJoinRequest.CandidateID); result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	tx.Exec(
-		"INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE name = '' AND type = 'team' ON CONFLICT (user_id, role_id) DO NOTHING",
-		candidate.ID, candidate.RequestRole,
-	) // Тут ничего страшного, потом можно будет поставить. Да и я подумываю вообще изменить эту систему
+	response := make(gin.H, 2)
 
-	if result := tx.Exec("DELETE FROM team_join_requests WHERE candidate_id = ?", claims.ID); result.Error != nil { //  Удаление всех других заявок юзера
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-		return
+	if teamJoinRequest.RoleID.Valid {
+		if result := tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", teamJoinRequest.CandidateID, teamJoinRequest.RoleID); result.Error != nil {
+			log.Println(result.Error)
+			response["warning"] = "не удалось назначить пользователю роль из запроса"
+		}
 	}
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "пользователь успешно присоеденён к вашей команде"})
+	response["success"] = "пользователь успешно присоединён к вашей команде"
+
+	c.JSON(200, response)
 	// Возможно уведомление юзеру которого приняли сделать
 }

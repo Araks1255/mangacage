@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,12 +20,7 @@ func (h handler) LeaveTeam(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	var userRoles []string

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
+	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/lib/pq"
 	"google.golang.org/grpc"
@@ -54,12 +55,7 @@ func (h handler) Signup(c *gin.Context) {
 	}()
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-
-			panic(r)
-		}
-	}()
+	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	var existingUserID uint
@@ -98,7 +94,7 @@ func (h handler) Signup(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutUserOnModeration(context.TODO(), &pb.User{Name: user.UserName.String, New: true}); err != nil {
+	if _, err := client.NotifyAboutUserOnModeration(context.TODO(), &pb.User{ID: uint64(user.ID), New: true}); err != nil {
 		log.Println(err)
 	}
 }

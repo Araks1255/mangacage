@@ -7,10 +7,11 @@ import (
 	"io"
 	"log"
 	"slices"
+	"strconv"
 	"sync"
-	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
@@ -23,36 +24,9 @@ import (
 func (h handler) EditTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*models.Claims)
 
-	desiredTitle := c.Param("title")
-
-	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
-	defer tx.Rollback()
-
-	var titleID uint
-	tx.Raw("SELECT id FROM titles WHERE name = ?", desiredTitle).Scan(&titleID) // Здесь нет приведения к нижнему регситру, так-как по задумке запрос будет отправляться с уже отрисованной страницы просмотра тайтла (ну и ещё - таблица не гарантирует уникальности при приведении к нижнему регистру, это обеспечивается только при создании тайтла)
-	if titleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
-		return
-	}
-
-	var userRoles []string
-	tx.Raw("SELECT roles.name FROM roles INNER JOIN user_roles ON roles.id = user_roles.role_id WHERE user_roles.user_id = ?", claims.ID).Scan(&userRoles)
-
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь лидером команды перевода"})
-		return
-	}
-
-	var doesUserTeamTranslatesDesiredTitle bool
-	tx.Raw("SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)", titleID, claims.ID).Scan(&doesUserTeamTranslatesDesiredTitle)
-	if !doesUserTeamTranslatesDesiredTitle && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "ваша команда не переводит данный тайтл"})
+	desiredTitleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "id тайтла должен быть числом"})
 		return
 	}
 
@@ -67,6 +41,36 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	if len(values["name"]) == 0 && len(values["description"]) == 0 && len(values["author"]) == 0 && len(values["genres"]) == 0 && len(form.File["cover"]) == 0 {
 		c.AbortWithStatusJSON(400, gin.H{"error": "необходим хотя-бы один изменяемый параметр"})
+		return
+	}
+
+	tx := h.DB.Begin()
+	defer utils.RollbackOnPanic(tx)
+	defer tx.Rollback()
+
+	var existingTitleID uint
+	tx.Raw("SELECT id FROM titles WHERE id = ?", desiredTitleID).Scan(&existingTitleID)
+	if existingTitleID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
+		return
+	}
+
+	var userRoles []string
+	tx.Raw(
+		`SELECT r.name FROM roles AS r
+		INNER JOIN user_roles AS ur ON r.id = ur.role_id
+		WHERE ur.user_id = ?`, claims.ID,
+	).Scan(&userRoles)
+
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
+		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь лидером команды перевода"})
+		return
+	}
+
+	var doesUserTeamTranslatesDesiredTitle bool
+	tx.Raw("SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)", existingTitleID, claims.ID).Scan(&doesUserTeamTranslatesDesiredTitle)
+	if !doesUserTeamTranslatesDesiredTitle && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
+		c.AbortWithStatusJSON(403, gin.H{"error": "ваша команда не переводит данный тайтл"})
 		return
 	}
 
@@ -99,11 +103,11 @@ func (h handler) EditTitle(c *gin.Context) {
 			return
 		}
 
-		filter = bson.M{"title_id": titleID}
+		filter = bson.M{"title_id": existingTitleID}
 		update := bson.M{"$set": bson.M{"cover": data}}
 		opts := options.Update().SetUpsert(true)
 
-		if _, err := h.Collection.UpdateOne(context.TODO(), filter, update, opts); err != nil {
+		if _, err := h.TitlesOnModerationCovers.UpdateOne(context.TODO(), filter, update, opts); err != nil {
 			log.Println(err)
 			errChan <- err
 			return
@@ -117,7 +121,7 @@ func (h handler) EditTitle(c *gin.Context) {
 
 		var editedTitle models.TitleOnModeration
 
-		editedTitle.ExistingID = sql.NullInt64{Int64: int64(titleID), Valid: true}
+		editedTitle.ExistingID = sql.NullInt64{Int64: int64(existingTitleID), Valid: true}
 		editedTitle.CreatorID = claims.ID // В creator_id будет записываться id того, кто отправил на модерацию (создатель записи на модерации, в целом логично)
 
 		if len(values["name"]) != 0 {
@@ -133,7 +137,7 @@ func (h handler) EditTitle(c *gin.Context) {
 
 		if len(values["author"]) != 0 {
 			var newAuthorID uint
-			tx.Raw("SELECT id FROM authors WHERE lower(name) = lower(?)", values["author"][0]).Scan(&newAuthorID)
+			tx.Raw("SELECT id FROM authors WHERE name = ?", values["author"][0]).Scan(&newAuthorID)
 			if newAuthorID == 0 {
 				errChan <- errors.New("автор не найден")
 				return
@@ -155,30 +159,10 @@ func (h handler) EditTitle(c *gin.Context) {
 
 		tx.Raw("SELECT id FROM titles_on_moderation WHERE existing_id = ?", editedTitle.ExistingID).Scan(&editedTitle.ID) // Если тайтл уже находится на модерации, то айди обращения записывается
 
-		if editedTitle.ID == 0 { // Пояснение этой свистопляски в edit_volume
-			if result := tx.Create(&editedTitle); result.Error != nil {
-				log.Println(result.Error)
-				errChan <- result.Error
-				return
-			}
-		} else {
-			if result := tx.Exec(
-				`UPDATE titles_on_moderation SET
-				created_at = ?,
-				name = ?,
-				description = ?,
-				creator_id = ?,
-				moderator_id = ?,
-				author_id = ?,
-				genres = ?
-				WHERE existing_id = ?`,
-				time.Now(), editedTitle.Name, editedTitle.Description, editedTitle.CreatorID,
-				editedTitle.ModeratorID, editedTitle.AuthorID, editedTitle.Genres, editedTitle.ExistingID,
-			); result.Error != nil {
-				log.Println(result.Error)
-				errChan <- result.Error
-				return
-			}
+		if result := tx.Save(&editedTitle); result.Error != nil {
+			log.Println(result.Error)
+			c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+			return
 		}
 
 		errChan <- nil
@@ -186,9 +170,9 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	wg.Wait()
 
-	for i := 0; i < NUMBER_OF_GORUTINES; i++ {
+	for i := 0; i < len(errChan); i++ {
 		if err = <-errChan; err != nil {
-			_, _ = h.Collection.DeleteOne(context.TODO(), filter)
+			h.TitlesOnModerationCovers.DeleteOne(context.TODO(), filter)
 
 			if err.Error() == "автор не найден" || err.Error() == "указан несуществующий жанр" {
 				c.AbortWithStatusJSON(404, gin.H{"error": err.Error()})
@@ -213,7 +197,7 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutTitleOnModeration(context.TODO(), &pb.TitleOnModeration{Name: desiredTitle, New: false}); err != nil {
+	if _, err := client.NotifyAboutTitleOnModeration(context.TODO(), &pb.TitleOnModeration{ID: uint64(existingTitleID), New: false}); err != nil {
 		log.Println(err)
 	}
 }

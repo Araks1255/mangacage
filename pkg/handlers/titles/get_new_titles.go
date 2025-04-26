@@ -3,6 +3,7 @@ package titles
 import (
 	"strconv"
 
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,18 +19,20 @@ func (h handler) GetNewTitles(c *gin.Context) {
 		}
 	}
 
-	var titles []struct {
-		ID     uint
-		Name   string
-		Author string
-		Team   string
-	}
+	var titles []models.TitleDTO
 
 	h.DB.Raw(
-		`SELECT t.name, a.name AS author, teams.name AS team
+		`SELECT
+			t.id, t.created_at, t.name, t.description,
+			a.name AS author, a.id AS author_id,
+			MAX(teams.name) AS team, MAX(teams.id) AS team_id,
+			ARRAY_AGG(g.name)::TEXT[] AS genres
 		FROM titles AS t
-		INNER JOIN authors AS a ON t.author_id = a.id
-		INNER JOIN teams ON t.team_id = teams.id
+		INNER JOIN authors AS a ON a.id = t.author_id
+		LEFT JOIN teams ON teams.id = t.team_id
+		INNER JOIN title_genres AS tg ON t.id = tg.title_id
+		INNER JOIN genres AS g ON g.id = tg.genre_id
+		GROUP BY t.id, a.id
 		ORDER BY t.created_at DESC
 		LIMIT ?`, limit,
 	).Scan(&titles)

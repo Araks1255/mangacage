@@ -2,28 +2,28 @@ package participants
 
 import (
 	"strconv"
+
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetTeamParticipants(c *gin.Context) {
 	teamID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error":"id команды должен быть числом"})
+		c.AbortWithStatusJSON(400, gin.H{"error": "id команды должен быть числом"})
 		return
 	}
 
-	var participants []struct {
-		ID       uint
-		UserName string
-		Role     string
-	}
+	var participants []models.UserDTO
 
 	h.DB.Raw(
-		`SELECT u.id, u.user_name, r.name AS role FROM users AS u
-		INNER JOIN user_roles AS ur ON u.id = ur.user_id
-		INNER JOIN roles AS r ON r.id = ur.role_id
-		INNER JOIN teams AS t ON t.id = u.team_id
-		WHERE t.id = ? AND r.type = 'team'`,
+		`SELECT u.id, u.user_name,
+		ARRAY_AGG(r.name)::TEXT[] AS roles
+		FROM users AS u
+		LEFT JOIN user_roles AS ur ON u.id = ur.user_id
+		LEFT JOIN roles AS r ON r.id = ur.role_id 
+		WHERE u.team_id = ?
+		GROUP BY u.id`,
 		teamID,
 	).Scan(&participants)
 

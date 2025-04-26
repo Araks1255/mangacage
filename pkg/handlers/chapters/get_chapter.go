@@ -2,8 +2,8 @@ package chapters
 
 import (
 	"strconv"
-	"time"
 
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,19 +14,11 @@ func (h handler) GetChapter(c *gin.Context) {
 		return
 	}
 
-	var chapter struct {
-		ID            uint
-		CreatedAt     time.Time
-		Name          string
-		Description   string
-		NumberOfPages int
-		Volume        string
-		Title         string
-	}
+	var chapter models.ChapterDTO
 
 	h.DB.Raw(
 		`SELECT c.id, c.created_at, c.name, c.description, c.number_of_pages,
-		v.name AS volume, t.name AS title
+		v.name AS volume, v.id AS volume_id, t.name AS title, t.id AS title_id
 		FROM chapters AS c
 		INNER JOIN volumes AS v ON v.id = c.volume_id
 		INNER JOIN titles AS t ON t.id = v.title_id

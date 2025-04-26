@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -53,12 +54,7 @@ func (h handler) CreateTeam(c *gin.Context) {
 	}()
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	var userTeamID uint // Тут можно было бы получить роли юзера и его id команды одним запросом, но это довольно избыточно, + добавляет опасное место на сканировании ряда

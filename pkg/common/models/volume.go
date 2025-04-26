@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -19,4 +20,37 @@ type Volume struct {
 
 	ModeratorID sql.NullInt64
 	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
+}
+
+type VolumeDTO struct {
+	ID        uint      `json:"id"`
+	CreatedAt time.Time `json:"createdAt,omitempty"`
+
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+
+	Title   string `json:"title,omitempty"`
+	TitleID uint   `json:"titleId,omitempty"`
+}
+
+type VolumeOnModeration struct {
+	gorm.Model
+	Name        string
+	Description string
+
+	ExistingID sql.NullInt64 `gorm:"unique"`
+	Volume     *Volume       `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
+
+	TitleID sql.NullInt64
+	Title   *Title `gorm:"foreignKey:TitleID;references:id;OnDelete:SET NULL"`
+
+	CreatorID uint
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
+
+	ModeratorID sql.NullInt64
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
+}
+
+func (VolumeOnModeration) TableName() string {
+	return "volumes_on_moderation"
 }

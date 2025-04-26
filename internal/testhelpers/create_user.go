@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
@@ -20,12 +21,7 @@ func CreateUser(db *gorm.DB, opts ...CreateUserOptions) (uint, error) {
 	}
 
 	tx := db.Begin()
-	defer func() { // Вынесу потом эту функцию куда-нибудь
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	user := models.User{

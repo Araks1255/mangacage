@@ -43,10 +43,10 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	}
 }
 
-func NewHandler(db *gorm.DB, teamsOnModerationCovers *mongo.Collection, teamsCovers *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, teamsOnModerationCovers, teamsCovers *mongo.Collection) handler {
 	return handler{
-		DB: db,
+		DB:                      db,
 		TeamsOnModerationCovers: teamsOnModerationCovers,
-		TeamsCovers: teamsCovers,
+		TeamsCovers:             teamsCovers,
 	}
 }

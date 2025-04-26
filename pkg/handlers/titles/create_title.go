@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
@@ -104,12 +105,8 @@ func (h handler) CreateTitle(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
+	defer tx.Rollback()
 
 	if result := tx.Create(&title); result.Error != nil {
 		tx.Rollback()
@@ -124,7 +121,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	titleCover.TitleOnModerationID = title.ID
 
-	if _, err := h.Collection.InsertOne(context.Background(), titleCover); err != nil {
+	if _, err := h.TitlesOnModerationCovers.InsertOne(context.Background(), titleCover); err != nil {
 		tx.Rollback()
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -143,7 +140,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err = client.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{Name: title.Name.String, New: true}); err != nil {
+	if _, err = client.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{ID: uint64(title.ID), New: true}); err != nil {
 		log.Println(err)
 	}
 }

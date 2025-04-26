@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"log"
+	"os"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 
@@ -68,6 +69,15 @@ func GormMigrate(db *gorm.DB) error {
 
 	if err = db.AutoMigrate(&models.TeamJoinRequest{}); err != nil {
 		return err
+	}
+
+	createGetRecentlyUpdatedTitlesFunctionSQL, err := os.ReadFile("internal/migrations/sql/create_get_recently_updated_titles.sql")
+	if err != nil {
+		return err
+	}
+
+	if result := db.Exec(string(createGetRecentlyUpdatedTitlesFunctionSQL)); result.Error != nil {
+		return result.Error
 	}
 
 	return nil

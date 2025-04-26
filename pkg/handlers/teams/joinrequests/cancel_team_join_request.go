@@ -4,6 +4,7 @@ import (
 	"log"
 	"strconv"
 
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
@@ -18,12 +19,7 @@ func (h handler) CancelTeamJoinRequest(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	var existingRequestID uint

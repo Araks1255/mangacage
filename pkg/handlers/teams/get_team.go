@@ -14,9 +14,9 @@ func (h handler) GetTeam(c *gin.Context) {
 	}
 
 	var team struct {
-		ID          uint
-		Name        string
-		Description string
+		ID          uint   `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
 	}
 
 	h.DB.Raw("SELECT id, name, description FROM teams WHERE id = ?", teamID).Scan(&team)

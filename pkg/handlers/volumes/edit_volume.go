@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
@@ -37,12 +38,7 @@ func (h handler) EditVolume(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 
 	var titleID, volumeID uint
 	row := tx.Raw(`SELECT titles.id, volumes.id FROM volumes
@@ -112,7 +108,7 @@ func (h handler) EditVolume(c *gin.Context) {
 
 		client := pb.NewNotificationsClient(conn)
 
-		if _, err := client.NotifyAboutVolumeOnModeration(context.TODO(), &pb.VolumeOnModeration{Name: volume, New: false}); err != nil {
+		if _, err := client.NotifyAboutVolumeOnModeration(context.TODO(), &pb.VolumeOnModeration{ID: uint64(editedVolume.ExistingID.Int64), New: false}); err != nil {
 			log.Println(err)
 		}
 
@@ -147,7 +143,7 @@ func (h handler) EditVolume(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutVolumeOnModeration(context.TODO(), &pb.VolumeOnModeration{Name: volume, New: false}); err != nil {
+	if _, err := client.NotifyAboutVolumeOnModeration(context.TODO(), &pb.VolumeOnModeration{ID: uint64(editedVolume.ExistingID.Int64), New: false}); err != nil {
 		log.Println(err)
 	}
 }

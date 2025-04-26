@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
@@ -136,12 +137,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 	}
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	if result := tx.Create(&chapter); result.Error != nil {
@@ -170,7 +166,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutChapterOnModeration(context.Background(), &pb.ChapterOnModeration{Name: chapter.Name, New: true}); err != nil {
+	if _, err := client.NotifyAboutChapterOnModeration(context.Background(), &pb.ChapterOnModeration{ID: uint64(chapter.ID), New: true}); err != nil {
 		log.Println(err)
 	}
 }

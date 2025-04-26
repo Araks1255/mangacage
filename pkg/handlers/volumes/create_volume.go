@@ -66,7 +66,7 @@ func (h handler) CreateVolume(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutVolumeOnModeration(context.TODO(), &pb.VolumeOnModeration{Name: volume.Name, New: true}); err != nil {
+	if _, err := client.NotifyAboutVolumeOnModeration(context.TODO(), &pb.VolumeOnModeration{ID: uint64(volume.ID), New: true}); err != nil {
 		log.Println(err)
 	}
 }

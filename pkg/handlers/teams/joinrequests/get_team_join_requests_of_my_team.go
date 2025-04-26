@@ -18,15 +18,17 @@ func (h handler) GetTeamJoinRequestsOfMyTeam(c *gin.Context) {
 	}
 
 	var requests []struct {
-		ID                  uint
-		CreatedAt           time.Time
-		IntroductoryMessage string
-		Role                string
-		Candidate           string
+		ID                  uint      `json:"id"`
+		CreatedAt           time.Time `json:"createdAt"`
+		IntroductoryMessage string    `json:"introductoryMessage"`
+		Role                string    `json:"role"`
+		Candidate           string    `json:"candidate"`
+		CandidateID         uint      `json:"candidateId"`
 	}
 
 	h.DB.Raw(
-		`SELECT tjr.id, tjr.created_at, tjr.introductory_message, tjr.role, u.user_name AS candidate
+		`SELECT tjr.id, tjr.created_at, tjr.introductory_message, tjr.role,
+		u.user_name AS candidate, u.id AS candidate_id
 		FROM team_join_requests AS tjr
 		INNER JOIN users AS u ON u.id = tjr.candidate_id
 		WHERE tjr.team_id = ?`, teamID,

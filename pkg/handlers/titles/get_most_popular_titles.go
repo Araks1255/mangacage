@@ -3,6 +3,7 @@ package titles
 import (
 	"strconv"
 
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,23 +19,27 @@ func (h handler) GetMostPopularTitles(c *gin.Context) {
 		}
 	}
 
-	var titles []struct {
-		ID     uint
-		Name   string
-		Author string
-		Views  uint
-	}
+	var titles []models.TitleDTO
 
 	h.DB.Raw(
-		`SELECT t.id, t.name, a.name AS author, uvs.chapter_id, COUNT(uvs.chapter_id) AS views
-		FROM user_viewed_chapters AS uvs 
-		INNER JOIN chapters AS c ON uvs.chapter_id = c.id
-		INNER JOIN volumes AS v ON c.volume_id = v.id
-		INNER JOIN titles AS t ON v.title_id = t.id
+		`SELECT
+			t.id, t.created_at, t.name, t.description,
+			a.name AS author, a.id AS author_id,
+			MAX(teams.name) AS team, MAX(teams.id) AS team_id,
+			ARRAY_AGG(DISTINCT g.name)::TEXT[] AS genres,
+			COUNT(uvs.chapter_id) AS views
+		FROM titles AS t
 		INNER JOIN authors AS a ON a.id = t.author_id
-		GROUP BY t.id, t.name, a.name, uvs.chapter_id
+		LEFT JOIN teams ON teams.id = t.team_id
+		INNER JOIN title_genres AS tg ON tg.title_id = t.id
+		INNER JOIN genres AS g ON tg.genre_id = g.id
+		LEFT JOIN volumes AS v ON t.id = v.title_id
+		LEFT JOIN chapters AS c ON v.id = c.volume_id
+		LEFT JOIN user_viewed_chapters AS uvs ON uvs.chapter_id = c.id
+		GROUP BY t.id, a.id
 		ORDER BY views DESC
-		LIMIT ?`, limit).Scan(&titles)
+		LIMIT ?`, limit, // Эту махину я как-нибудь потом кэширую, но пока так
+	).Scan(&titles)
 
 	if len(titles) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено самых читаемых тайтлов"})

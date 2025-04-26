@@ -81,14 +81,17 @@ func TestCreateTeam(t *testing.T) {
 }
 
 func TestEditTeam(t *testing.T) {
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
+	userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{TeamID: teamID, Roles: []string{"team_leader"}})
+	teamID, err := testhelpers.CreateTeam(env.DB, userID)
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = testhelpers.AddUserToTeam(env.DB, userID, teamID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -152,10 +155,19 @@ func TestGetTeamCover(t *testing.T) {
 	teamsCovers := env.MongoDB.Collection(constants.TeamsCoversCollection)
 	teamsOnModerationCovers := env.MongoDB.Collection(constants.TeamsOnModerationCoversCollection)
 
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
+	creatorID, err := testhelpers.CreateUser(env.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cover, err := os.ReadFile("./test_data/team_cover.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teamID, err := testhelpers.CreateTeam(env.DB, creatorID, testhelpers.CreateTeamOptions{Cover: cover, Collection: teamsCovers})
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	h := teams.NewHandler(env.DB, teamsOnModerationCovers, teamsCovers)
@@ -178,10 +190,14 @@ func TestGetTeam(t *testing.T) {
 	teamsCovers := env.MongoDB.Collection(constants.TeamsCoversCollection)
 	teamsOnModerationCovers := env.MongoDB.Collection(constants.TeamsOnModerationCoversCollection)
 
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
+	creatorID, err := testhelpers.CreateUser(env.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teamID, err := testhelpers.CreateTeam(env.DB, creatorID)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	h := teams.NewHandler(env.DB, teamsOnModerationCovers, teamsCovers)
@@ -203,16 +219,23 @@ func TestGetTeam(t *testing.T) {
 // Join requests
 
 func TestAcceptTeamJoinRequest(t *testing.T) {
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
+	teamLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	var teamLeaderID uint
-	env.DB.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&teamLeaderID)
-	if teamLeaderID == 0 {
-		t.Fatal("Тестовый юзер не найден")
+	tokenString, err := testhelpers.GenerateTokenString(teamLeaderID, env.SecretKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teamID, err := testhelpers.CreateTeam(env.DB, teamLeaderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = testhelpers.AddUserToTeam(env.DB, teamLeaderID, teamID); err != nil {
+		t.Fatal(err)
 	}
 
 	candidateID, err := testhelpers.CreateUser(env.DB)
@@ -221,11 +244,6 @@ func TestAcceptTeamJoinRequest(t *testing.T) {
 	}
 
 	requestID, err := testhelpers.CreateTeamJoinRequest(env.DB, candidateID, teamID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tokenString, err := testhelpers.GenerateTokenString(teamLeaderID, env.SecretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,29 +265,28 @@ func TestAcceptTeamJoinRequest(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if w.Code != 201 {
+	if w.Code != 200 {
 		t.Fatal(w.Body.String())
 	}
 }
 
 func TestCancelTeamJoinRequest(t *testing.T) {
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
-	}
-
 	candidateID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	requestID, err := testhelpers.CreateTeamJoinRequest(env.DB, candidateID, teamID)
+	tokenString, err := testhelpers.GenerateTokenString(candidateID, env.SecretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tokenString, err := testhelpers.GenerateTokenString(candidateID, env.SecretKey)
+	teamID, err := testhelpers.CreateTeam(env.DB, candidateID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	requestID, err := testhelpers.CreateTeamJoinRequest(env.DB, candidateID, teamID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,16 +314,23 @@ func TestCancelTeamJoinRequest(t *testing.T) {
 }
 
 func TestDeclineTeamJoinRequest(t *testing.T) {
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
+	teamLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	var teamLeaderID uint
-	env.DB.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&teamLeaderID)
-	if teamLeaderID == 0 {
-		t.Fatal("Тестовый юзер не найден")
+	tokenString, err := testhelpers.GenerateTokenString(teamLeaderID, env.SecretKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teamID, err := testhelpers.CreateTeam(env.DB, teamLeaderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = testhelpers.AddUserToTeam(env.DB, teamLeaderID, teamID); err != nil {
+		t.Fatal(err)
 	}
 
 	candidateID, err := testhelpers.CreateUser(env.DB)
@@ -315,11 +339,6 @@ func TestDeclineTeamJoinRequest(t *testing.T) {
 	}
 
 	requestID, err := testhelpers.CreateTeamJoinRequest(env.DB, candidateID, teamID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tokenString, err := testhelpers.GenerateTokenString(teamLeaderID, env.SecretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,23 +366,22 @@ func TestDeclineTeamJoinRequest(t *testing.T) {
 }
 
 func TestGetMyTeamJoinRequests(t *testing.T) {
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
-	}
-
 	userID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = testhelpers.CreateTeamJoinRequest(env.DB, userID, teamID)
+	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
+	teamID, err := testhelpers.CreateTeam(env.DB, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = testhelpers.CreateTeamJoinRequest(env.DB, userID, teamID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -390,16 +408,23 @@ func TestGetMyTeamJoinRequests(t *testing.T) {
 }
 
 func TestGetTeamJoinRequestsOfMyTeam(t *testing.T) {
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
+	teamLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	var teamLeaderID uint
-	env.DB.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&teamLeaderID)
-	if teamLeaderID == 0 {
-		t.Fatal("Тестовый лидер команды не найден")
+	tokenString, err := testhelpers.GenerateTokenString(teamLeaderID, env.SecretKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teamID, err := testhelpers.CreateTeam(env.DB, teamLeaderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = testhelpers.AddUserToTeam(env.DB, teamLeaderID, teamID); err != nil {
+		t.Fatal(err)
 	}
 
 	candidateID, err := testhelpers.CreateUser(env.DB)
@@ -408,11 +433,6 @@ func TestGetTeamJoinRequestsOfMyTeam(t *testing.T) {
 	}
 
 	_, err = testhelpers.CreateTeamJoinRequest(env.DB, candidateID, teamID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tokenString, err := testhelpers.GenerateTokenString(teamLeaderID, env.SecretKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -439,12 +459,6 @@ func TestGetTeamJoinRequestsOfMyTeam(t *testing.T) {
 }
 
 func TestSubmitTeamJoinRequest(t *testing.T) {
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
-	}
-
 	userID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
 		t.Fatal(err)
@@ -455,15 +469,26 @@ func TestSubmitTeamJoinRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	teamID, err := testhelpers.CreateTeam(env.DB, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var roleID uint
+	env.DB.Raw("SELECT id FROM roles WHERE name = 'typer'").Scan(&roleID)
+	if roleID == 0 {
+		t.Fatal("роль не найдена")
+	}
+
 	h := joinrequests.NewHandler(env.DB)
 
 	r := gin.New()
 	r.Use(middlewares.AuthMiddleware(env.SecretKey))
 	r.POST("/teams/:id/join-requests", h.SubmitTeamJoinRequest)
 
-	body := map[string]string{
+	body := gin.H{
 		"introductoryMessage": "message",
-		"role":                "translater",
+		"roleId":              roleID,
 	}
 
 	jsonBody, err := json.Marshal(body)
@@ -490,20 +515,22 @@ func TestSubmitTeamJoinRequest(t *testing.T) {
 
 // Participants
 
-func TestChangeParticipantRole(t *testing.T) {
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
+func TestAddRoleToParticipant(t *testing.T) {
+	participantID, err := testhelpers.CreateUser(env.DB)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	var teamLeaderID uint
-	env.DB.Raw("SELECT id FROM users WHERE user_name = 'user_test'").Scan(&teamLeaderID)
-	if teamLeaderID == 0 {
-		t.Fatal("Тестовый лидер команды не найден")
+	teamID, err := testhelpers.CreateTeam(env.DB, participantID)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	participantID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{TeamID: teamID, Roles: []string{"typer"}})
+	if err = testhelpers.AddUserToTeam(env.DB, participantID, teamID); err != nil {
+		t.Fatal(err)
+	}
+
+	teamLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{TeamID: teamID, Roles: []string{"team_leader"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,15 +540,20 @@ func TestChangeParticipantRole(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var roleID uint
+	env.DB.Raw("SELECT id FROM roles WHERE name = 'typer'").Scan(&roleID) // Эта роль, как и остальные, необходима для корректной работы бэкенда. Так что тут можно просто достать из бд
+	if roleID == 0 {
+		t.Fatal("Роль не найдена")
+	}
+
 	h := participants.NewHandler(env.DB)
 
 	r := gin.New()
 	r.Use(middlewares.AuthMiddleware(env.SecretKey))
-	r.PATCH("/teams/my/participants/:id/role", h.ChangeParticipantRole)
+	r.POST("/teams/my/participants/:id/roles", h.AddRoleToParticipant)
 
-	body := gin.H{
-		"currentRole": "typer",
-		"newRole":     "translater",
+	body := map[string]uint{
+		"roleId": roleID,
 	}
 
 	jsonBody, err := json.Marshal(body)
@@ -529,8 +561,71 @@ func TestChangeParticipantRole(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	url := fmt.Sprintf("/teams/my/participants/%d/role", participantID)
-	req := httptest.NewRequest("PATCH", url, bytes.NewBuffer(jsonBody))
+	url := fmt.Sprintf("/teams/my/participants/%d/roles", participantID)
+	req := httptest.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	req.AddCookie(&http.Cookie{
+		Name:  "mangacage_token",
+		Value: tokenString,
+	})
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != 201 {
+		t.Fatal(w.Body.String())
+	}
+}
+
+func TestDeleteParticipantRole(t *testing.T) {
+	participantID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"typer"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teamID, err := testhelpers.CreateTeam(env.DB, participantID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = testhelpers.AddUserToTeam(env.DB, participantID, teamID); err != nil {
+		t.Fatal(err)
+	}
+
+	teamLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{TeamID: teamID, Roles: []string{"team_leader"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tokenString, err := testhelpers.GenerateTokenString(teamLeaderID, env.SecretKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var roleID uint
+	env.DB.Raw("SELECT id FROM roles WHERE name = 'typer'").Scan(&roleID) // Эта роль, как и остальные, необходима для корректной работы бэкенда. Так что тут можно просто достать из бд
+	if roleID == 0 {
+		t.Fatal("Роль не найдена")
+	}
+
+	h := participants.NewHandler(env.DB)
+
+	r := gin.New()
+	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.DELETE("/teams/my/participants/:id/roles", h.DeleteParticipantRole)
+
+	body := map[string]uint{
+		"roleId": roleID,
+	}
+
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	url := fmt.Sprintf("/teams/my/participants/%d/roles", participantID)
+	req := httptest.NewRequest("DELETE", url, bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	req.AddCookie(&http.Cookie{
@@ -547,19 +642,22 @@ func TestChangeParticipantRole(t *testing.T) {
 }
 
 func TestLeaveTeam(t *testing.T) {
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
-	}
-
-	participantID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{TeamID: teamID, Roles: []string{"typer", "moder"}})
+	participantID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"typer", "moder"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	tokenString, err := testhelpers.GenerateTokenString(participantID, env.SecretKey)
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	teamID, err := testhelpers.CreateTeam(env.DB, participantID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = testhelpers.AddUserToTeam(env.DB, participantID, teamID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -585,10 +683,18 @@ func TestLeaveTeam(t *testing.T) {
 }
 
 func TestGetTeamParticipants(t *testing.T) {
-	var teamID uint
-	env.DB.Raw("SELECT id FROM teams WHERE name = 'team_test'").Scan(&teamID)
-	if teamID == 0 {
-		t.Fatal("Тестовая команда не найдена")
+	userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"typer"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teamID, err := testhelpers.CreateTeam(env.DB, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = testhelpers.AddUserToTeam(env.DB, userID, teamID); err != nil {
+		t.Fatal(err)
 	}
 
 	h := participants.NewHandler(env.DB)

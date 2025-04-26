@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -38,12 +39,7 @@ func (h handler) EditProfile(c *gin.Context) {
 	wg.Add(NUMBER_OF_GORUTINES)
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	utils.RollbackOnPanic(tx)
 
 	var filter bson.M
 	go func() {
@@ -81,6 +77,7 @@ func (h handler) EditProfile(c *gin.Context) {
 		errChan <- nil
 	}()
 
+	var editedUser models.UserOnModeration // Это потом поменяю, не дошёл ещё, а под изменения grpc адаптировать надо
 	go func() {
 		defer wg.Done()
 
@@ -89,7 +86,6 @@ func (h handler) EditProfile(c *gin.Context) {
 			return
 		}
 
-		var editedUser models.UserOnModeration
 		editedUser.ExistingID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
 
 		if len(form.Value["userName"]) != 0 {
@@ -136,7 +132,7 @@ func (h handler) EditProfile(c *gin.Context) {
 
 	client := pb.NewNotificationsClient(conn)
 
-	if _, err := client.NotifyAboutUserOnModeration(context.Background(), &pb.User{Name: userName, New: false}); err != nil {
+	if _, err := client.NotifyAboutUserOnModeration(context.Background(), &pb.User{ID: uint64(editedUser.ExistingID.Int64), New: false}); err != nil {
 		log.Println(err)
 	}
 }

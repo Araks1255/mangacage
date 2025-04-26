@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -49,12 +50,7 @@ func (h handler) EditTeam(c *gin.Context) {
 	wg.Add(NUMBER_OF_GORUTINES)
 
 	tx := h.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
+	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	var userTeamID uint // Поиск команды юзера на всякий случай производится в транзакции. Мало ли кто-то попробует одновременно выйти из команды и отредактировать её. И получится трындец

@@ -22,7 +22,8 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 	privateParticipants := r.Group("/api/teams/my/participants")
 	privateParticipants.Use(middlewares.AuthMiddleware(secretKey))
 	{
-		privateParticipants.PATCH("/:id/role", h.ChangeParticipantRole)
+		privateParticipants.POST("/:id/roles", h.AddRoleToParticipant)
+		privateParticipants.DELETE("/:id/roles", h.DeleteParticipantRole)
 		privateParticipants.DELETE("/me", h.LeaveTeam)
 	}
 
