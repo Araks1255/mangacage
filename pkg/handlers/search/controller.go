@@ -14,3 +14,9 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
 
 	r.GET("/api/search", h.Search)
 }
+
+func NewHandler(db *gorm.DB) handler {
+	return handler{
+		DB: db,
+	}
+}
