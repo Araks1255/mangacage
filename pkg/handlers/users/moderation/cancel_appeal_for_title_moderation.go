@@ -2,54 +2,44 @@ package moderation
 
 import (
 	"context"
-	"database/sql"
 	"log"
+	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 func (h handler) CancelAppealForTitleModeration(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
-	title := c.Param("title")
+	desiredTitleOnModerationID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тайтла на модерации"})
+		return
+	}
 
 	tx := h.DB.Begin()
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var (
-		titleID             sql.NullInt64
-		titleOnModerationID uint
-	)
-
-	row := tx.Raw("SELECT existing_id, id FROM titles_on_moderation WHERE name = ? AND creator_id = ?", title, claims.ID).Row()
-	if err := row.Scan(&titleID, &titleOnModerationID); err != nil {
-		log.Println(err)
-	}
-
-	if titleOnModerationID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено такого тайтла в ваших заявках на модерацию"})
+	var existingTitleOnModerationID uint
+	tx.Raw("SELECT id FROM titles_on_moderation WHERE id = ? AND creator_id = ?", desiredTitleOnModerationID, claims.ID).Scan(&existingTitleOnModerationID)
+	if existingTitleOnModerationID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден в ваших тайтлах на модерации"})
 		return
 	}
 
-	if result := tx.Exec("DELETE FROM titles_on_moderation WHERE id = ?", titleOnModerationID); result.Error != nil {
+	if result := tx.Exec("DELETE FROM titles_on_moderation WHERE id = ?", existingTitleOnModerationID); result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	var filter bson.M
+	filter := bson.M{"title_on_moderation_id": existingTitleOnModerationID}
 
-	if titleID.Valid {
-		filter = bson.M{"title_id": titleID}
-	} else {
-		filter = bson.M{"title_on_moderation_id": titleOnModerationID}
-	}
-
-	if _, err := h.TitlesCovers.DeleteOne(context.TODO(), filter); err != nil { // По идее, не найденный документ не должен возвращать ошибку
+	if _, err := h.TitlesCovers.DeleteOne(context.TODO(), filter); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -57,5 +47,5 @@ func (h handler) CancelAppealForTitleModeration(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(200, gin.H{"success": "ваша обращение на модерацию отменено"})
+	c.JSON(200, gin.H{"success": "ваше обращение на модерацию тайтла успешно отменено"})
 }

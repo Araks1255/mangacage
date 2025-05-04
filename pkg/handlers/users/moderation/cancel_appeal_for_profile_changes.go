@@ -4,14 +4,14 @@ import (
 	"context"
 	"log"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 func (h handler) CancelAppealForProfileChanges(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
 	var userOnModerationID uint
 	h.DB.Raw("SELECT id  FROM users_on_moderation WHERE existing_id = ?", claims.ID).Scan(&userOnModerationID)
@@ -30,7 +30,8 @@ func (h handler) CancelAppealForProfileChanges(c *gin.Context) {
 		return
 	}
 
-	filter := bson.M{"user_id": claims.ID}
+	filter := bson.M{"user_on_moderation_id": userOnModerationID}
+
 	if _, err := h.ProfilePictures.DeleteOne(context.TODO(), filter); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

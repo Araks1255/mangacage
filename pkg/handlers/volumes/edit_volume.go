@@ -7,8 +7,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
@@ -16,7 +17,7 @@ import (
 )
 
 func (h handler) EditVolume(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
 	title := c.Param("title")
 	volume := c.Param("volume")

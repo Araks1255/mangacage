@@ -3,12 +3,12 @@ package testhelpers
 import (
 	"time"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/dgrijalva/jwt-go"
 )
 
 func GenerateTokenString(userID uint, secretKey string) (string, error) {
-	claims := models.Claims{
+	claims := auth.Claims{
 		ID: userID,
 		StandardClaims: jwt.StandardClaims{
 			Subject:   "test",

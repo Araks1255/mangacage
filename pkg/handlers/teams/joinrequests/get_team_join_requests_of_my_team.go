@@ -3,12 +3,12 @@ package joinrequests
 import (
 	"time"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetTeamJoinRequestsOfMyTeam(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
 	var teamID uint
 	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&teamID)

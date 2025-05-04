@@ -2,36 +2,55 @@ package favorites
 
 import (
 	"log"
+	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
+
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) AddGenreToFavorites(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
-	var requestBody struct {
-		Genre string `json:"genre" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+	desiredGenreID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id жанра"})
 		return
 	}
 
-	var genreID uint
-	h.DB.Raw("SELECT id FROM genres WHERE lower(name) = lower(?)", requestBody.Genre).Scan(&genreID)
-	if genreID == 0 {
+	tx := h.DB.Begin()
+	defer dbUtils.RollbackOnPanic(tx)
+	defer tx.Rollback()
+
+	var existing struct {
+		UserFavoriteGenreID uint
+		GenreID             uint
+	}
+
+	tx.Raw(
+		`SELECT
+			(SELECT genre_id FROM user_favorite_genres WHERE user_id = ? AND genre_id = ?) AS user_favorite_genre_id,
+			(SELECT id FROM genres WHERE id = ?) AS genre_id`,
+		claims.ID, desiredGenreID, desiredGenreID,
+	).Scan(&existing)
+
+	if existing.UserFavoriteGenreID != 0 {
+		c.AbortWithStatusJSON(409, gin.H{"error": "этот жанр уже добавлен к вам в избранное"})
+		return
+	}
+	if existing.GenreID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "жанр не найден"})
 		return
 	}
 
-	if result := h.DB.Exec("INSERT INTO user_favorite_genres (user_id, genre_id) VALUES (?,?)", claims.ID, genreID); result.Error != nil {
+	if result := tx.Exec("INSERT INTO user_favorite_genres (user_id, genre_id) VALUES (?, ?)", claims.ID, existing.GenreID); result.Error != nil {
 		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error})
 		return
 	}
 
-	c.JSON(201, gin.H{"success": "жанр успешно добавлен в избранное"})
+	tx.Commit()
+
+	c.JSON(201, gin.H{"success": "жанр успешно добавлен к вам в избранное"})
 }

@@ -1,37 +1,32 @@
 package favorites
 
 import (
-	"log"
+	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) DeleteTitleFromFavorites(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
-	title := c.Param("title")
-
-	var titleID uint
-	h.DB.Raw(
-		`SELECT t.id FROM titles AS t
-		INNER JOIN user_favorite_titles AS uft ON uft.title_id = t.id
-		WHERE uft.user_id = ? AND t.name = ?`, claims.ID, title,
-	).Scan(&titleID)
-
-	if titleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
+	desiredTitleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тайтла"})
 		return
 	}
 
-	if result := h.DB.Exec(
-		"DELETE FROM user_favorite_titles WHERE user_id = ? AND title_id = ?",
-		claims.ID, titleID,
-	); result.Error != nil {
-		log.Println(result.Error)
+	result := h.DB.Exec("DELETE FROM user_favorite_titles WHERE user_id = ? AND title_id = ?", claims.ID, desiredTitleID)
+
+	if result.Error != nil {
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	c.JSON(200, gin.H{"success": "тайтл успешно удалён из избранного"})
+	if result.RowsAffected == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден в вашем избранном"})
+		return
+	}
+
+	c.JSON(200, gin.H{"success": "тайтл успешно удалён из вашего избранного"})
 }

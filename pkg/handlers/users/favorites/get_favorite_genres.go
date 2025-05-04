@@ -1,20 +1,42 @@
 package favorites
 
 import (
+	"strconv"
+
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetFavoriteGenres(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
-	var genres []string
-	h.DB.Raw(`SELECT genres.name FROM genres
-		INNER JOIN user_favorite_genres ON genres.id = user_favorite_genres.genre_id
-		WHERE user_favorite_genres.user_id = ?`, claims.ID).Scan(&genres)
+	limit := 10
+
+	if c.Query("limit") != "" {
+		var err error
+		if limit, err = strconv.Atoi(c.Query("limit")); err != nil {
+			c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный лимит"})
+			return
+		}
+	}
+
+	var genres []models.GenreDTO
+
+	h.DB.Raw(
+		`SELECT
+			g.id, g.name
+		FROM
+			user_favorite_genres AS uvg
+			INNER JOIN genres AS g ON g.id = uvg.genre_id
+		WHERE
+			uvg.user_id = ?
+		LIMIT ?`,
+		claims.ID, limit,
+	).Scan(&genres)
 
 	if len(genres) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено любимых жанров"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено ваших избранных жанров"})
 		return
 	}
 

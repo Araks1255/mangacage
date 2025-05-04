@@ -2,47 +2,54 @@ package favorites
 
 import (
 	"log"
+	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
+	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) AddChapterToFavorites(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
-	var requestBody struct {
-		Title   string `json:"title" binding:"required"`
-		Volume  string `json:"volume" binding:"required"`
-		Chapter string `json:"chapter" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+	desiredChapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id главы"})
 		return
 	}
 
-	var chapterID uint
-	h.DB.Raw(`SELECT chapters.id FROM chapters
-		INNER JOIN volumes ON chapters.volume_id = volumes.id
-		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE lower(titles.name) = lower(?)
-		AND lower(volumes.name) = lower(?)
-		AND lower(chapters.name) = lower(?)
-		AND not chapters.on_moderation`,
-		requestBody.Title, requestBody.Volume, requestBody.Chapter,
-	).Scan(&chapterID)
+	tx := h.DB.Begin()
+	defer dbUtils.RollbackOnPanic(tx)
+	defer tx.Rollback()
 
-	if chapterID == 0 {
+	var existing struct {
+		UserFavoriteChapterID uint
+		ChapterID             uint
+	}
+
+	tx.Raw(
+		`SELECT
+			(SELECT chapter_id FROM user_favorite_chapters WHERE user_id = ? AND chapter_id = ?) AS user_favorite_chapter_id,
+			(SELECT id FROM chapters WHERE id = ?) AS chapter_id`,
+		claims.ID, desiredChapterID, desiredChapterID,
+	).Scan(&existing)
+
+	if existing.UserFavoriteChapterID != 0 {
+		c.AbortWithStatusJSON(409, gin.H{"error": "эта глава уже есть у вас в избранном"})
+		return
+	}
+	if existing.ChapterID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена"})
 		return
 	}
 
-	if result := h.DB.Exec("INSERT INTO user_favorite_chapters (user_id, chapter_id) VALUES (?,?)", claims.ID, chapterID); result.Error != nil {
+	if result := tx.Exec("INSERT INTO user_favorite_chapters (user_id, chapter_id) VALUES (?, ?)", claims.ID, existing.ChapterID); result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	c.JSON(201, gin.H{"success": "глава успешно добавлена в избранное"})
+	tx.Commit()
+
+	c.JSON(201, gin.H{"success": "глава успешно добавлена к вам в избранное"})
 }

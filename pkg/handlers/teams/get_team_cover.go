@@ -12,7 +12,7 @@ import (
 func (h handler) GetTeamCover(c *gin.Context) {
 	teamID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error":" id команды должен быть числом"})
+		c.AbortWithStatusJSON(400, gin.H{"error": " id команды должен быть числом"})
 		return
 	}
 
@@ -30,7 +30,7 @@ func (h handler) GetTeamCover(c *gin.Context) {
 	}
 
 	if len(result.Cover) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error":"обложка команды не найдена"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "обложка команды не найдена"})
 		return
 	}
 

@@ -187,10 +187,7 @@ func TestGetTeamCover(t *testing.T) {
 }
 
 func TestGetTeam(t *testing.T) {
-	teamsCovers := env.MongoDB.Collection(constants.TeamsCoversCollection)
-	teamsOnModerationCovers := env.MongoDB.Collection(constants.TeamsOnModerationCoversCollection)
-
-	creatorID, err := testhelpers.CreateUser(env.DB)
+	creatorID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +197,11 @@ func TestGetTeam(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := teams.NewHandler(env.DB, teamsOnModerationCovers, teamsCovers)
+	if err = testhelpers.AddUserToTeam(env.DB, creatorID, teamID); err != nil {
+		t.Fatal(err)
+	}
+
+	h := teams.NewHandler(env.DB, nil, nil)
 
 	r := gin.New()
 	r.GET("/teams/:id", h.GetTeam)

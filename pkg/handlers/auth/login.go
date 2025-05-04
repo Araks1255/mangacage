@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/auth"
+	"github.com/Araks1255/mangacage/pkg/auth/utils"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -52,7 +52,7 @@ func (h handler) Login(c *gin.Context) {
 
 	expirationTime := time.Now().Add(2016 * time.Hour)
 
-	claims := models.Claims{
+	claims := auth.Claims{
 		ID: userID,
 		StandardClaims: jwt.StandardClaims{
 			Subject:   requestBody.UserName, // Если до сюда дошло, то юзернейм из запроса валидный

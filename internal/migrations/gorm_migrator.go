@@ -67,7 +67,10 @@ func GormMigrate(db *gorm.DB) error {
 		return err
 	}
 
-	if err = db.AutoMigrate(&models.TeamJoinRequest{}); err != nil {
+	if err = db.AutoMigrate(
+		&models.TeamJoinRequest{},
+		&models.UserViewedChapter{},
+	); err != nil {
 		return err
 	}
 

@@ -22,17 +22,6 @@ type Volume struct {
 	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
 }
 
-type VolumeDTO struct {
-	ID        uint      `json:"id"`
-	CreatedAt time.Time `json:"createdAt,omitempty"`
-
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-
-	Title   string `json:"title,omitempty"`
-	TitleID uint   `json:"titleId,omitempty"`
-}
-
 type VolumeOnModeration struct {
 	gorm.Model
 	Name        string
@@ -53,4 +42,21 @@ type VolumeOnModeration struct {
 
 func (VolumeOnModeration) TableName() string {
 	return "volumes_on_moderation"
+}
+
+type VolumeDTO struct {
+	ID        uint      `json:"id"`
+	CreatedAt time.Time `json:"createdAt,omitempty"`
+
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+
+	Title   string `json:"title,omitempty"`
+	TitleID uint   `json:"titleId,omitempty"`
+}
+
+type VolumeOnModerationDTO struct {
+	VolumeDTO
+	Existing   string `json:"existing,omitempty"`
+	ExistingID uint   `json:"existingId,omitempty"`
 }

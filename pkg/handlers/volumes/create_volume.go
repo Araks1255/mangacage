@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
@@ -13,7 +14,7 @@ import (
 )
 
 func (h handler) CreateVolume(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
 	title := c.Param("title")
 

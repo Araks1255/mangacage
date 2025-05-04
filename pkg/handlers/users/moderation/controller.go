@@ -1,6 +1,7 @@
 package moderation
 
 import (
+	"github.com/Araks1255/mangacage/pkg/constants"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -21,9 +22,9 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
-	titlesOnModerationCovers := client.Database("mangacage").Collection("titles_on_moderation_covers")
-	chaptersOnModerationPages := client.Database("mangacage").Collection("chapters_on_moderation_pages")
-	usersOnModerationProfilePictures := client.Database("mangacage").Collection("users_on_moderation_profile_pictures")
+	titlesOnModerationCovers := client.Database("mangacage").Collection(constants.TitlesOnModerationCoversCollection)
+	chaptersOnModerationPages := client.Database("mangacage").Collection(constants.ChaptersOnModerationPagesCollection)
+	usersOnModerationProfilePictures := client.Database("mangacage").Collection(constants.UsersOnModerationProfilePicturesCollection)
 
 	h := handler{
 		DB:              db,
@@ -32,37 +33,46 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		ProfilePictures: usersOnModerationProfilePictures,
 	}
 
-	moderation := r.Group("/api/home/moderation")
+	moderation := r.Group("/api/users/me/moderation")
 	moderation.Use(middlewares.AuthMiddleware(secretKey))
 	{
 		profile := moderation.Group("/profile")
 		{
-			profile.GET("/edited", h.GetSelfProfileChangesOnModeration)
-			profile.GET("/picture", h.GetSelfProfilePictureOnModeration)
+			profile.GET("/edited", h.GetMyProfileChangesOnModeration)
+			profile.GET("/picture", h.GetMyProfilePictureOnModeration)
 			profile.DELETE("/edited", h.CancelAppealForProfileChanges)
 		}
 
 		titles := moderation.Group("/titles")
 		{
-			titles.GET("/edited", h.GetSelfEditedTitlesOnModeration)
-			titles.GET("/new", h.GetSelfNewTitlesOnModeration)
-			titles.GET("/:title/cover", h.GetSelfTitleOnModerationCover)
-			titles.DELETE("/:title", h.CancelAppealForTitleModeration)
+			titles.GET("/edited", h.GetMyEditedTitlesOnModeration)
+			titles.GET("/new", h.GetMyNewTitlesOnModeration)
+			titles.GET("/:id/cover", h.GetMyTitleOnModerationCover)
+			titles.DELETE("/:id", h.CancelAppealForTitleModeration)
 		}
 
 		chapters := moderation.Group("/chapters")
 		{
-			chapters.GET("/new", h.GetSelfNewChaptersOnModeration)
-			chapters.GET("/edited", h.GetSelfEditedChaptersOnModeration)
-			chapters.GET("/:title/:volume/:chapter/:page", h.GetSelfChapterOnModerationPage)
-			chapters.DELETE("/:title/:volume/:chapter", h.CancelAppealForChapterModeration)
+			chapters.GET("/new", h.GetMyNewChaptersOnModeration)
+			chapters.GET("/edited", h.GetMyEditedChaptersOnModeration)
+			chapters.GET("/:id/page/:page", h.GetMyChapterOnModerationPage)
+			chapters.DELETE("/:id", h.CancelAppealForChapterModeration)
 		}
 
 		volumes := moderation.Group("/volumes")
 		{
-			volumes.GET("/new", h.GetSelfNewVolumesOnModeration)
-			volumes.GET("/edited", h.GetSelfEditedVolumesOnModeration)
-			volumes.DELETE("/:title/:volume", h.CancelAppealForVolumeModeration)
+			volumes.GET("/new", h.GetMyNewVolumesOnModeration)
+			volumes.GET("/edited", h.GetMyEditedVolumesOnModeration)
+			volumes.DELETE("/:id", h.CancelAppealForVolumeModeration)
 		}
+	}
+}
+
+func NewHandler(db *gorm.DB, titlesOnModerationCovers, chaptersOnModerationPages, usersOnModerationProfilePictures *mongo.Collection) handler {
+	return handler{
+		DB:              db,
+		TitlesCovers:    titlesOnModerationCovers,
+		ChaptersPages:   chaptersOnModerationPages,
+		ProfilePictures: usersOnModerationProfilePictures,
 	}
 }

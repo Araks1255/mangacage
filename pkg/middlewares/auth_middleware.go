@@ -3,7 +3,7 @@ package middlewares
 import (
 	"log"
 
-	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/auth/utils"
 	"github.com/gin-gonic/gin"
 )
 

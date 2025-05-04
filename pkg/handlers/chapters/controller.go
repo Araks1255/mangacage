@@ -2,6 +2,7 @@ package chapters
 
 import (
 	"github.com/Araks1255/mangacage/pkg/middlewares"
+	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -12,9 +13,10 @@ type handler struct {
 	DB                        *gorm.DB
 	ChaptersOnModerationPages *mongo.Collection
 	ChaptersPages             *mongo.Collection
+	NotificationsClient       pb.NotificationsClient
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
+func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, r *gin.Engine) {
 	viper.SetConfigFile("./pkg/common/envs/.env")
 	viper.ReadInConfig()
 
@@ -27,6 +29,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		DB:                        db,
 		ChaptersOnModerationPages: chaptersOnModerationPagesCollection,
 		ChaptersPages:             chapterPagesCollection,
+		NotificationsClient:       notificationsClient,
 	}
 
 	privateChapter := r.Group("/api/chapters")
@@ -46,10 +49,11 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	r.GET("/api/volume/:id/chapters", h.GetVolumeChapters)
 }
 
-func NewHandler(db *gorm.DB, chaptersOnModerationPages *mongo.Collection, chaptersPages *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, chaptersOnModerationPages, chaptersPages *mongo.Collection) handler {
 	return handler{
 		DB:                        db,
 		ChaptersOnModerationPages: chaptersOnModerationPages,
 		ChaptersPages:             chaptersPages,
+		NotificationsClient:       notificationsClient,
 	}
 }

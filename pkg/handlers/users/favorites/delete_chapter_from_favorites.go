@@ -2,39 +2,31 @@ package favorites
 
 import (
 	"log"
+	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) DeleteChapterFromFavorites(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
-	title := c.Param("title")
-	volume := c.Param("volume")
-	chapter := c.Param("chapter")
-
-	var chapterID uint
-	h.DB.Raw(
-		`SELECT c.id FROM chapters AS c
-		INNER JOIN volumes AS v ON c.volume_id = v.id
-		INNER JOIN titles AS t ON v.title_id = t.id
-		INNER JOIN user_favorite_chapters AS ufc ON ufc.chapter_id = c.id
-		WHERE t.name = ? AND v.name = ? AND c.name = ? AND ufc.user_id = ?`,
-		title, volume, chapter, claims.ID,
-	).Scan(&chapterID)
-
-	if chapterID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена в ваших избранных главах"})
+	desiredChapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id главы"})
 		return
 	}
 
-	if result := h.DB.Exec(
-		"DELETE FROM user_favorite_chapters WHERE chapter_id = ? AND user_id = ?",
-		chapterID, claims.ID,
-	); result.Error != nil {
+	result := h.DB.Exec("DELETE FROM user_favorite_chapters WHERE user_id = ? AND chapter_id = ?", claims.ID, desiredChapterID)
+
+	if result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена в вашем избранном"})
 		return
 	}
 

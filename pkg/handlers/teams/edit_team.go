@@ -3,21 +3,27 @@ package teams
 import (
 	"context"
 	"database/sql"
-	"io"
 	"log"
 	"slices"
-	"sync"
-	"time"
 
+	"github.com/Araks1255/mangacage/pkg/auth"
+	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (h handler) EditTeam(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
+
+	var userTeamID uint
+	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
+	if userTeamID == 0 {
+		c.AbortWithStatusJSON(409, gin.H{"error": "вы не состоите в команде перевода"})
+		return
+	}
 
 	var userRoles []string
 	h.DB.Raw(
@@ -43,97 +49,84 @@ func (h handler) EditTeam(c *gin.Context) {
 		return
 	}
 
-	const NUMBER_OF_GORUTINES = 2 // Это вынесено наверх, чтобы не занимать время транзакции
-	errChan := make(chan error, NUMBER_OF_GORUTINES)
-
-	var wg sync.WaitGroup
-	wg.Add(NUMBER_OF_GORUTINES)
-
-	tx := h.DB.Begin()
-	defer utils.RollbackOnPanic(tx)
-	defer tx.Rollback()
-
-	var userTeamID uint // Поиск команды юзера на всякий случай производится в транзакции. Мало ли кто-то попробует одновременно выйти из команды и отредактировать её. И получится трындец
-	tx.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
-	if userTeamID == 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "вы не состоите в команде перевода"})
+	if len(form.File["cover"]) != 0 && form.File["cover"][0].Size > 10<<20 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "превышен лимит размера обложки (10мб)"})
 		return
 	}
 
-	go func() {
-		defer wg.Done()
+	tx := h.DB.Begin()
+	defer dbUtils.RollbackOnPanic(tx)
+	defer tx.Rollback()
 
-		if len(form.File["cover"]) == 0 {
-			errChan <- nil
+	if len(form.Value["name"]) != 0 {
+		var existingTeamOnModerationID, existingTeamID sql.NullInt64
+
+		row := tx.Raw(
+			`SELECT
+				(SELECT id FROM teams_on_moderation WHERE lower(name) = lower(?) LIMIT 1),
+				(SELECT id FROM teams WHERE lower(name) = lower(?) LIMIT 1)`,
+			form.Value["name"][0], form.Value["name"][0],
+		).Row()
+
+		if err = row.Scan(&existingTeamOnModerationID, &existingTeamID); err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		file, err := form.File["cover"][0].Open()
+		if existingTeamOnModerationID.Valid {
+			c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже ожидает модерации"})
+			return
+		}
+		if existingTeamID.Valid {
+			c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже существует"})
+			return
+		}
+	}
+
+	editedTeam := models.TeamOnModeration{ // Тут можно было просто на переменных сделать, но со структурой мне побольше нравится
+		Description: form.Value["description"][0],
+		CreatorID:   claims.ID,
+		ExistingID:  sql.NullInt64{Int64: int64(userTeamID), Valid: true},
+	}
+
+	if len(form.Value["name"]) != 0 {
+		editedTeam.Name = sql.NullString{String: form.Value["name"][0]}
+	}
+
+	if result := tx.Raw(
+		`INSERT INTO teams_on_moderation (created_at, name, description, existing_id, creator_id)
+		VALUES (NOW(), ?, ?, ?, ?)
+		ON CONFLICT (existing_id) DO UPDATE
+		SET
+			name = EXCLUDED.name,
+			description = EXCLUDED.description,
+			creator_id = EXCLUDED.creator_id,
+			updated_at = NOW()
+		RETURNING id`,
+		editedTeam.Name, editedTeam.Description, editedTeam.ExistingID, editedTeam.CreatorID,
+	).Scan(&editedTeam.ID); result.Error != nil {
+		log.Println(result.Error)
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	if len(form.File["cover"]) != 0 {
+		cover, err := utils.ReadMultipartFile(form.File["cover"][0], 10<<20)
 		if err != nil {
 			log.Println(err)
-			errChan <- err
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		data, err := io.ReadAll(file)
-		if err != nil {
-			log.Println(err)
-			errChan <- err
-			return
-		}
-
-		filter := bson.M{"team_id": userTeamID}
-		update := bson.M{"$set": bson.M{"cover": data}}
+		filter := bson.M{"team_on_moderation_id": editedTeam.ID}
+		update := bson.M{"$set": bson.M{"cover": cover}}
 		opts := options.Update().SetUpsert(true)
 
-		if _, err := h.TeamsOnModerationCovers.UpdateOne(context.TODO(), filter, update, opts); err != nil {
+		if _, err := h.TeamsOnModerationCovers.UpdateOne(context.Background(), filter, update, opts); err != nil {
 			log.Println(err)
-			errChan <- err
-			return
-		}
-
-		errChan <- nil
-	}()
-
-	go func() {
-		defer wg.Done()
-
-		if len(form.Value["name"]) == 0 && len(form.Value["description"]) == 0 {
-			errChan <- nil
-			return
-		}
-
-		editedTeam := models.TeamOnModeration{
-			ExistingID: sql.NullInt64{Int64: int64(userTeamID), Valid: true},
-			CreatorID:  claims.ID,
-		}
-
-		if len(form.Value["name"]) != 0 {
-			editedTeam.Name = sql.NullString{String: form.Value["name"][0], Valid: true}
-		}
-		if len(form.Value["description"]) != 0 {
-			editedTeam.Description = form.Value["description"][0]
-		}
-
-		tx.Raw("SELECT id FROM teams_on_moderation WHERE existing_id = ?", userTeamID).Scan(&editedTeam.ID)
-
-		editedTeam.CreatedAt = time.Now() // Попытка обновить уже существующее обращение считается новым обращением, поэтому CreatedAt меняется
-
-		if result := tx.Save(&editedTeam); result.Error != nil {
-			log.Println(result.Error)
-			errChan <- result.Error
-			return
-		}
-
-		errChan <- nil
-	}()
-
-	wg.Wait()
-
-	for i := 0; i < NUMBER_OF_GORUTINES; i++ {
-		if err := <-errChan; err != nil {
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return // любой return в хэндлере так или иначе означает tx.Rollback() (так-как этот метод вызван в defer)
+			return
 		}
 	}
 

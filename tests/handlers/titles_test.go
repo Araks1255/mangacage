@@ -17,7 +17,6 @@ import (
 )
 
 func TestCreateTitle(t *testing.T) {
-	titlesCovers := env.MongoDB.Collection(constants.TitlesCoversCollection)
 	titlesOnModerationCovers := env.MongoDB.Collection(constants.TitlesOnModerationCoversCollection)
 
 	creatorID, err := testhelpers.CreateUser(env.DB)
@@ -35,9 +34,6 @@ func TestCreateTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var authorName string
-	env.DB.Raw("SELECT name FROM authors WHERE id = ?", authorID).Scan(&authorName)
-
 	var genres []string
 	env.DB.Raw("SELECT name FROM genres").Scan(&genres)
 
@@ -50,7 +46,7 @@ func TestCreateTitle(t *testing.T) {
 	if err = writer.WriteField("description", "someDescription"); err != nil {
 		t.Fatal(err)
 	}
-	if err = writer.WriteField("author", authorName); err != nil {
+	if err = writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < len(genres); i++ {
@@ -72,7 +68,7 @@ func TestCreateTitle(t *testing.T) {
 
 	writer.Close()
 
-	h := titles.NewHandler(env.DB, titlesCovers, titlesOnModerationCovers)
+	h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
 	r := gin.New()
 	r.Use(middlewares.AuthMiddleware(env.SecretKey))
@@ -136,7 +132,7 @@ func TestDeleteTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := titles.NewHandler(env.DB, titlesCovers, titlesOnModerationCovers)
+	h := titles.NewHandler(env.DB, env.NotificationsClient, titlesCovers, titlesOnModerationCovers)
 
 	r := gin.New()
 	r.Use(middlewares.AuthMiddleware(env.SecretKey))
@@ -159,7 +155,6 @@ func TestDeleteTitle(t *testing.T) {
 }
 
 func TestEditTitle(t *testing.T) {
-	titlesCovers := env.MongoDB.Collection(constants.TitlesCoversCollection)
 	titlesOnModerationCovers := env.MongoDB.Collection(constants.TitlesOnModerationCoversCollection)
 
 	creatorID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
@@ -195,7 +190,7 @@ func TestEditTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := titles.NewHandler(env.DB, titlesCovers, titlesOnModerationCovers)
+	h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
 	r := gin.New()
 	r.Use(middlewares.AuthMiddleware(env.SecretKey))
@@ -220,7 +215,7 @@ func TestEditTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < len(genres); i++ {
-		if err = writer.WriteField("genres", genres[0]); err != nil {
+		if err = writer.WriteField("genres", genres[i]); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -285,7 +280,7 @@ func TestGetMostPopularTitles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := titles.NewHandler(env.DB, nil, nil)
+	h := titles.NewHandler(env.DB, nil, nil, nil)
 
 	r := gin.New()
 	r.GET("/titles/most-popular", h.GetMostPopularTitles)
@@ -311,7 +306,7 @@ func TestGetNewTitles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := titles.NewHandler(env.DB, nil, nil)
+	h := titles.NewHandler(env.DB, nil, nil, nil)
 
 	r := gin.New()
 	r.GET("/titles/new", h.GetNewTitles)
@@ -341,7 +336,7 @@ func TestGetRecentlyUpdatedTitles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := titles.NewHandler(env.DB, nil, nil)
+	h := titles.NewHandler(env.DB, nil, nil, nil)
 
 	r := gin.New()
 	r.GET("/titles/recently-updated", h.GetRecentlyUpdatedTitles)
@@ -379,7 +374,7 @@ func TestGetTitleCover(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := titles.NewHandler(env.DB, titlesCovers, nil)
+	h := titles.NewHandler(env.DB, nil, titlesCovers, nil)
 
 	r := gin.New()
 	r.GET("/titles/:id/cover", h.GetTitleCover)
@@ -411,7 +406,7 @@ func TestGetTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := titles.NewHandler(env.DB, nil, nil)
+	h := titles.NewHandler(env.DB, nil, nil, nil)
 
 	r := gin.New()
 	r.GET("/titles/:id", h.GetTitle)
@@ -457,7 +452,7 @@ func TestQuitTranslatingTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := titles.NewHandler(env.DB, nil, nil)
+	h := titles.NewHandler(env.DB, nil, nil, nil)
 
 	r := gin.New()
 	r.Use(middlewares.AuthMiddleware(env.SecretKey))
@@ -500,7 +495,7 @@ func TestSubscribeToTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := titles.NewHandler(env.DB, nil, nil)
+	h := titles.NewHandler(env.DB, nil, nil, nil)
 
 	r := gin.New()
 	r.Use(middlewares.AuthMiddleware(env.SecretKey))
@@ -552,7 +547,7 @@ func TestTranslateTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := titles.NewHandler(env.DB, nil, nil)
+	h := titles.NewHandler(env.DB, nil, nil, nil)
 
 	r := gin.New()
 	r.Use(middlewares.AuthMiddleware(env.SecretKey))

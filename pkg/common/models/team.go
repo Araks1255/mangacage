@@ -19,17 +19,6 @@ type Team struct {
 	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
 }
 
-type TeamDTO struct {
-	ID        uint      `json:"id"`
-	CreatedAt time.Time `json:"createdAt,omitempty"`
-
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-
-	Leader   string `json:"leader,omitempty"`
-	LeaderID uint   `json:"leaderId,omitempty"`
-}
-
 type TeamOnModeration struct {
 	gorm.Model
 	Name        sql.NullString `json:"name" binding:"required" gorm:"unique"`
@@ -44,4 +33,15 @@ type TeamOnModeration struct {
 
 func (TeamOnModeration) TableName() string {
 	return "teams_on_moderation"
+}
+
+type TeamDTO struct {
+	ID        uint      `json:"id"`
+	CreatedAt time.Time `json:"createdAt,omitempty"`
+
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+
+	Leader   string `json:"leader,omitempty"`
+	LeaderID uint   `json:"leaderId,omitempty"`
 }

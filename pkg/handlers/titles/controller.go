@@ -3,6 +3,7 @@ package titles
 import (
 	"github.com/Araks1255/mangacage/pkg/constants"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
+	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -13,9 +14,10 @@ type handler struct {
 	DB                       *gorm.DB
 	TitlesCovers             *mongo.Collection
 	TitlesOnModerationCovers *mongo.Collection
+	NotificationsClient      pb.NotificationsClient
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
+func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, r *gin.Engine) {
 	viper.SetConfigFile("./pkg/common/envs/.env")
 	viper.ReadInConfig()
 
@@ -30,6 +32,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		DB:                       db,
 		TitlesCovers:             titlesCoversCollection,
 		TitlesOnModerationCovers: titlesOnModerationCovers,
+		NotificationsClient:      notificationsClient,
 	}
 
 	privateTitle := r.Group("/api/titles")
@@ -53,10 +56,11 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	}
 }
 
-func NewHandler(db *gorm.DB, titlesCovers, titlesOnModerationCovers *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, titlesCovers, titlesOnModerationCovers *mongo.Collection) handler {
 	return handler{
 		DB:                       db,
 		TitlesCovers:             titlesCovers,
 		TitlesOnModerationCovers: titlesOnModerationCovers,
+		NotificationsClient:      notificationsClient,
 	}
 }

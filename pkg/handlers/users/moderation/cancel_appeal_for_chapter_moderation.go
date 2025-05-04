@@ -2,69 +2,67 @@ package moderation
 
 import (
 	"context"
-	"database/sql"
 	"log"
+	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 func (h handler) CancelAppealForChapterModeration(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
-	title := c.Param("title")
-	volume := c.Param("volume")
-	chapter := c.Param("chapter")
+	desiredChapterOnModerationID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "невалидный id главы на модерации"})
+		return
+	}
 
 	tx := h.DB.Begin()
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var (
-		chapterID             sql.NullInt64
-		chapterOnModerationID uint
-	)
-
-	row := tx.Raw(
-		`SELECT c.existing_id, c.id FROM chapters_on_moderation AS c
-		INNER JOIN volumes AS v ON v.id = c.volume_id
-		INNER JOIN titles AS t ON t.id = v.title_id
-		WHERE t.name = ? AND v.name = ? AND c.name = ? AND c.creator_id = ?`,
-		title, volume, chapter, claims.ID,
-	).Row()
-
-	if err := row.Scan(&chapterID, &chapterOnModerationID); err != nil {
-		log.Println(err)
+	var existing struct {
+		ChapterOnModerationID uint
+		ChapterID             uint
 	}
 
-	if chapterOnModerationID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена в ваших обращениях на модерацию"})
+	tx.Raw(
+		`SELECT
+			com.id AS chapter_on_moderation_id,
+			c.id AS chapter_id
+		FROM
+			chapters_on_moderation AS com
+			LEFT JOIN chapters AS c ON com.existing_id = c.id
+		WHERE
+			com.id = ? AND com.creator_id = ?`,
+		desiredChapterOnModerationID, claims.ID,
+	).Scan(&existing)
+
+	if existing.ChapterOnModerationID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена среди ваших глав на модерации"})
 		return
 	}
 
-	if result := tx.Exec("DELETE FROM chapters_on_moderation WHERE id = ?", chapterID); result.Error != nil {
+	if result := tx.Exec("DELETE FROM chapters_on_moderation WHERE id = ?", existing.ChapterOnModerationID); result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	var filter bson.M
+	if existing.ChapterID == 0 { // Страницы могут быть только у новой главы, у отредактированной (имеющией existing_id) - нет
+		filter := bson.M{"chapter_on_moderation_id": existing.ChapterOnModerationID}
 
-	if chapterID.Valid {
-		filter = bson.M{"chapter_id": chapterID}
-	} else {
-		filter = bson.M{"chapter_on_moderation_id": chapterOnModerationID}
-	}
-
-	if _, err := h.ChaptersPages.DeleteOne(context.TODO(), filter); err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
+		if _, err = h.ChaptersPages.DeleteOne(context.Background(), filter); err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	tx.Commit()
 
-	c.JSON(200, gin.H{"success": "обращение на модерацию успешно отменено"})
+	c.JSON(200, gin.H{"success": "обращение на модерацию главы успешно отменено"})
 }

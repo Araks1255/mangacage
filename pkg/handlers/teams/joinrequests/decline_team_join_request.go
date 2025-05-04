@@ -5,13 +5,12 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) DeclineTeamJoinRequest(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
 	var teamID uint
 	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&teamID)
@@ -38,24 +37,17 @@ func (h handler) DeclineTeamJoinRequest(c *gin.Context) {
 		return
 	}
 
-	tx := h.DB.Begin()
-	defer utils.RollbackOnPanic(tx)
-	defer tx.Rollback()
+	result := h.DB.Exec("DELETE FROM team_join_requests WHERE id = ? AND team_id = ?", desiredRequestID, teamID)
 
-	var existingRequestID uint
-	tx.Raw("SELECT id FROM team_join_requests WHERE id = ? AND team_id = ?", desiredRequestID, teamID).Scan(&existingRequestID)
-	if existingRequestID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "заявка не найдена"})
-		return
-	}
-
-	if result := tx.Exec("DELETE FROM team_join_requests WHERE id = ?", existingRequestID); result.Error != nil {
+	if result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
-
-	tx.Commit()
+	if result.RowsAffected == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "не найдена заявка на вступление в вашу команду с таким id"})
+		return
+	}
 
 	c.JSON(200, gin.H{"success": "заявка на вступление в вашу команду успешно отменена"})
 	// Уведомление кандидату

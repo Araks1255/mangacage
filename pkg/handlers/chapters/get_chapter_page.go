@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -17,20 +18,13 @@ func (h handler) GetChapterPage(c *gin.Context) {
 		return
 	}
 
-	var existingChapterID uint
-	h.DB.Raw("SELECT id FROM chapters WHERE id = ?", desiredChapterID).Scan(&existingChapterID)
-	if existingChapterID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена"})
-		return
-	}
-
 	numberOfPage, err := strconv.Atoi(c.Param("page"))
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "номер страницы должен быть числом"})
 		return
 	}
 
-	filter := bson.M{"chapter_id": existingChapterID}
+	filter := bson.M{"chapter_id": desiredChapterID}
 
 	projection := bson.M{"pages": bson.M{"$slice": []int{numberOfPage, 1}}}
 
@@ -38,15 +32,18 @@ func (h handler) GetChapterPage(c *gin.Context) {
 		Pages [][]byte `bson:"pages"`
 	}
 
-	err = h.ChaptersPages.FindOne(context.TODO(), filter, options.FindOne().SetProjection(projection)).Decode(&result)
-	if err != nil {
+	if err = h.ChaptersPages.FindOne(context.TODO(), filter, options.FindOne().SetProjection(projection)).Decode(&result); err != nil {
+		if err == mongo.ErrNoDocuments {
+			c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена"})
+			return
+		}
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if len(result.Pages) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "страница не найдена"})
+	if len(result.Pages) == 0 || result.Pages[0] == nil {
+		c.AbortWithStatusJSON(404, gin.H{"error": "страница главы не найдена"})
 		return
 	}
 

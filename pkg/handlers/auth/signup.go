@@ -5,13 +5,11 @@ import (
 	"database/sql"
 	"log"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/auth/utils"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/lib/pq"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/gin-gonic/gin"
 )
@@ -86,15 +84,7 @@ func (h handler) Signup(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "Ваш аккаунт успешно создан и ожидает верификации"})
 
-	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Println(err)
-	}
-	defer conn.Close()
-
-	client := pb.NewNotificationsClient(conn)
-
-	if _, err := client.NotifyAboutUserOnModeration(context.TODO(), &pb.User{ID: uint64(user.ID), New: true}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutUserOnModeration(context.TODO(), &pb.User{ID: uint64(user.ID), New: true}); err != nil {
 		log.Println(err)
 	}
 }

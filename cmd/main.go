@@ -19,8 +19,11 @@ import (
 	"github.com/Araks1255/mangacage/pkg/handlers/users/moderation"
 	"github.com/Araks1255/mangacage/pkg/handlers/views"
 	"github.com/Araks1255/mangacage/pkg/handlers/volumes"
+	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -42,6 +45,14 @@ func main() {
 		panic(err)
 	}
 
+	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	notificationsClient := pb.NewNotificationsClient(conn)
+
 	migrateFlag := flag.Bool("migrate", false, "Run migrations with api") // Получение cli флага. Если будет запуск: go run cmd/main.go --migrate, то запустится миграция бд
 	seedMode := flag.String("seed", "", "Mode of seed")
 
@@ -61,15 +72,15 @@ func main() {
 
 	router := gin.Default()
 
-	auth.RegisterRoutes(db, mongoClient, router)
-	titles.RegisterRoutes(db, mongoClient, router)
+	auth.RegisterRoutes(db, mongoClient, notificationsClient, router)
+	titles.RegisterRoutes(db, mongoClient, notificationsClient, router)
 	teams.RegisterRoutes(db, mongoClient, router)
 	joinrequests.RegisterRoutes(db, router)
 	participants.RegisterRoutes(db, router)
-	chapters.RegisterRoutes(db, mongoClient, router)
+	chapters.RegisterRoutes(db, mongoClient, notificationsClient, router)
 	volumes.RegisterRoutes(db, mongoClient, router)
 	search.RegisterRoutes(db, router)
-	users.RegisterRoutes(db, mongoClient, router)
+	users.RegisterRoutes(db, mongoClient, notificationsClient, router)
 	views.RegisterRoutes(db, router)
 	favorites.RegisterRoutes(db, router)
 	moderation.RegisterRoutes(db, mongoClient, router)

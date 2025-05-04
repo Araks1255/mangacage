@@ -3,20 +3,28 @@ package titles
 import (
 	"context"
 	"database/sql"
-	"io"
 	"log"
+	"strconv"
 
+	"github.com/Araks1255/mangacage/pkg/auth"
+	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/common/utils"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
+type createTitleBody struct {
+	Name        string
+	Description string
+	AuthorID    uint
+	Genres      []string
+	Cover       []byte
+}
+
 func (h handler) CreateTitle(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -25,25 +33,86 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	if len(form.Value["name"]) == 0 || len(form.Value["author"]) == 0 || len(form.Value["genres"]) == 0 {
+	if len(form.Value["name"]) == 0 || len(form.Value["authorId"]) == 0 || len(form.Value["genres"]) == 0 && len(form.File["cover"]) == 0 {
 		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе недостаточно данных"})
 		return
 	}
 
 	name := form.Value["name"][0]
-	author := form.Value["author"][0]
+	genres := form.Value["genres"]
+
+	coverFileHeader := form.File["cover"][0]
+	if coverFileHeader.Size > 10<<20 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "слишком большой размер фото (лимит 10мб)"})
+		return
+	}
 
 	var description string
 	if len(form.Value["description"]) != 0 {
 		description = form.Value["description"][0]
 	}
 
-	genres := pq.StringArray(form.Value["genres"])
-
-	cover, err := c.FormFile("cover")
+	desiredAuthorID, err := strconv.ParseUint(form.Value["authorId"][0], 10, 64)
 	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id автора"})
+		return
+	}
+
+	var numberOfExistingGenres int64
+	h.DB.Raw(
+		`SELECT COUNT(*) FROM GENRES
+		WHERE name IN
+			(SELECT unnest(?::TEXT[]))`,
+		pq.Array(genres),
+	).Scan(&numberOfExistingGenres)
+
+	if numberOfExistingGenres != int64(len(genres)) {
+		c.AbortWithStatusJSON(409, gin.H{"error": "указаны невалидные жанры"})
+		return
+	}
+
+	tx := h.DB.Begin()
+	defer dbUtils.RollbackOnPanic(tx)
+	defer tx.Rollback()
+
+	var existing struct {
+		AuthorID            uint
+		TitleOnModerationID uint
+		TitleID             uint
+	}
+
+	tx.Raw(
+		`SELECT
+			(SELECT id FROM authors WHERE id = ?) AS author_id,
+			(SELECT id FROM titles_on_moderation WHERE lower(name) = lower(?)) AS title_on_moderation_id,
+			(SELECT id FROM titles WHERE lower(name) = lower(?)) AS title_id`,
+		desiredAuthorID, name, name,
+	).Scan(&existing)
+
+	if existing.AuthorID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "автор не найден"})
+		return
+	}
+	if existing.TitleOnModerationID != 0 {
+		c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже ожидает модерации"})
+		return
+	}
+	if existing.TitleID != 0 {
+		c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
+		return
+	}
+
+	newTitle := models.TitleOnModeration{
+		Name:        sql.NullString{String: name, Valid: true},
+		Description: description,
+		CreatorID:   claims.ID,
+		AuthorID:    sql.NullInt64{Int64: int64(existing.AuthorID), Valid: true},
+		Genres:      genres,
+	}
+
+	if result := tx.Create(&newTitle); result.Error != nil {
+		log.Println(result.Error)
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
@@ -52,77 +121,14 @@ func (h handler) CreateTitle(c *gin.Context) {
 		Cover               []byte `bson:"cover"`
 	}
 
-	errChan := make(chan error)
-
-	go func() {
-		file, err := cover.Open()
-		if err != nil {
-			log.Println(err)
-			errChan <- err
-			return
-		}
-		defer file.Close()
-
-		data, err := io.ReadAll(file)
-		if err != nil {
-			log.Println(err)
-			errChan <- err
-			return
-		}
-
-		titleCover.Cover = data
-
-		errChan <- nil
-	}()
-
-	var existingTitleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", name).Scan(&existingTitleID)
-	if existingTitleID != 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "тайтл уже существует"})
-		return
-	}
-
-	var existingTitleOnModerationID uint
-	h.DB.Raw("SELECT id FROM titles_on_moderation WHERE lower(name) = lower(?)", name).Scan(&existingTitleOnModerationID)
-	if existingTitleOnModerationID != 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "тайтл с таким названием уже находится на модерации"})
-		return
-	}
-
-	var authorID uint
-	h.DB.Raw("SELECT id FROM authors WHERE lower(name) = lower(?)", author).Scan(&authorID)
-	if authorID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "автор не найден"})
-		return
-	}
-
-	title := models.TitleOnModeration{
-		Name:        sql.NullString{String: name, Valid: true},
-		Description: description,
-		CreatorID:   claims.ID,
-		AuthorID:    sql.NullInt64{Int64: int64(authorID), Valid: true},
-		Genres:      genres,
-	}
-
-	tx := h.DB.Begin()
-	defer utils.RollbackOnPanic(tx)
-	defer tx.Rollback()
-
-	if result := tx.Create(&title); result.Error != nil {
-		tx.Rollback()
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-		return
-	}
-
-	if err = <-errChan; err != nil {
+	titleCover.TitleOnModerationID = newTitle.ID
+	titleCover.Cover, err = utils.ReadMultipartFile(coverFileHeader, 10<<20)
+	if err != nil {
+		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 	}
 
-	titleCover.TitleOnModerationID = title.ID
-
 	if _, err := h.TitlesOnModerationCovers.InsertOne(context.Background(), titleCover); err != nil {
-		tx.Rollback()
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -132,15 +138,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "тайтл успешно отправлен на модерацию"})
 
-	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Println(err)
-	}
-	defer conn.Close()
-
-	client := pb.NewNotificationsClient(conn)
-
-	if _, err = client.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{ID: uint64(title.ID), New: true}); err != nil {
+	if _, err = h.NotificationsClient.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{ID: uint64(newTitle.ID), New: true}); err != nil {
 		log.Println(err)
 	}
 }

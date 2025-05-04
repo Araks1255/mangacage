@@ -1,18 +1,22 @@
 package testhelpers
 
 import (
+	"context"
 	"errors"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
 
 type CreateUserOptions struct {
-	TeamID uint
-	Roles  []string
+	TeamID         uint
+	Roles          []string
+	ProfilePicture []byte
+	Collection     *mongo.Collection
 }
 
 func CreateUser(db *gorm.DB, opts ...CreateUserOptions) (uint, error) {
@@ -54,6 +58,25 @@ func CreateUser(db *gorm.DB, opts ...CreateUserOptions) (uint, error) {
 		}
 	}
 
+	if opts[0].ProfilePicture != nil {
+		if opts[0].Collection == nil {
+			return 0, errors.New("передана аватарка, но не передана коллекция для вставки")
+		}
+
+		var userProfilePicture struct {
+			UserID         uint   `bson:"user_id"`
+			ProfilePicture []byte `bson:"profile_picture"`
+		}
+
+		userProfilePicture.UserID = user.ID
+		userProfilePicture.ProfilePicture = opts[0].ProfilePicture
+
+		if _, err := opts[0].Collection.InsertOne(context.Background(), userProfilePicture); err != nil {
+			return 0, err
+		}
+	}
+
 	tx.Commit()
+
 	return user.ID, nil
 }

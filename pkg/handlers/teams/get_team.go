@@ -3,6 +3,7 @@ package teams
 import (
 	"strconv"
 
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,13 +14,20 @@ func (h handler) GetTeam(c *gin.Context) {
 		return
 	}
 
-	var team struct {
-		ID          uint   `json:"id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	}
+	var team models.TeamDTO
 
-	h.DB.Raw("SELECT id, name, description FROM teams WHERE id = ?", teamID).Scan(&team)
+	h.DB.Raw(
+		`SELECT
+			t.id, t.created_at, t.name, t.description,
+			u.user_name AS leader, u.id AS leader_id
+		FROM teams AS t
+		INNER JOIN users AS u ON u.team_id = t.id
+		INNER JOIN user_roles AS ur ON ur.user_id = u.id
+		INNER JOIN roles AS r ON r.id = ur.role_id
+		WHERE r.name = 'team_leader'
+		AND t.id = ?`, teamID,
+	).Scan(&team)
+
 	if team.ID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "команда не найдена"})
 		return

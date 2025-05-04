@@ -5,14 +5,14 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) TranslateTitle(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
 	desiredTitleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

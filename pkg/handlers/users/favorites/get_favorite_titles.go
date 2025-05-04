@@ -1,26 +1,51 @@
 package favorites
 
 import (
+	"strconv"
+
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetFavoriteTitles(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
-	var titles []struct {
-		Name   string
-		Author string
+	limit := 10
+
+	if c.Query("limit") != "" {
+		var err error
+		if limit, err = strconv.Atoi(c.Query("limit")); err != nil {
+			c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный лимит"})
+			return
+		}
 	}
 
-	h.DB.Raw(`SELECT titles.name, authors.name AS author FROM titles
-		INNER JOIN user_favorite_titles ON titles.id = user_favorite_titles.title_id
-		INNER JOIN authors ON authors.id = titles.author_id
-		WHERE user_favorite_titles.user_id = ?
-		AND NOT titles.on_moderation`, claims.ID).Scan(&titles)
+	var titles []models.TitleDTO
+
+	h.DB.Raw(
+		`SELECT
+			t.id, t.created_at, t.name, t.description,
+			a.name AS author, a.id AS author_id,
+			MAX(teams.name) AS team, MAX(teams.id) AS team_id,
+			ARRAY_AGG(g.name) AS genres
+		FROM
+			user_favorite_titles AS uvt
+			INNER JOIN titles AS t ON t.id = uvt.title_id
+			INNER JOIN authors AS a ON a.id = t.author_id
+			LEFT JOIN teams ON t.team_id = teams.id
+			INNER JOIN title_genres AS tg ON t.id = tg.title_id
+			INNER JOIN genres AS g ON g.id = tg.genre_id
+		WHERE
+			uvt.user_id = ?
+		GROUP BY
+			t.id, a.id
+		LIMIT ?`,
+		claims.ID, limit,
+	).Scan(&titles)
 
 	if len(titles) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено избранных тайтлов"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено ваших избранных тайтлов"})
 		return
 	}
 

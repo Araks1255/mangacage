@@ -3,8 +3,8 @@ package testhelpers
 import (
 	"errors"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"

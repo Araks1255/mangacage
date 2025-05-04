@@ -3,22 +3,20 @@ package users
 import (
 	"context"
 	"database/sql"
-	"io"
 	"log"
-	"sync"
 
+	"github.com/Araks1255/mangacage/pkg/auth"
+	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/common/utils"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (h handler) EditProfile(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -27,92 +25,85 @@ func (h handler) EditProfile(c *gin.Context) {
 		return
 	}
 
-	if len(form.Value["name"]) == 0 && len(form.Value["aboutYourself"]) == 0 && len(form.File["profilePicture"]) == 0 {
+	if len(form.Value["userName"]) == 0 && len(form.Value["aboutYourself"]) == 0 && len(form.File["profilePicture"]) == 0 {
 		c.AbortWithStatusJSON(400, gin.H{"error": "необходим хотя-бы один изменяемый параметр"})
 		return
 	}
 
-	const NUMBER_OF_GORUTINES = 2
-	errChan := make(chan error, NUMBER_OF_GORUTINES)
-
-	var wg sync.WaitGroup
-	wg.Add(NUMBER_OF_GORUTINES)
+	if len(form.File["profilePicture"]) != 0 && form.File["profilePicture"][0].Size > 10<<20 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "превышен максимальный размер аватарки (10мб)"})
+		return
+	}
 
 	tx := h.DB.Begin()
-	utils.RollbackOnPanic(tx)
+	defer dbUtils.RollbackOnPanic(tx)
+	defer tx.Rollback()
 
-	var filter bson.M
-	go func() {
-		defer wg.Done()
-
-		if len(form.File["profilePicture"]) == 0 {
-			errChan <- nil
-			return
+	if len(form.Value["userName"]) != 0 {
+		var existing struct {
+			UserOnModerationID uint
+			UserID             uint
 		}
 
-		file, err := form.File["profilePicture"][0].Open()
+		tx.Raw(
+			`SELECT
+				(SELECT id FROM users_on_moderation WHERE lower(user_name) = lower(?)) AS user_on_moderation_id,
+				(SELECT id FROM users WHERE lower(user_name) = lower(?)) AS user_id`,
+			form.Value["userName"][0], form.Value["userName"][0],
+		).Scan(&existing)
+
+		if existing.UserOnModerationID != 0 {
+			c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже ожидает верификации аккаунта"})
+			return
+		}
+		if existing.UserID != 0 {
+			c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже существует"})
+			return
+		}
+	}
+
+	editedProfile := models.UserOnModeration{
+		ExistingID: sql.NullInt64{Int64: int64(claims.ID), Valid: true},
+	}
+
+	if len(form.Value["userName"]) != 0 {
+		editedProfile.UserName = sql.NullString{String: form.Value["userName"][0]}
+	}
+	if len(form.Value["aboutYourself"]) != 0 {
+		editedProfile.AboutYourself = form.Value["aboutYourself"][0]
+	}
+
+	if result := tx.Raw(
+		`INSERT INTO users_on_moderation (created_at, user_name, about_yourself, existing_id)
+		VALUES(NOW(), ?, ?, ?)
+		ON CONFLICT (existing_id) DO UPDATE
+		SET
+			updated_at = EXCLUDED.created_at,
+			user_name = EXCLUDED.user_name,
+			about_yourself = EXCLUDED.about_yourself
+		RETURNING id`,
+		editedProfile.UserName, editedProfile.AboutYourself, editedProfile.ExistingID,
+	).Scan(&editedProfile.ID); result.Error != nil {
+		log.Println(result.Error)
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error})
+		return
+	}
+
+	if len(form.File["profilePicture"]) != 0 {
+		profilePicture, err := utils.ReadMultipartFile(form.File["profilePicture"][0], 10<<20)
 		if err != nil {
 			log.Println(err)
-			errChan <- err
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		data, err := io.ReadAll(file)
-		if err != nil {
-			log.Println(err)
-			errChan <- err
-			return
-		}
-
-		filter = bson.M{"user_id": claims.ID}
-		update := bson.M{"$set": bson.M{"profile_picture": data}}
+		filter := bson.M{"user_on_moderation_id": editedProfile.ID}
+		update := bson.M{"$set": bson.M{"profile_picture": profilePicture}}
 		opts := options.Update().SetUpsert(true)
 
-		if _, err := h.Collection.UpdateOne(context.TODO(), filter, update, opts); err != nil {
+		if _, err = h.UsersOnModerationProfilePictures.UpdateOne(context.Background(), filter, update, opts); err != nil {
 			log.Println(err)
-			errChan <- err
-			return
-		}
-
-		errChan <- nil
-	}()
-
-	var editedUser models.UserOnModeration // Это потом поменяю, не дошёл ещё, а под изменения grpc адаптировать надо
-	go func() {
-		defer wg.Done()
-
-		if len(form.Value["userName"]) == 0 && len(form.Value["aboutYourself"]) == 0 {
-			errChan <- nil
-			return
-		}
-
-		editedUser.ExistingID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
-
-		if len(form.Value["userName"]) != 0 {
-			editedUser.UserName = sql.NullString{String: form.Value["userName"][0], Valid: true}
-		}
-		if len(form.Value["aboutYourself"]) != 0 {
-			editedUser.AboutYourself = form.Value["aboutYourself"][0]
-		}
-
-		tx.Raw("SELECT id FROM users_on_moderation WHERE existing_id = ?", claims.ID).Scan(&editedUser.ID)
-
-		if result := tx.Save(&editedUser); result.Error != nil {
-			log.Println(result.Error)
-			errChan <- result.Error
-			return
-		}
-
-		errChan <- nil
-	}()
-
-	wg.Wait()
-
-	for i := 0; i < NUMBER_OF_GORUTINES; i++ {
-		if err = <-errChan; err != nil {
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			tx.Rollback()
-			_, _ = h.Collection.DeleteOne(context.TODO(), filter)
 			return
 		}
 	}
@@ -121,18 +112,7 @@ func (h handler) EditProfile(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "изменения профиля успешно отправлены на модерацию"})
 
-	var userName string
-	h.DB.Raw("SELECT user_name FROM users WHERE id = ?", claims.ID).Scan(&userName)
-
-	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Println(err)
-	}
-	defer conn.Close()
-
-	client := pb.NewNotificationsClient(conn)
-
-	if _, err := client.NotifyAboutUserOnModeration(context.Background(), &pb.User{ID: uint64(editedUser.ExistingID.Int64), New: false}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutUserOnModeration(context.Background(), &pb.User{ID: uint64(editedProfile.ExistingID.Int64), New: false}); err != nil {
 		log.Println(err)
 	}
 }

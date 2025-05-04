@@ -18,26 +18,13 @@ type User struct {
 	TeamID sql.NullInt64
 	Team   *Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
 
-	Roles                    []Role    `gorm:"many2many:user_roles;constraint:OnDelete:CASCADE"`
-	TitlesUserIsSubscribedTo []Title   `gorm:"many2many:user_titles_subscribed_to;constraint:OnDelete:CASCADE"`
-	ViewedChapters           []Chapter `gorm:"many2many:user_viewed_chapters;constraint:OnDelete:CASCADE"`
+	Roles                    []Role              `gorm:"many2many:user_roles;constraint:OnDelete:CASCADE"`
+	TitlesUserIsSubscribedTo []Title             `gorm:"many2many:user_titles_subscribed_to;constraint:OnDelete:CASCADE"`
+	ViewedChapters           []UserViewedChapter `gorm:"foreignKey:UserID"` // Это нужно по идее только для Preload. Я оставил для явности
 
-	FavoriteTitles   []Title   `gorm:"many2many:user_favorite_titles;constraint:OnDelete:CASCADE"`
+	FavoriteTitles   []Title   `gorm:"many2many:user_favorite_titles;constraint:OnDelete:CASCADE"` // Тут как-нибудь вынесу всё в отдельные структуры и сделаю составной индекс уникальности на user_id и object_id  (чтобы на уровне бд нельзя было иметь две подписки на один объект)
 	FavoriteChapters []Chapter `gorm:"many2many:user_favorite_chapters;constraint:OnDelete:CASCADE"`
 	FavoriteGenres   []Genre   `gorm:"many2many:user_favorite_genres;constraint:OnDelete:CASCADE"`
-}
-
-type UserDTO struct {
-	ID        uint      `json:"id"`
-	CreatedAt time.Time `json:"createdAt,omitempty"`
-
-	UserName      string `json:"userName"`
-	AboutYourself string `json:"aboutYourself,omitempty"`
-
-	Team   string `json:"team,omitempty"`
-	TeamID uint   `json:"teamId,omitempty"`
-
-	Roles pq.StringArray `json:"roles,omitempty" gorm:"type:TEXT[]"`
 }
 
 type UserOnModeration struct {
@@ -58,4 +45,17 @@ type UserOnModeration struct {
 
 func (UserOnModeration) TableName() string {
 	return "users_on_moderation"
+}
+
+type UserDTO struct {
+	ID        uint      `json:"id"`
+	CreatedAt time.Time `json:"createdAt,omitempty"`
+
+	UserName      string `json:"userName"`
+	AboutYourself string `json:"aboutYourself,omitempty"`
+
+	Team   string `json:"team,omitempty"`
+	TeamID uint   `json:"teamId,omitempty"`
+
+	Roles pq.StringArray `json:"roles,omitempty" gorm:"type:TEXT[]"`
 }

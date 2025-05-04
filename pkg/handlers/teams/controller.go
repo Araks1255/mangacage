@@ -33,7 +33,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	privateTeam.Use(middlewares.AuthMiddleware(secretKey))
 	{
 		privateTeam.POST("/", h.CreateTeam)
-		privateTeam.POST("/my/edited", h.EditTeam) // Редактирование команды подразумевает создание отредактированной команды. Поэтому post. И ещё self добавил, для явного указания того, что команда ищется по юзеру, совершившему запрос (не уверен, что это нормальная практика, но вроде не плохая)
+		privateTeam.POST("/my/edited", h.EditTeam)
 	}
 
 	publicTeam := r.Group("api/teams")

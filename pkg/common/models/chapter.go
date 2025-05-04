@@ -23,21 +23,6 @@ type Chapter struct {
 	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL" json:"-"`
 }
 
-type ChapterDTO struct {
-	ID        uint      `json:"id"`
-	CreatedAt time.Time `json:"createdAt,omitempty"`
-
-	Name          string `json:"name"`
-	Description   string `json:"description,omitempty"`
-	NumberOfPages int    `json:"numberOfPages,omitempty"`
-
-	Volume   string `json:"volume,omitempty"`
-	VolumeID uint   `json:"volumeId,omitempty"`
-
-	Title   string `json:"title,omitempty"`
-	TitleID uint   `json:"titleId,omitempty"`
-}
-
 type ChapterOnModeration struct {
 	gorm.Model
 	Name          string
@@ -59,4 +44,25 @@ type ChapterOnModeration struct {
 
 func (ChapterOnModeration) TableName() string {
 	return "chapters_on_moderation"
+}
+
+type ChapterDTO struct {
+	ID        uint      `json:"id"`
+	CreatedAt time.Time `json:"createdAt,omitempty"`
+
+	Name          string `json:"name"`
+	Description   string `json:"description,omitempty"`
+	NumberOfPages int    `json:"numberOfPages,omitempty"`
+
+	Volume   string `json:"volume,omitempty"`
+	VolumeID uint   `json:"volumeId,omitempty"`
+
+	Title   string `json:"title,omitempty"`
+	TitleID uint   `json:"titleId,omitempty"`
+}
+
+type ChapterOnModerationDTO struct {
+	ChapterDTO
+	Existing   string `json:"existing,omitempty"`
+	ExistingID uint   `json:"existingId,omitempty"`
 }

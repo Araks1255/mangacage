@@ -5,13 +5,13 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) AddRoleToParticipant(c *gin.Context) {
-	claims := c.MustGet("claims").(*models.Claims)
+	claims := c.MustGet("claims").(*auth.Claims)
 
 	var userTeamID uint
 	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
@@ -72,6 +72,7 @@ func (h handler) AddRoleToParticipant(c *gin.Context) {
 		return
 	}
 
+	
 	if result := tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", existingParticipantID, existingRoleID); result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
