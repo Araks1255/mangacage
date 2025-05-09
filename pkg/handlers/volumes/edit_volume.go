@@ -1,26 +1,28 @@
 package volumes
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"slices"
-	"time"
+	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (h handler) EditVolume(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	title := c.Param("title")
-	volume := c.Param("volume")
+	volumeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тома"})
+		return
+	}
 
 	var requestBody struct {
 		Name        string `json:"name"`
@@ -38,113 +40,83 @@ func (h handler) EditVolume(c *gin.Context) {
 		return
 	}
 
+	var userRoles []string
+	h.DB.Raw(
+		`SELECT r.name FROM roles AS r
+		INNER JOIN user_roles AS ur ON ur.role_id = r.id
+		WHERE ur.user_id = ? AND r.type = 'team'`,
+		claims.ID,
+	).Scan(&userRoles)
+
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
+		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для редактирования тома"})
+		return
+	}
+
 	tx := h.DB.Begin()
 	defer utils.RollbackOnPanic(tx)
+	defer tx.Rollback()
 
-	var titleID, volumeID uint
-	row := tx.Raw(`SELECT titles.id, volumes.id FROM volumes
-			INNER JOIN titles ON titles.id = volumes.title_id
-			WHERE titles.name = ? AND volumes.name = ?`,
-		title, volume).Row()
+	var titleID sql.NullInt64
 
-	if err := row.Scan(&titleID, &volumeID); err != nil {
+	if err := tx.Raw(
+		`SELECT t.id
+		FROM
+			titles AS t
+			INNER JOIN volumes AS v ON t.id = v.title_id
+			INNER JOIN users AS u ON t.team_id = u.team_id
+		WHERE
+			v.id = ? AND u.id = ?`,
+		volumeID, claims.ID,
+	).Scan(&titleID).Error; err != nil {
 		log.Println(err)
-	}
-
-	if volumeID == 0 {
-		tx.Rollback()
-		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	var userRoles []string
-	tx.Raw(`SELECT roles.name FROM roles
-		INNER JOIN user_roles ON roles.id = user_roles.role_id
-		WHERE user_roles.user_id = ?`, claims.ID).Scan(&userRoles)
-
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
-		tx.Rollback()
-		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь лидером команды перевода"})
-		return
-	}
-
-	var doesUserTeamTranslatesThisTitle bool
-	h.DB.Raw("SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)", titleID, claims.ID).Scan(&doesUserTeamTranslatesThisTitle)
-	if !doesUserTeamTranslatesThisTitle {
-		tx.Rollback()
-		c.AbortWithStatusJSON(403, gin.H{"error": "ваша команда не переводит данный тайтл"})
+	if !titleID.Valid {
+		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден среди тайтлов, переводимых вашей командой"})
 		return
 	}
 
 	editedVolume := models.VolumeOnModeration{
 		ExistingID:  sql.NullInt64{Int64: int64(volumeID), Valid: true},
-		Name:        requestBody.Name,
 		Description: requestBody.Description,
-		TitleID:     sql.NullInt64{Int64: int64(titleID), Valid: true},
+		TitleID:     uint(titleID.Int64),
 		CreatorID:   claims.ID,
 	}
-
-	if slices.Contains(userRoles, "moder") || slices.Contains(userRoles, "admin") {
-		editedVolume.ModeratorID = sql.NullInt64{Int64: int64(claims.ID), Valid: true}
+	if requestBody.Name != "" {
+		editedVolume.Name = sql.NullString{String: requestBody.Name, Valid: true}
 	}
 
-	tx.Raw("SELECT id FROM volumes_on_moderation WHERE existing_id = ?", editedVolume.ExistingID).Scan(&editedVolume.ID)
+	err = tx.Exec(
+		`INSERT INTO volumes_on_moderation (created_at, name, description, existing_id, title_id, creator_id)
+		VALUES (NOW(), ?, ?, ?, ?, ?)
+		ON CONFLICT (existing_id) DO UPDATE
+		SET
+			updated_at = EXCLUDED.created_at,
+			name = EXCLUDED.name,
+			description = EXCLUDED.description,
+			creator_id = EXCLUDED.creator_id
+		RETURNING id`,
+		editedVolume.Name, editedVolume.Description, editedVolume.ExistingID, editedVolume.TitleID, editedVolume.CreatorID,
+	).Error
 
-	if editedVolume.ID == 0 { // Тут пришлось делать так, потому-что метод Save устраивал какую-то вакханалию с временем создания при обновлении записи
-		if result := tx.Create(&editedVolume); result.Error != nil {
-			log.Println(result.Error)
-			tx.Rollback()
-			c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-			return
-		}
-		tx.Commit()
-		c.JSON(200, gin.H{"success": "изменения тома успешно отправлены на модерацию"})
-
-		conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
+	if err != nil {
+		if dbErrors.IsUniqueViolation(err, constraints.UniVolumeTitle) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "том с таким названием уже ожидает модерации в этом тайтле"})
+		} else {
 			log.Println(err)
-			return
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		}
-		defer conn.Close()
-
-		client := pb.NewNotificationsClient(conn)
-
-		if _, err := client.NotifyAboutVolumeOnModeration(context.TODO(), &pb.VolumeOnModeration{ID: uint64(editedVolume.ExistingID.Int64), New: false}); err != nil {
-			log.Println(err)
-		}
-
-		return
-	}
-
-	if result := tx.Exec( // А тут теперь вручную задаются изменения. Текущее время записывается не в updated_at, а в created_at, потому-что это created_at - время отправки на модерацию, а тут как-бы, идёт повторная отправка на модерацию
-		`UPDATE volumes_on_moderation SET
-		created_at = ?,
-		name = ?,
-		description = ?,
-		creator_id = ?,
-		moderator_id = ?`,
-		time.Now(), editedVolume.Name, editedVolume.Description, editedVolume.CreatorID, editedVolume.ModeratorID,
-	); result.Error != nil {
-		log.Println(result.Error)
-		tx.Rollback()
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
 	tx.Commit()
 
-	c.JSON(200, gin.H{"success": "изменения тома успешно изменены"})
+	c.JSON(201, gin.H{"success": "изменения тома успешно отправлены на модерацию"})
 
-	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer conn.Close()
-
-	client := pb.NewNotificationsClient(conn)
-
-	if _, err := client.NotifyAboutVolumeOnModeration(context.TODO(), &pb.VolumeOnModeration{ID: uint64(editedVolume.ExistingID.Int64), New: false}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutVolumeOnModeration(c.Request.Context(), &pb.VolumeOnModeration{ID: volumeID, New: false}); err != nil {
 		log.Println(err)
 	}
 }

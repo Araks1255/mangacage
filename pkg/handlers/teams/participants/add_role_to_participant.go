@@ -6,17 +6,27 @@ import (
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) AddRoleToParticipant(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var userTeamID uint
-	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
-	if userTeamID == 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "вы не состоите в команде перевода"})
+	participantID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "id участника команды должен быть числом"})
+		return
+	}
+
+	var requestBody struct {
+		RoleID uint `json:"roleId" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -27,23 +37,8 @@ func (h handler) AddRoleToParticipant(c *gin.Context) {
 		WHERE ur.user_id = ?`, claims.ID,
 	).Scan(&userRoles)
 
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") && !slices.Contains(userRoles, "admin") {
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для добавления ролей участникам команды"})
-		return
-	}
-
-	desiredParticipantID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "id участника команды должен быть числом"})
-		return
-	}
-
-	var requestBody struct {
-		DesiredRoleID uint `json:"roleId" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -51,35 +46,51 @@ func (h handler) AddRoleToParticipant(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var existingParticipantID uint
-	tx.Raw("SELECT id FROM users WHERE id = ? AND team_id = ?", desiredParticipantID, userTeamID).Scan(&existingParticipantID)
-	if existingParticipantID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "участник команды не найден"})
+	var check struct {
+		DoesParticipantExist bool
+		DoesRoleExist        bool
+	}
+
+	var query string
+	if slices.Contains(userRoles, "team_leader") {
+		query = `SELECT
+					EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)) AS does_participant_exist,
+					EXISTS(SELECT 1 FROM roles WHERE id = ? AND type = 'team' AND name != 'team_leader') AS does_role_exist`
+	} else { // Это чтобы экс тим лидеры не могли назначать других экс тим лидеров (там дополнительная проверка в существовании роли)
+		query = `SELECT
+					EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)) AS does_participant_exist,
+					EXISTS(SELECT 1 FROM roles WHERE id = ? AND type = 'team' AND name != 'team_leader' AND name != 'ex_team_leader') AS does_role_exist`
+	}
+
+	if err := tx.Raw(query, participantID, claims.ID, requestBody.RoleID).Scan(&check).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	var existingRoleID uint
-	tx.Raw("SELECT id FROM roles WHERE id = ? AND type = 'team'", requestBody.DesiredRoleID).Scan(&existingRoleID)
-	if existingRoleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "роль не найдена"})
+	if !check.DoesParticipantExist {
+		c.AbortWithStatusJSON(404, gin.H{"error": "участник вашей команды не найден"})
+		return
+	}
+	if !check.DoesRoleExist {
+		c.AbortWithStatusJSON(404, gin.H{"error": "роль не найдена среди доступных вам для добавления"})
 		return
 	}
 
-	var participantRolesIDs []uint
-	tx.Raw("SELECT role_id FROM user_roles WHERE user_id = ?", existingParticipantID).Scan(&participantRolesIDs)
-	if slices.Contains(participantRolesIDs, existingRoleID) {
-		c.AbortWithStatusJSON(409, gin.H{"error": "участник команды уже имеет эту роль"})
-		return
-	}
+	err = tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", participantID, requestBody.RoleID).Error
 
-	
-	if result := tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", existingParticipantID, existingRoleID); result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+	if err != nil {
+		if dbErrors.IsUniqueViolation(err, constraints.UserRolesPkey) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "участник команды уже имеет эту роль"})
+		} else {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
 	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "участнику команды успешно добавлена новая роль"})
+	// Уведомление участнику
 }

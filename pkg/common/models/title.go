@@ -48,7 +48,7 @@ type TitleOnModeration struct {
 	TeamID sql.NullInt64
 	Team   *Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
 
-	Genres pq.StringArray `gorm:"type:TEXT[]"`
+	Genres []Genre `gorm:"many2many:title_on_moderation_genres;constraint:OnDelete:CASCADE"`
 }
 
 func (TitleOnModeration) TableName() string {

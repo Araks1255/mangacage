@@ -21,12 +21,12 @@ func (h handler) QuitTranslatingTitle(c *gin.Context) {
 		WHERE user_roles.user_id = ?`, claims.ID,
 	).Scan(&userRoles)
 
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") && !slices.Contains(userRoles, "admin") {
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь лидером команды перевода"})
 		return
 	}
 
-	desiredTitleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	titleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "id тайтла должен быть числом"})
 		return
@@ -36,31 +36,36 @@ func (h handler) QuitTranslatingTitle(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var existingTitleID uint
-	tx.Raw("SELECT id FROM titles WHERE id = ?", desiredTitleID).Scan(&existingTitleID)
-	if existingTitleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
+	var doesTitleExist bool
+
+	if err := tx.Raw(
+		"SELECT EXISTS(SELECT 1 FROM titles WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?))",
+		titleID, claims.ID,
+	).Scan(&doesTitleExist).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	var doesUserTeamTranslatesThisTitle bool
-	tx.Raw(
-		`SELECT (select team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)`,
-		existingTitleID, claims.ID,
-	).Scan(&doesUserTeamTranslatesThisTitle)
-
-	if !doesUserTeamTranslatesThisTitle && !slices.Contains(userRoles, "admin") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "ваша команда не переводит данный тайтл"})
+	if !doesTitleExist {
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди переводимых вашей командой тайтлов"})
 		return
 	}
 
-	if result := tx.Exec("UPDATE titles SET team_id = null WHERE id = ?", existingTitleID); result.Error != nil {
+	result := tx.Exec("UPDATE titles SET team_id = NULL WHERE id = ?", titleID)
+
+	if result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
+	if result.RowsAffected == 0 {
+		c.AbortWithStatusJSON(500, gin.H{"error": "произошла ошибка при изменении тайтла"})
+		return
+	}
+
 	tx.Commit()
 
-	c.JSON(200, gin.H{"success": "ваша команда больше не переводит данный тайтл"})
+	c.JSON(200, gin.H{"success": "ваша команда больше не переводит этот тайтл"})
 }

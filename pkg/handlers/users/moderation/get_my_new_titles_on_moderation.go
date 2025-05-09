@@ -1,6 +1,7 @@
 package moderation
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -22,20 +23,29 @@ func (h handler) GetMyNewTitlesOnModeration(c *gin.Context) {
 
 	var titles []models.TitleOnModerationDTO
 
-	h.DB.Raw(
+	if err := h.DB.Raw(
 		`SELECT
-			tom.id, tom.created_at, tom.name, tom.description, tom.genres,
+			tom.id, tom.created_at, tom.name, tom.description,
+			ARRAY_AGG(g.name) AS genres,
 			a.name AS author, a.id AS author_id
 		FROM
 			titles_on_moderation AS tom
-			LEFT JOIN authors AS a ON tom.author_id = a.id
+			INNER JOIN authors AS a ON tom.author_id = a.id
+			INNER JOIN title_on_moderation_genres AS tomg ON tomg.title_on_moderation_id = tom.id
+			INNER JOIN genres AS g ON g.id = tomg.genre_id
 		WHERE
 			tom.existing_id IS NULL
 		AND
 			tom.creator_id = ?
+		GROUP BY
+			tom.id, a.id
 		LIMIT ?`,
 		claims.ID, limit,
-	).Scan(&titles)
+	).Scan(&titles).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
 	if len(titles) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено ваших новых тайтлов на модерации"})

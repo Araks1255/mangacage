@@ -9,7 +9,7 @@ import (
 
 type Team struct {
 	gorm.Model
-	Name        string `json:"name" binding:"required" gorm:"unique"`
+	Name        string `gorm:"unique"`
 	Description string `json:"description"`
 
 	CreatorID uint
@@ -21,13 +21,13 @@ type Team struct {
 
 type TeamOnModeration struct {
 	gorm.Model
-	Name        sql.NullString `json:"name" binding:"required" gorm:"unique"`
+	Name        sql.NullString `gorm:"unique"`
 	Description string         `json:"description"`
 
 	ExistingID sql.NullInt64 `gorm:"unique"`
 	Team       *Team         `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
-	CreatorID uint  `gorm:"unique"`
+	CreatorID uint  `gorm:"unique;not null"`
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:CASCADE"`
 }
 

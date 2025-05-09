@@ -30,6 +30,7 @@ func main() {
 	viper.SetConfigFile("./pkg/common/envs/.env")
 	viper.ReadInConfig()
 
+	secretKey := viper.Get("SECRET_KEY").(string)
 	dbUrl := viper.Get("DB_URL").(string)
 	mongoUrl := viper.Get("MONGO_URL").(string)
 
@@ -72,13 +73,13 @@ func main() {
 
 	router := gin.Default()
 
-	auth.RegisterRoutes(db, mongoClient, notificationsClient, router)
+	auth.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
 	titles.RegisterRoutes(db, mongoClient, notificationsClient, router)
 	teams.RegisterRoutes(db, mongoClient, router)
 	joinrequests.RegisterRoutes(db, router)
 	participants.RegisterRoutes(db, router)
-	chapters.RegisterRoutes(db, mongoClient, notificationsClient, router)
-	volumes.RegisterRoutes(db, mongoClient, router)
+	chapters.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
+	volumes.RegisterRoutes(db, notificationsClient, secretKey, router)
 	search.RegisterRoutes(db, router)
 	users.RegisterRoutes(db, mongoClient, notificationsClient, router)
 	views.RegisterRoutes(db, router)

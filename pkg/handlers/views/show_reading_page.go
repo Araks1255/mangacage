@@ -1,38 +1,28 @@
 package views
 
 import (
+	"errors"
 	"log"
+	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/spf13/viper"
 )
 
 func (h handler) ShowReadingPage(c *gin.Context) {
-	c.HTML(200, "reading_page.html", gin.H{})
+	c.HTML(200, "reading_page.html", nil)
 
 	cookie, err := c.Cookie("mangacage_token")
 	if err != nil {
 		return
 	}
 
-	title := c.Param("title")
-	volume := c.Param("volume")
-	chapter := c.Param("chapter")
-
-	var chapterID uint
-	h.DB.Raw(`SELECT chapters.id FROM chapters
-		INNER JOIN volumes ON chapters.volume_id = volumes.id
-		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE lower(titles.name) = lower(?)
-		AND lower(volumes.name) = lower(?)
-		AND lower(chapters.name) = lower(?)
-		AND NOT chapters.on_moderation`,
-		title,
-		volume,
-		chapter).Scan(&chapterID)
-
-	if chapterID == 0 {
+	chapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		log.Println(err)
 		return
 	}
 
@@ -46,8 +36,18 @@ func (h handler) ShowReadingPage(c *gin.Context) {
 		return
 	}
 
-	if result := h.DB.Exec("INSERT INTO user_viewed_chapters (user_id, chapter_id) VALUES (?, ?)", claims.ID, chapterID); result.Error != nil {
-		log.Println(result.Error)
-		return
+	view := models.UserViewedChapter{
+		UserID:    claims.ID,
+		ChapterID: uint(chapterID),
+	}
+
+	if err := h.DB.Create(&view).Error; err != nil {
+		var pgErr *pgconn.PgError
+
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return
+		}
+
+		log.Println(err)
 	}
 }

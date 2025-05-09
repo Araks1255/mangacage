@@ -1,22 +1,28 @@
 package volumes
 
 import (
-	"context"
 	"database/sql"
 	"log"
+	"slices"
+	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
+	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (h handler) CreateVolume(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	title := c.Param("title")
+	titleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тайтла"})
+		return
+	}
 
 	var requestBody struct {
 		Name        string `json:"name" binding:"required"`
@@ -29,45 +35,77 @@ func (h handler) CreateVolume(c *gin.Context) {
 		return
 	}
 
-	var titleID uint
-	h.DB.Raw("SELECT id FROM titles WHERE lower(name) = lower(?)", title).Scan(&titleID)
-	if titleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
+	var userRoles []string
+	h.DB.Raw(
+		`SELECT r.name FROM roles AS r
+		INNER JOIN user_roles AS ur ON ur.role_id = r.id
+		WHERE ur.user_id = ?`, claims.ID,
+	).Scan(&userRoles)
+
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
+		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для создания тома"})
 		return
 	}
 
-	var existingVolumeID uint
-	h.DB.Raw("SELECT id FROM volumes WHERE lower(name) = lower(?) AND title_id = ?", requestBody.Name, titleID).Scan(&existingVolumeID)
-	if existingVolumeID != 0 {
-		c.AbortWithStatusJSON(403, gin.H{"error": "такой том уже существует"})
+	tx := h.DB.Begin()
+	defer utils.RollbackOnPanic(tx)
+	defer tx.Rollback()
+
+	var check struct {
+		DoesTitleExist                 bool
+		DoesUserTeamTranslateTitle     bool
+		DoesVolumeWithTheSameNameExist bool
+	}
+
+	if err := tx.Raw(
+		`SELECT
+			EXISTS(SELECT 1 FROM titles WHERE id = ?) AS does_title_exist,
+			(SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)) AS does_user_team_translate_title,
+			EXISTS(SELECT 1 FROM volumes WHERE lower(name) = lower(?)) AS does_volume_with_the_same_name_exist`,
+		titleID, titleID, claims.ID, requestBody.Name,
+	).Scan(&check).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !check.DoesTitleExist {
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
+		return
+	}
+	if !check.DoesUserTeamTranslateTitle {
+		c.AbortWithStatusJSON(403, gin.H{"error": "ваша команда не переводит этот тайтл"})
+		return
+	}
+	if check.DoesVolumeWithTheSameNameExist {
+		c.AbortWithStatusJSON(409, gin.H{"error": "том с таким названием уже существует"})
 		return
 	}
 
 	volume := models.VolumeOnModeration{
-		Name:        requestBody.Name,
+		Name:        sql.NullString{String: requestBody.Name, Valid: true},
 		Description: requestBody.Description,
-		TitleID:     sql.NullInt64{Int64: int64(titleID), Valid: true},
+		TitleID:     uint(titleID),
 		CreatorID:   claims.ID,
 	}
 
-	if result := h.DB.Create(&volume); result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error})
+	err = tx.Create(&volume).Error
+
+	if err != nil {
+		if dbErrors.IsUniqueViolation(err, constraints.UniVolumeTitle) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "том с таким названием уже ожидает модерации в этом тайтле"})
+		} else {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		}
 		return
 	}
+
+	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "том успешно отправлен на модерацию"})
 
-	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer conn.Close()
-
-	client := pb.NewNotificationsClient(conn)
-
-	if _, err := client.NotifyAboutVolumeOnModeration(context.TODO(), &pb.VolumeOnModeration{ID: uint64(volume.ID), New: true}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutVolumeOnModeration(c.Request.Context(), &pb.VolumeOnModeration{ID: uint64(volume.ID), New: true}); err != nil {
 		log.Println(err)
 	}
 }

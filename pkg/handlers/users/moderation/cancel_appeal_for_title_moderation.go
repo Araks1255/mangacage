@@ -1,7 +1,6 @@
 package moderation
 
 import (
-	"context"
 	"log"
 	"strconv"
 
@@ -14,7 +13,7 @@ import (
 func (h handler) CancelAppealForTitleModeration(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	desiredTitleOnModerationID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	titleOnModerationID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тайтла на модерации"})
 		return
@@ -24,22 +23,31 @@ func (h handler) CancelAppealForTitleModeration(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var existingTitleOnModerationID uint
-	tx.Raw("SELECT id FROM titles_on_moderation WHERE id = ? AND creator_id = ?", desiredTitleOnModerationID, claims.ID).Scan(&existingTitleOnModerationID)
-	if existingTitleOnModerationID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден в ваших тайтлах на модерации"})
+	var doesTitleOnModerationExist bool
+
+	if err := tx.Raw(
+		"SELECT EXISTS(SELECT 1 FROM titles_on_moderation WHERE id = ? AND creator_id = ?)",
+		titleOnModerationID, claims.ID,
+	).Scan(&doesTitleOnModerationExist).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error":err.Error()})
 		return
 	}
 
-	if result := tx.Exec("DELETE FROM titles_on_moderation WHERE id = ?", existingTitleOnModerationID); result.Error != nil {
+	if !doesTitleOnModerationExist {
+		c.AbortWithStatusJSON(404, gin.H{"error":"тайтл не найден среди ваших тайтлов на модерации"})
+		return
+	}
+
+	if result := tx.Exec("DELETE FROM titles_on_moderation WHERE id = ?", titleOnModerationID); result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	filter := bson.M{"title_on_moderation_id": existingTitleOnModerationID}
+	filter := bson.M{"title_on_moderation_id": titleOnModerationID}
 
-	if _, err := h.TitlesCovers.DeleteOne(context.TODO(), filter); err != nil {
+	if _, err := h.TitlesCovers.DeleteOne(c.Request.Context(), filter); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return

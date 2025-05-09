@@ -8,12 +8,14 @@ import (
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
 
 type CreateTitleOnModerationOptions struct {
 	ExistingID uint
+	AuthorID   uint
 	Genres     []string
 	Cover      []byte
 	Collection *mongo.Collection
@@ -33,8 +35,8 @@ func CreateTitleOnModeration(db *gorm.DB, userID uint, opts ...CreateTitleOnMode
 		if opts[0].ExistingID != 0 {
 			title.ExistingID = sql.NullInt64{Int64: int64(opts[0].ExistingID), Valid: true}
 		}
-		if len(opts[0].Genres) != 0 {
-			title.Genres = opts[0].Genres
+		if opts[0].AuthorID != 0 {
+			title.AuthorID = sql.NullInt64{Int64: int64(opts[0].AuthorID), Valid: true}
 		}
 	}
 
@@ -49,6 +51,19 @@ func CreateTitleOnModeration(db *gorm.DB, userID uint, opts ...CreateTitleOnMode
 	if len(opts) == 0 {
 		tx.Commit()
 		return title.ID, nil
+	}
+
+	if opts[0].Genres != nil {
+		if err := tx.Exec(
+			`INSERT INTO title_on_moderation_genres (title_on_moderation_id, genre_id)
+			SELECT ?, genres.id
+			FROM genres
+			JOIN UNNEST(?::TEXT[]) AS genre_name ON genres.name = genre_name`,
+			title.ID, pq.Array(opts[0].Genres),
+		).Error; err != nil {
+			return 0, err
+		}
+
 	}
 
 	if opts[0].Cover != nil {

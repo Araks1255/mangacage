@@ -1,16 +1,17 @@
 package titles
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"slices"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
@@ -21,7 +22,7 @@ import (
 func (h handler) EditTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	desiredTitleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	titleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "id тайтла должен быть числом"})
 		return
@@ -46,7 +47,7 @@ func (h handler) EditTitle(c *gin.Context) {
 		return
 	}
 
-	if len(form.Value["name"]) == 0 && len(form.Value["description"]) == 0 && len(form.Value["genres"]) == 0 && len(form.File["cover"]) == 0 && len(form.Value["authorId"]) == 0 {
+	if len(form.Value["name"]) == 0 && len(form.Value["description"]) == 0 && len(form.Value["genresIds"]) == 0 && len(form.File["cover"]) == 0 && len(form.Value["authorId"]) == 0 {
 		c.AbortWithStatusJSON(400, gin.H{"error": "запрос должен содержать хотя-бы один изменяемый параметр"})
 		return
 	}
@@ -60,49 +61,25 @@ func (h handler) EditTitle(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var existingTitleID uint
-	tx.Raw("SELECT id FROM titles WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)", desiredTitleID, claims.ID).Scan(&existingTitleID)
-	if existingTitleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден в списке тайтлов, переводимых вашей командой"})
+	var doesTitleExist bool
+
+	if err := tx.Raw(
+		"SELECT EXISTS(SELECT 1 FROM titles WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?))",
+		titleID, claims.ID,
+	).Scan(&doesTitleExist).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if len(form.Value["name"]) != 0 {
-		var titleOnModerationWithTheSameNameID, titleWithTheSameNameID sql.NullInt64
-
-		row := tx.Raw(
-			`SELECT
-				(SELECT id FROM titles_on_moderation WHERE lower(name) = lower(?) LIMIT 1),
-				(SELECT id FROM titles WHERE lower(name) = lower(?) LIMIT 1)`,
-			form.Value["name"][0], form.Value["name"][0],
-		).Row()
-
-		if err = row.Scan(&titleOnModerationWithTheSameNameID, &titleWithTheSameNameID); err != nil {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
-		}
-
-		if titleOnModerationWithTheSameNameID.Valid {
-			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже ужидает модерации"})
-			return
-		}
-		if titleWithTheSameNameID.Valid {
-			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
-			return
-		}
+	if !doesTitleExist {
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди переводимых вашей командой тайтлов"})
+		return
 	}
 
 	editedTitle := models.TitleOnModeration{
-		ExistingID: sql.NullInt64{Int64: int64(existingTitleID), Valid: true},
+		ExistingID: sql.NullInt64{Int64: int64(titleID), Valid: true},
 		CreatorID:  claims.ID,
-	}
-
-	if len(form.Value["name"]) != 0 {
-		editedTitle.Name = sql.NullString{String: form.Value["name"][0], Valid: true}
-	}
-	if len(form.Value["description"]) != 0 {
-		editedTitle.Description = form.Value["description"][0]
 	}
 
 	if len(form.Value["authorId"]) != 0 {
@@ -112,34 +89,31 @@ func (h handler) EditTitle(c *gin.Context) {
 			return
 		}
 
-		tx.Raw("SELECT id FROM authors WHERE id = ?", desiredAuthorID).Scan(&editedTitle.AuthorID)
-
-		if !editedTitle.AuthorID.Valid {
-			c.AbortWithStatusJSON(404, gin.H{"error": "автор не найден"})
-			return
-		}
+		editedTitle.AuthorID = sql.NullInt64{Int64: int64(desiredAuthorID), Valid: true}
 	}
 
-	if len(form.Value["genres"]) != 0 {
-		var numberOfExistingGenres int64
-
-		tx.Raw(
-			`SELECT COUNT(*) FROM genres
-			WHERE name IN
-				(SELECT unnest(?::TEXT[]))`,
-			pq.Array(form.Value["genres"]),
-		).Scan(&numberOfExistingGenres)
-
-		if numberOfExistingGenres != int64(len(form.Value["genres"])) {
-			c.AbortWithStatusJSON(400, gin.H{"error": "указаны невалидные жанры"})
+	if len(form.Value["name"]) != 0 {
+		var doesTitleWithTheSameNameExist bool
+		if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM titles WHERE lower(name) = lower(?))", form.Value["name"][0]).Scan(&doesTitleWithTheSameNameExist).Error; err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		editedTitle.Genres = form.Value["genres"]
+		if doesTitleWithTheSameNameExist {
+			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
+			return
+		}
+
+		editedTitle.Name = sql.NullString{String: form.Value["name"][0], Valid: true}
 	}
 
-	if result := tx.Raw(
-		`INSERT INTO titles_on_moderation (created_at, name, description, author_id, genres, creator_id, existing_id)
+	if len(form.Value["description"]) != 0 {
+		editedTitle.Description = form.Value["description"][0]
+	}
+
+	err = tx.Raw(
+		`INSERT INTO titles_on_moderation (created_at, name, description, author_id, creator_id, existing_id)
 		VALUES (NOW(), ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (existing_id) DO UPDATE
 		SET
@@ -150,11 +124,36 @@ func (h handler) EditTitle(c *gin.Context) {
 			creator_id = EXCLUDED.creator_id,
 			updated_at = NOW()
 		RETURNING id`,
-		editedTitle.Name, editedTitle.Description, editedTitle.AuthorID, editedTitle.Genres, editedTitle.CreatorID, editedTitle.ExistingID,
-	).Scan(&editedTitle.ID); result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-		return
+		editedTitle.Name, editedTitle.Description, editedTitle.AuthorID, editedTitle.CreatorID, editedTitle.ExistingID,
+	).Scan(&editedTitle.ID).Error
+
+	if err != nil {
+		if dbErrors.IsForeignKeyViolation(err, constraints.FkTitlesOnModerationAuthor) {
+			c.AbortWithStatusJSON(404, gin.H{"error": "автор не найден"})
+			return
+		}
+		if dbErrors.IsUniqueViolation(err, constraints.UniTitlesOnModerationName) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже ожидает модерации"})
+			return
+		}
+	}
+
+	if len(form.Value["genresIds"]) != 0 {
+		err = tx.Exec(
+			`INSERT INTO titles_on_moderation_genres (title_id, genre_id)
+			SELECT ?, UNNEST(?::INTEGER[])`,
+			pq.Array(form.Value["genresIds"]),
+		).Error
+
+		if err != nil {
+			if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleGenresGenre) {
+				c.AbortWithStatusJSON(409, gin.H{"error": "указаны невалидные жанры"})
+			} else {
+				log.Println(err)
+				c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			}
+			return
+		}
 	}
 
 	if len(form.File["cover"]) != 0 {
@@ -169,7 +168,7 @@ func (h handler) EditTitle(c *gin.Context) {
 		update := bson.M{"$set": bson.M{"cover": cover}}
 		opts := options.Update().SetUpsert(true)
 
-		if _, err := h.TitlesOnModerationCovers.UpdateOne(context.Background(), filter, update, opts); err != nil {
+		if _, err := h.TitlesOnModerationCovers.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
@@ -180,7 +179,7 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "изменения тайтла успешно отправлены на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutTitleOnModeration(context.TODO(), &pb.TitleOnModeration{ID: uint64(existingTitleID), New: false}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutTitleOnModeration(c.Request.Context(), &pb.TitleOnModeration{ID: uint64(editedTitle.ExistingID.Int64), New: false}); err != nil {
 		log.Println(err)
 	}
 }

@@ -2,6 +2,7 @@ package favorites
 
 import (
 	"strconv"
+	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -23,7 +24,7 @@ func (h handler) GetFavoriteChapters(c *gin.Context) {
 
 	var chapters []models.ChapterDTO
 
-	h.DB.Raw(
+	if err := h.DB.Raw(
 		`SELECT
 			c.id, c.created_at, c.name, c.description, 
 			v.name AS volume, v.id AS volume_id,
@@ -37,7 +38,11 @@ func (h handler) GetFavoriteChapters(c *gin.Context) {
 			uvc.user_id = ?
 		LIMIT ?`,
 		claims.ID, limit,
-	).Scan(&chapters)
+	).Scan(&chapters).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error":err.Error()})
+		return
+	}
 
 	if len(chapters) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено глав в вашем избранном"})

@@ -12,10 +12,9 @@ import (
 func (h handler) DeclineTeamJoinRequest(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var teamID uint
-	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&teamID)
-	if teamID == 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "вы не состоите в команде перевода"})
+	desiredRequestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id заявки"})
 		return
 	}
 
@@ -31,21 +30,16 @@ func (h handler) DeclineTeamJoinRequest(c *gin.Context) {
 		return
 	}
 
-	desiredRequestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "id заявки должен быть числом"})
-		return
-	}
-
-	result := h.DB.Exec("DELETE FROM team_join_requests WHERE id = ? AND team_id = ?", desiredRequestID, teamID)
+	result := h.DB.Exec("DELETE FROM team_join_requests WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)", desiredRequestID, claims.ID)
 
 	if result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
+
 	if result.RowsAffected == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдена заявка на вступление в вашу команду с таким id"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "заявка на вступление в вашу команду не найдена"})
 		return
 	}
 

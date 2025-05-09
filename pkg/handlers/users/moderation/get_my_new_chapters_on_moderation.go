@@ -2,6 +2,7 @@ package moderation
 
 import (
 	"strconv"
+	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -22,7 +23,7 @@ func (h handler) GetMyNewChaptersOnModeration(c *gin.Context) {
 
 	var chapters []models.ChapterOnModerationDTO
 
-	h.DB.Raw(`
+	if err := h.DB.Raw(`
 		SELECT
 			com.id, com.created_at, com.name, com.description, com.number_of_pages,
 			v.name AS volume, v.id AS volume_id,
@@ -37,7 +38,11 @@ func (h handler) GetMyNewChaptersOnModeration(c *gin.Context) {
 			com.creator_id = ?
 		LIMIT ?`,
 		claims.ID, limit,
-	).Scan(&chapters)
+	).Scan(&chapters).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error":err.Error()})
+		return
+	}
 
 	if len(chapters) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено ваших новых глав на модерации"})

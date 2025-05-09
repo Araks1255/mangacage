@@ -1,7 +1,6 @@
 package chapters
 
 import (
-	"context"
 	"log"
 	"strconv"
 
@@ -32,7 +31,7 @@ func (h handler) GetChapterPage(c *gin.Context) {
 		Pages [][]byte `bson:"pages"`
 	}
 
-	if err = h.ChaptersPages.FindOne(context.TODO(), filter, options.FindOne().SetProjection(projection)).Decode(&result); err != nil {
+	if err = h.ChaptersPages.FindOne(c.Request.Context(), filter, options.FindOne().SetProjection(projection)).Decode(&result); err != nil {
 		if err == mongo.ErrNoDocuments {
 			c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена"})
 			return

@@ -1,7 +1,6 @@
 package chapters
 
 import (
-	"context"
 	"log"
 	"slices"
 	"strconv"
@@ -29,7 +28,7 @@ func (h handler) DeleteChapter(c *gin.Context) {
 
 	chapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "id главы должен быть числом"})
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id главы"})
 		return
 	}
 
@@ -37,27 +36,23 @@ func (h handler) DeleteChapter(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var titleID uint
-	h.DB.Raw(
-		`SELECT t.id FROM titles AS t
-		INNER JOIN volumes AS v ON t.id = v.title_id
-		INNER JOIN chapters AS c ON v.id = c.volume_id
-		WHERE c.id = ?`, chapterID,
-	).Scan(&titleID)
+	var doesChapterExist bool
 
-	if titleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена"}) // Глава не может существовать без тома и тайтла (по ограничению бд, это буквально невозможно), так что если не нашелся тайтл, то и главы такой нет
+	if err := tx.Raw(
+		`SELECT EXISTS(
+			SELECT 1 FROM chapters AS c
+			INNER JOIN volumes AS v ON v.id = c.volume_id
+			INNER JOIN titles AS t ON t.id = v.title_id
+			WHERE c.id = ? AND t.team_id = (SELECT team_id FROM users WHERE id = ?)
+		)`, chapterID, claims.ID,
+	).Scan(&doesChapterExist).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	var doesUserTeamTranslatesDesiredTitle bool
-	h.DB.Raw(
-		"SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)",
-		titleID, claims.ID,
-	).Scan(&doesUserTeamTranslatesDesiredTitle)
-
-	if !doesUserTeamTranslatesDesiredTitle {
-		c.AbortWithStatusJSON(403, gin.H{"error": "удалить главу может только команда, выложившая её"})
+	if !doesChapterExist {
+		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена среди глав тайтлов, переводимых вашей командой"})
 		return
 	}
 
@@ -67,7 +62,7 @@ func (h handler) DeleteChapter(c *gin.Context) {
 		return
 	}
 
-	if _, err := h.ChaptersPages.DeleteOne(context.TODO(), bson.M{"chapter_id": chapterID}); err != nil {
+	if _, err := h.ChaptersPages.DeleteOne(c.Request.Context(), bson.M{"chapter_id": chapterID}); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return

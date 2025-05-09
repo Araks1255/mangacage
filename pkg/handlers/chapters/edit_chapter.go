@@ -1,15 +1,16 @@
 package chapters
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"slices"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 )
@@ -17,16 +18,16 @@ import (
 func (h handler) EditChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	desiredChapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	chapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "id главы должен быть числом"})
 		return
 	}
 
 	var requestBody struct {
-		Name            string `json:"name"`
-		Description     string `json:"description"`
-		DesiredVolumeID uint   `json:"volumeId"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		VolumeID    uint   `json:"volumeId"`
 	}
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
@@ -35,17 +36,21 @@ func (h handler) EditChapter(c *gin.Context) {
 		return
 	}
 
-	if requestBody.Name == "" && requestBody.Description == "" && requestBody.DesiredVolumeID == 0 {
+	if requestBody.Name == "" && requestBody.Description == "" && requestBody.VolumeID == 0 {
 		c.AbortWithStatusJSON(400, gin.H{"error": "необходим хотя-бы один изменяемый параметр"})
 		return
 	}
 
 	var userRoles []string
-	h.DB.Raw(
+	if err := h.DB.Raw(
 		`SELECT roles.name FROM roles
 		INNER JOIN user_roles ON roles.id = user_roles.role_id
 		WHERE user_roles.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
+	).Scan(&userRoles).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
 	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для редактирования главы"})
@@ -56,69 +61,63 @@ func (h handler) EditChapter(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var titleID, volumeID, existingChapterID uint
-
-	row := tx.Raw(
-		`SELECT
-			t.id, v.id, c.id
-		FROM
-			chapters AS c
+	var doesChapterExist bool
+	if err := tx.Raw(
+		`SELECT EXISTS (
+			SELECT 1
+			FROM chapters AS c
 			INNER JOIN volumes AS v ON v.id = c.volume_id
 			INNER JOIN titles AS t ON t.id = v.title_id
-		WHERE
-			c.id = ? AND t.team_id = (SELECT team_id FROM users WHERE id = ?)`,
-		desiredChapterID, claims.ID,
-	).Row()
-
-	if err = row.Scan(&titleID, &volumeID, &existingChapterID); err != nil {
+			WHERE c.id = ? AND t.team_id = (SELECT team_id FROM users WHERE id = ?)
+		)`,
+		chapterID, claims.ID,
+	).Scan(&doesChapterExist).Error; err != nil {
 		log.Println(err)
-	}
-	if existingChapterID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена среди переводимых вашей командой тайтлов"})
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
+	if !doesChapterExist {
+		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена среди глав, переводимых вашей командой"})
+		return
+	}
+
+	editedChapter := models.ChapterOnModeration{
+		CreatorID:   claims.ID,
+		Description: requestBody.Description,
+		ExistingID:  sql.NullInt64{Int64: int64(chapterID), Valid: true},
+	}
+
+	if requestBody.VolumeID != 0 {
+		editedChapter.VolumeID = requestBody.VolumeID
+	} else {
+		if err := tx.Raw("SELECT volume_id FROM chapters WHERE id = ?", chapterID).Scan(&editedChapter.VolumeID).Error; err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
 	if requestBody.Name != "" {
-		var chapterOnModerationWithTheSameNameID, chapterWithTheSameNameID sql.NullInt64
+		var doesChapterWithThisNameAlreadyExist bool
 
-		row = tx.Raw(
-			`SELECT
-				(SELECT id FROM chapters_on_moderation WHERE volume_id = ? AND lower(name) = lower(?) LIMIT 1),
-				(SELECT id FROM chapters WHERE volume_id = ? AND lower(name) = lower(?) LIMIT 1)`,
-			volumeID, requestBody.Name, volumeID, requestBody.Name,
-		).Row()
-
-		if err = row.Scan(&chapterOnModerationWithTheSameNameID, &chapterWithTheSameNameID); err != nil {
+		if err := tx.Raw(
+			"SELECT EXISTS(SELECT 1 FROM chapters WHERE lower(name) = lower(?) AND volume_id = ?)",
+			requestBody.Name, editedChapter.VolumeID,
+		).Scan(&doesChapterExist).Error; err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		if chapterOnModerationWithTheSameNameID.Valid {
-			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе"})
+		if doesChapterWithThisNameAlreadyExist {
+			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже существует в этом томе"})
 			return
 		}
-		if chapterWithTheSameNameID.Valid {
-			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже есть в этом томе"})
-			return
-		}
+		editedChapter.Name = sql.NullString{String: requestBody.Name, Valid: true}
 	}
 
-	editedChapter := models.ChapterOnModeration{
-		ExistingID:  sql.NullInt64{Int64: int64(existingChapterID), Valid: true},
-		Name:        requestBody.Name,
-		Description: requestBody.Description,
-		CreatorID:   claims.ID,
-	}
-	if requestBody.DesiredVolumeID != 0 {
-		tx.Raw("SELECT id FROM volumes WHERE id = ? AND title_id = ?", requestBody.DesiredVolumeID, titleID).Scan(&editedChapter.VolumeID)
-		if !editedChapter.VolumeID.Valid {
-			c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
-			return
-		}
-	}
-
-	if result := tx.Exec(
+	err = tx.Exec(
 		`INSERT INTO chapters_on_moderation (created_at, name, description, creator_id, volume_id, existing_id)
 		VALUES (NOW(), ?, ?, ?, ?, ?)
 		ON CONFLICT (existing_id) DO UPDATE
@@ -129,9 +128,21 @@ func (h handler) EditChapter(c *gin.Context) {
 			creator_id = EXCLUDED.creator_id,
 			volume_id = EXCLUDED.volume_id`,
 		editedChapter.Name, editedChapter.Description, editedChapter.CreatorID, editedChapter.VolumeID, editedChapter.ExistingID,
-	); result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+	).Error
+
+	if err != nil {
+		if dbErrors.IsUniqueViolation(err, constraints.UniChapterVolume) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе"})
+			return
+		}
+
+		if dbErrors.IsForeignKeyViolation(err, constraints.FkChaptersOnModerationVolume) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "том не найден"})
+			return
+		}
+
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -139,7 +150,7 @@ func (h handler) EditChapter(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "изменения главы успешно отправлены на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutChapterOnModeration(context.TODO(), &pb.ChapterOnModeration{ID: uint64(editedChapter.ExistingID.Int64), New: false}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutChapterOnModeration(c.Request.Context(), &pb.ChapterOnModeration{ID: uint64(editedChapter.ExistingID.Int64), New: false}); err != nil {
 		log.Println(err)
 	}
 }

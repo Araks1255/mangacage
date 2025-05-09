@@ -1,7 +1,6 @@
 package chapters
 
 import (
-	"context"
 	"database/sql"
 	"io"
 	"log"
@@ -12,8 +11,10 @@ import (
 	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 )
@@ -27,18 +28,23 @@ func (h handler) CreateChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
 	var userRoles []string
-	h.DB.Raw(
-		`SELECT roles.name FROM roles
-		INNER JOIN user_roles ON roles.id = user_roles.role_id
-		WHERE user_roles.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
+
+	if err := h.DB.Raw(
+		`SELECT r.name FROM roles AS r
+		INNER JOIN user_roles AS ur ON ur.role_id = r.id
+		WHERE ur.user_id = ?`, claims.ID,
+	).Scan(&userRoles).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
 	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для добавления глав"})
 		return
 	}
 
-	desiredVolumeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	volumeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тома"})
 		return
@@ -66,8 +72,12 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	if name == "" || len(pages) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает названия главы или её страниц"})
+	if len(pages) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает страниц главы"})
+		return
+	}
+	if name == "" {
+		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает названия главы"})
 		return
 	}
 
@@ -75,51 +85,48 @@ func (h handler) CreateChapter(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var existing struct {
-		VolumeID              uint
-		ChapterOnModerationID uint
-		ChapterID             uint
+	var check struct {
+		VolumeID      sql.NullInt64
+		ChapterExists bool
 	}
 
-	tx.Raw(
+	if err = tx.Raw(
 		`SELECT
-			v.id AS volume_id,
-			com.id AS chapter_on_moderation_id,
-			c.id AS chapter_id
-		FROM
-			volumes AS v
-			LEFT JOIN chapters_on_moderation AS com ON v.id = com.volume_id AND lower(com.name) = lower(?)
-			LEFT JOIN chapters AS c ON v.id = c.volume_id AND lower(c.name) = lower(?)
-		WHERE
-			v.id = ?
-		LIMIT 1`,
-		name, name, desiredVolumeID,
-	).Scan(&existing)
+			(SELECT id FROM volumes WHERE id = ?) AS volume_id,
+			EXISTS(SELECT 1 FROM chapters WHERE lower(name) = lower(?)) AS chapter_exists`,
+		volumeID, name,
+	).Scan(&check).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
-	if existing.VolumeID == 0 {
+	if !check.VolumeID.Valid {
 		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
 		return
 	}
-	if existing.ChapterOnModerationID != 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе"})
-		return
-	}
-	if existing.ChapterID != 0 {
+	if check.ChapterExists {
 		c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже существует в этом томе"})
 		return
 	}
 
 	newChapter := models.ChapterOnModeration{
-		Name:          name,
+		Name:          sql.NullString{String: name, Valid: true},
 		Description:   description,
 		NumberOfPages: len(pages),
-		VolumeID:      sql.NullInt64{Int64: int64(existing.VolumeID), Valid: true},
+		VolumeID:      uint(check.VolumeID.Int64),
 		CreatorID:     claims.ID,
 	}
 
-	if result := tx.Create(&newChapter); result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+	err = tx.Create(&newChapter).Error
+
+	if err != nil {
+		if dbErrors.IsUniqueViolation(err, constraints.UniChapterVolume) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе"})
+		} else {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -128,7 +135,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 		Pages:                 pages,
 	}
 
-	if _, err := h.ChaptersOnModerationPages.InsertOne(context.Background(), chapterPages); err != nil {
+	if _, err := h.ChaptersOnModerationPages.InsertOne(c.Request.Context(), chapterPages); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -138,7 +145,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "глава успешно отправлена на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutChapterOnModeration(context.Background(), &pb.ChapterOnModeration{ID: uint64(newChapter.ID), New: true}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutChapterOnModeration(c.Request.Context(), &pb.ChapterOnModeration{ID: uint64(newChapter.ID), New: true}); err != nil {
 		log.Println(err)
 	}
 }

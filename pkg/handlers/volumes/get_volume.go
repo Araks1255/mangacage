@@ -1,43 +1,42 @@
 package volumes
 
 import (
+	"log"
+	"strconv"
+
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 func (h handler) GetVolume(c *gin.Context) {
-	title := c.Param("title")
-	desiredVolume := c.Param("volume")
-
-	var desiredVolumeID uint
-	h.DB.Raw(`SELECT volumes.id FROM volumes
-		INNER JOIN titles ON volumes.title_id = titles.id
-		WHERE lower(titles.name) = lower(?)
-		AND lower(volumes.name) = lower(?)
-		AND NOT volumes.on_moderation`,
-		title, desiredVolume).
-		Scan(&desiredVolumeID)
-
-	if desiredVolumeID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
+	desiredVolumeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тома"})
 		return
 	}
 
-	var volume struct {
-		gorm.Model
-		Name        string
-		Description string
-		Title       string
-		Creator     string
-		Team        string
+	var volume models.VolumeDTO
+
+	if err := h.DB.Raw(
+		`SELECT
+			v.id, v.created_at, v.name, v.description,
+			t.name AS title, t.id AS title_id
+		FROM
+			volumes AS v
+			INNER JOIN titles AS t ON t.id = v.title_id
+		WHERE
+			v.id = ?`,
+		desiredVolumeID,
+	).Scan(&volume).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
 	}
 
-	h.DB.Raw(`SELECT volumes.id, volumes.created_at, volumes.updated_at, volumes.deleted_at, volumes.name, volumes.description,
-		titles.name AS title, users.user_name AS creator, teams.name AS team FROM volumes
-		INNER JOIN titles ON volumes.title_id = titles.id
-		INNER JOIN users ON volumes.creator_id = users.id
-		INNER JOIN teams ON titles.team_id = teams.id
-		WHERE volumes.id = ?`, desiredVolumeID).Scan(&volume)
+	if volume.ID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
+		return
+	}
 
 	c.JSON(200, &volume)
 }

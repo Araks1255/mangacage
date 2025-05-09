@@ -2,6 +2,7 @@ package favorites
 
 import (
 	"strconv"
+	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -23,7 +24,7 @@ func (h handler) GetFavoriteGenres(c *gin.Context) {
 
 	var genres []models.GenreDTO
 
-	h.DB.Raw(
+	if err := h.DB.Raw(
 		`SELECT
 			g.id, g.name
 		FROM
@@ -33,7 +34,11 @@ func (h handler) GetFavoriteGenres(c *gin.Context) {
 			uvg.user_id = ?
 		LIMIT ?`,
 		claims.ID, limit,
-	).Scan(&genres)
+	).Scan(&genres).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error":err.Error()})
+		return
+	}
 
 	if len(genres) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено ваших избранных жанров"})

@@ -11,14 +11,14 @@ import (
 	"testing"
 
 	"github.com/Araks1255/mangacage/internal/testhelpers"
-	"github.com/Araks1255/mangacage/pkg/constants"
+	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/gin-gonic/gin"
 )
 
 func TestCreateChapter(t *testing.T) {
-	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
+	chaptersOnModerationPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
 
 	h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersOnModerationPages, nil)
 
@@ -63,7 +63,7 @@ func TestCreateChapter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	volumeID, err := testhelpers.CreateVolumeWithDependencies(env.DB, userID)
+	volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestCreateChapter(t *testing.T) {
 }
 
 func TestDeleteChapter(t *testing.T) {
-	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
+	chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 	h := chapters.NewHandler(env.DB, nil, nil, chaptersPages)
 
@@ -106,7 +106,7 @@ func TestDeleteChapter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	volumeID, err := testhelpers.CreateVolumeWithDependencies(env.DB, userID)
+	volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestDeleteChapter(t *testing.T) {
 }
 
 func TestEditChapter(t *testing.T) {
-	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
+	chaptersOnModerationPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
 
 	h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersOnModerationPages, nil)
 
@@ -163,7 +163,7 @@ func TestEditChapter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	volumeID, err := testhelpers.CreateVolumeWithDependencies(env.DB, userID)
+	volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,14 +192,14 @@ func TestEditChapter(t *testing.T) {
 }
 
 func TestGetChapterPage(t *testing.T) {
-	chaptersPages := env.MongoDB.Collection(constants.ChaptersPagesCollection)
+	chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 	userID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	volumeID, err := testhelpers.CreateVolumeWithDependencies(env.DB, userID)
+	volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +238,7 @@ func TestGetChapter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	volumeID, err := testhelpers.CreateVolumeWithDependencies(env.DB, userID)
+	volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +272,7 @@ func TestGetVolumeChapters(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	volumeID, err := testhelpers.CreateVolumeWithDependencies(env.DB, userID)
+	volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
 	if err != nil {
 		t.Fatal(err)
 	}

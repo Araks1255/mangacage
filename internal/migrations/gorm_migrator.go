@@ -1,8 +1,11 @@
 package migrations
 
 import (
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 
@@ -74,13 +77,34 @@ func GormMigrate(db *gorm.DB) error {
 		return err
 	}
 
-	createGetRecentlyUpdatedTitlesFunctionSQL, err := os.ReadFile("internal/migrations/sql/create_get_recently_updated_titles.sql")
-	if err != nil {
-		return err
-	}
+	sqlDir := "./internal/migrations/sql"
+	pathsToScripts := make([]string, 0, 7)
 
-	if result := db.Exec(string(createGetRecentlyUpdatedTitlesFunctionSQL)); result.Error != nil {
-		return result.Error
+	filepath.WalkDir(sqlDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			panic(err)
+		}
+
+		if !d.IsDir() {
+			if !strings.HasSuffix(d.Name(), ".sql") {
+				panic("в каталоге с sql миграциями не sql файл")
+			}
+
+			pathsToScripts = append(pathsToScripts, path)
+		}
+
+		return nil
+	})
+
+	for i := 0; i < len(pathsToScripts); i++ {
+		scriptBytes, err := os.ReadFile(pathsToScripts[i])
+		if err != nil {
+			panic(err)
+		}
+
+		if err := db.Exec(string(scriptBytes)).Error; err != nil {
+			panic(err)
+		}
 	}
 
 	return nil

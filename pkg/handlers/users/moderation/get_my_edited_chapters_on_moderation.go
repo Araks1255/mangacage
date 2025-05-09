@@ -1,6 +1,7 @@
 package moderation
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -22,7 +23,7 @@ func (h handler) GetMyEditedChaptersOnModeration(c *gin.Context) {
 
 	var chapters []models.ChapterOnModerationDTO
 
-	h.DB.Raw(
+	if err := h.DB.Raw(
 		`SELECT
 			com.id, com.created_at, com.name, com.description,
 			c.name AS existing, c.id AS existing_id,
@@ -37,7 +38,11 @@ func (h handler) GetMyEditedChaptersOnModeration(c *gin.Context) {
 			com.creator_id = ?
 		LIMIT ?`,
 		claims.ID, limit,
-	).Scan(&chapters)
+	).Scan(&chapters).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
 	if len(chapters) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено ваших отредактированных глав на модерации"})

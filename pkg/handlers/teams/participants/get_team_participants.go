@@ -1,6 +1,7 @@
 package participants
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -16,16 +17,23 @@ func (h handler) GetTeamParticipants(c *gin.Context) {
 
 	var participants []models.UserDTO
 
-	h.DB.Raw(
-		`SELECT u.id, u.user_name,
-		ARRAY_AGG(r.name)::TEXT[] AS roles
-		FROM users AS u
-		LEFT JOIN user_roles AS ur ON u.id = ur.user_id
-		LEFT JOIN roles AS r ON r.id = ur.role_id 
-		WHERE u.team_id = ?
+	if err := h.DB.Raw(
+		`SELECT
+			u.id, u.user_name,
+			ARRAY_AGG(r.name)::TEXT[] AS roles
+		FROM
+			users AS u
+			LEFT JOIN user_roles AS ur ON u.id = ur.user_id
+			LEFT JOIN roles AS r ON ur.role_id = r.id 
+		WHERE
+			u.team_id = ?
 		GROUP BY u.id`,
 		teamID,
-	).Scan(&participants)
+	).Scan(&participants).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
 	if len(participants) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "в этой команде нет участников"})

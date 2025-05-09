@@ -1,6 +1,7 @@
 package moderation
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -21,7 +22,7 @@ func (h handler) GetMyEditedVolumesOnModeration(c *gin.Context) {
 	}
 
 	var volumes []models.VolumeOnModerationDTO
-	h.DB.Raw(`
+	if err := h.DB.Raw(`
 		SELECT
 			vom.id, vom.created_at, vom.name, vom.description,
 			v.name AS existing, v.id AS existing_id,
@@ -33,7 +34,11 @@ func (h handler) GetMyEditedVolumesOnModeration(c *gin.Context) {
 			WHERE vom.creator_id = ?
 		LIMIT ?`,
 		claims.ID, limit,
-	).Scan(&volumes)
+	).Scan(&volumes).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
 	if len(volumes) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено ваших отредактированных томов на модерации"})

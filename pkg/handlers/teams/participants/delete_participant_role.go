@@ -13,25 +13,18 @@ import (
 func (h handler) DeleteParticipantRole(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	desiredParticipantID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	participantID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "id участника должен быть числом"})
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id участника"})
 		return
 	}
 
 	var requestBody struct {
-		DesiredRoleID uint `json:"roleId" binding:"required"`
+		RoleID uint `json:"roleId" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	var userTeamID uint
-	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
-	if userTeamID == 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "вы не состоите в команде перевода"})
 		return
 	}
 
@@ -42,7 +35,7 @@ func (h handler) DeleteParticipantRole(c *gin.Context) {
 		WHERE ur.user_id = ?`, claims.ID,
 	).Scan(&userRoles)
 
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") && !slices.Contains(userRoles, "admin") {
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
 		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для совершения операций над участниками команды"}) // Я это всё потом в middleware отедльные вынесу
 		return
 	}
@@ -51,34 +44,52 @@ func (h handler) DeleteParticipantRole(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var existingParticipantID uint
-	tx.Raw("SELECT id FROM users WHERE id = ? AND team_id = ?", desiredParticipantID, userTeamID).Scan(&existingParticipantID)
-	if existingParticipantID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "участник не найден"})
+	var check struct {
+		DoesParticipantExist bool
+		DoesRoleExist        bool
+	}
+
+	var query string
+	if slices.Contains(userRoles, "team_leader") {
+		query = `SELECT
+					EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)) AS does_participant_exist,
+					EXISTS(SELECT 1 FROM ROLES WHERE id = ? AND type = 'team' AND name != 'team_leader') AS does_role_exist`
+	} else { // Это чтобы экс тим лидеры не могли удалять других экс тим лидеров (там ещё одно условие добавляется на проверке роли)
+		query = `SELECT
+					EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)) AS does_participant_exist,
+					EXISTS(SELECT 1 FROM ROLES WHERE id = ? AND type = 'team' AND name != 'team_leader' AND name != 'ex_team_leader') AS does_role_exist`
+	}
+
+	if err := tx.Raw(query, participantID, claims.ID, requestBody.RoleID).Scan(&check).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	var existingRoleID uint
-	tx.Raw("SELECT id FROM roles WHERE id = ? AND type = 'team'", requestBody.DesiredRoleID).Scan(&existingRoleID)
-	if existingRoleID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "роль не найдена"})
+	if !check.DoesParticipantExist {
+		c.AbortWithStatusJSON(404, gin.H{"error": "участник не найден в вашей команде"})
+		return
+	}
+	if !check.DoesRoleExist {
+		c.AbortWithStatusJSON(404, gin.H{"error": "роль не найдена среди доступных вам для удаления"})
 		return
 	}
 
-	var participantRolesIDs []uint
-	tx.Raw("SELECT role_id FROM user_roles WHERE user_id = ?", existingParticipantID).Scan(&participantRolesIDs)
-	if !slices.Contains(participantRolesIDs, existingRoleID) {
-		c.AbortWithStatusJSON(409, gin.H{"error": "данный пользователь не обладает указанной ролью"})
+	result := tx.Exec("DELETE FROM user_roles WHERE user_id = ? AND role_id = ?", participantID, requestBody.RoleID)
+
+	if result.Error != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if result := tx.Exec("DELETE FROM user_roles WHERE user_id = ? AND role_id = ?", existingParticipantID, existingRoleID); result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+	if result.RowsAffected == 0 {
+		c.AbortWithStatusJSON(409, gin.H{"error": "участник не обладает такой ролью"}) // Ошибка не произошла, юзер существует, роль тоже. Значит, не выполниться запрос может только при отсутствии у юзера роли
 		return
 	}
 
 	tx.Commit()
 
-	c.JSON(200, gin.H{"success": "участник команды успешно снят с указанной роли"})
+	c.JSON(200, gin.H{"success": "участник успешно лишен роли"})
+	// Можно участнику уведомление отправить
 }

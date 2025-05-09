@@ -41,7 +41,7 @@ func TestSearchChapters(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	volumeID, err := testhelpers.CreateVolumeWithDependencies(env.DB, userID)
+	volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestSearchVolumes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	volumeID, err := testhelpers.CreateVolumeWithDependencies(env.DB, userID)
+	volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
 	if err != nil {
 		t.Fatal(err)
 	}

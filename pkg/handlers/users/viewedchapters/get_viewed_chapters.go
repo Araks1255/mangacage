@@ -1,6 +1,7 @@
 package viewedchapters
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -22,7 +23,8 @@ func (h handler) GetUserViewedChapters(c *gin.Context) {
 	}
 
 	var chapters []models.ChapterDTO
-	h.DB.Raw(
+
+	if err := h.DB.Raw(
 		`SELECT
 			c.id, c.name, uvc.created_at,
 			v.name AS volume, v.id AS volume_id,
@@ -37,7 +39,11 @@ func (h handler) GetUserViewedChapters(c *gin.Context) {
 			uvc.created_at DESC
 		LIMIT ?`,
 		claims.ID, limit,
-	).Scan(&chapters)
+	).Scan(&chapters).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
 	if len(chapters) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "у вас ещё нет прочитанных глав"})

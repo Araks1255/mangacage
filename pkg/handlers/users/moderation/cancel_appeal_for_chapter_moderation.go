@@ -1,7 +1,6 @@
 package moderation
 
 import (
-	"context"
 	"log"
 	"strconv"
 
@@ -29,7 +28,7 @@ func (h handler) CancelAppealForChapterModeration(c *gin.Context) {
 		ChapterID             uint
 	}
 
-	tx.Raw(
+	if err = tx.Raw(
 		`SELECT
 			com.id AS chapter_on_moderation_id,
 			c.id AS chapter_id
@@ -39,7 +38,11 @@ func (h handler) CancelAppealForChapterModeration(c *gin.Context) {
 		WHERE
 			com.id = ? AND com.creator_id = ?`,
 		desiredChapterOnModerationID, claims.ID,
-	).Scan(&existing)
+	).Scan(&existing).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
 	if existing.ChapterOnModerationID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена среди ваших глав на модерации"})
@@ -55,7 +58,7 @@ func (h handler) CancelAppealForChapterModeration(c *gin.Context) {
 	if existing.ChapterID == 0 { // Страницы могут быть только у новой главы, у отредактированной (имеющией existing_id) - нет
 		filter := bson.M{"chapter_on_moderation_id": existing.ChapterOnModerationID}
 
-		if _, err = h.ChaptersPages.DeleteOne(context.Background(), filter); err != nil {
+		if _, err = h.ChaptersPages.DeleteOne(c.Request.Context(), filter); err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return

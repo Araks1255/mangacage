@@ -9,7 +9,7 @@ import (
 	"github.com/Araks1255/mangacage/internal/migrations"
 	"github.com/Araks1255/mangacage/internal/seeder"
 	dbPackage "github.com/Araks1255/mangacage/pkg/common/db"
-	"github.com/Araks1255/mangacage/pkg/constants"
+	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson"
@@ -92,12 +92,12 @@ func cleanTestDB(db *gorm.DB, mongoDB *mongo.Database) {
 	ctx := context.Background()
 	coll := mongoDB.Collection
 
-	coll(constants.ChaptersOnModerationPagesCollection).DeleteMany(ctx, bson.M{})
-	coll(constants.ChaptersPagesCollection).DeleteMany(ctx, bson.M{})
-	coll(constants.TeamsCoversCollection).DeleteMany(ctx, bson.M{})
-	coll(constants.TeamsOnModerationCoversCollection).DeleteMany(ctx, bson.M{})
-	coll(constants.TitlesCoversCollection).DeleteMany(ctx, bson.M{})
-	coll(constants.TitlesOnModerationCoversCollection).DeleteMany(ctx, bson.M{})
-	coll(constants.UsersOnModerationProfilePicturesCollection).DeleteMany(ctx, bson.M{})
-	coll(constants.UsersProfilePicturesCollection).DeleteMany(ctx, bson.M{})
+	coll(mongodb.ChaptersOnModerationPagesCollection).DeleteMany(ctx, bson.M{})
+	coll(mongodb.ChaptersPagesCollection).DeleteMany(ctx, bson.M{})
+	coll(mongodb.TeamsCoversCollection).DeleteMany(ctx, bson.M{})
+	coll(mongodb.TeamsOnModerationCoversCollection).DeleteMany(ctx, bson.M{})
+	coll(mongodb.TitlesCoversCollection).DeleteMany(ctx, bson.M{})
+	coll(mongodb.TitlesOnModerationCoversCollection).DeleteMany(ctx, bson.M{})
+	coll(mongodb.UsersOnModerationProfilePicturesCollection).DeleteMany(ctx, bson.M{})
+	coll(mongodb.UsersProfilePicturesCollection).DeleteMany(ctx, bson.M{})
 }

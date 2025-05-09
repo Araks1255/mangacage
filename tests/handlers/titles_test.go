@@ -10,14 +10,14 @@ import (
 	"testing"
 
 	"github.com/Araks1255/mangacage/internal/testhelpers"
-	"github.com/Araks1255/mangacage/pkg/constants"
+	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/titles"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/gin-gonic/gin"
 )
 
 func TestCreateTitle(t *testing.T) {
-	titlesOnModerationCovers := env.MongoDB.Collection(constants.TitlesOnModerationCoversCollection)
+	titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
 
 	creatorID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
@@ -91,8 +91,8 @@ func TestCreateTitle(t *testing.T) {
 }
 
 func TestDeleteTitle(t *testing.T) {
-	titlesCovers := env.MongoDB.Collection(constants.TitlesCoversCollection)
-	titlesOnModerationCovers := env.MongoDB.Collection(constants.TitlesOnModerationCoversCollection)
+	titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
+	titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
 
 	creatorID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 	if err != nil {
@@ -155,7 +155,7 @@ func TestDeleteTitle(t *testing.T) {
 }
 
 func TestEditTitle(t *testing.T) {
-	titlesOnModerationCovers := env.MongoDB.Collection(constants.TitlesOnModerationCoversCollection)
+	titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
 
 	creatorID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 	if err != nil {
@@ -352,7 +352,7 @@ func TestGetRecentlyUpdatedTitles(t *testing.T) {
 }
 
 func TestGetTitleCover(t *testing.T) {
-	titlesCovers := env.MongoDB.Collection(constants.TitlesCoversCollection)
+	titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 	userID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {

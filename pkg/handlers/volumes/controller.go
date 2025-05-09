@@ -2,35 +2,39 @@ package volumes
 
 import (
 	"github.com/Araks1255/mangacage/pkg/middlewares"
+	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
-	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
 
 type handler struct {
-	DB *gorm.DB
+	DB                  *gorm.DB
+	NotificationsClient pb.NotificationsClient
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
-	viper.SetConfigFile("./pkg/common/envs/.env")
-	viper.ReadInConfig()
-
-	secretKey := viper.Get("SECRET_KEY").(string)
-
-	h := handler{DB: db}
-
-	privateVolume := r.Group("api/volumes/:title")
-	privateVolume.Use(middlewares.AuthMiddleware(secretKey))
-	{
-		privateVolume.POST("/", h.CreateVolume)
-		privateVolume.POST("/:volume/edited", h.EditVolume)
-		privateVolume.DELETE("/:volume", h.DeleteVolume)
+func RegisterRoutes(db *gorm.DB, notificationsClient pb.NotificationsClient, secretKey string, r *gin.Engine) {
+	h := handler{
+		DB:                  db,
+		NotificationsClient: notificationsClient,
 	}
 
-	publicVolume := r.Group("/api/volumes/:title")
+	privateVolume := r.Group("api/volumes/:id")
+	privateVolume.Use(middlewares.AuthMiddleware(secretKey))
 	{
-		publicVolume.GET("/", h.GetTitleVolumes)
-		publicVolume.GET("/:volume", h.GetVolume)
+		privateVolume.POST("/edited", h.EditVolume)
+		privateVolume.DELETE("/", h.DeleteVolume)
+	}
+	r.POST("/api/titles/:id/volumes", middlewares.AuthMiddleware(secretKey), h.CreateVolume)
+
+	{
+		r.GET("/api/volumes/:id", h.GetVolume)
+		r.GET("/api/titles/:id/volumes", h.GetTitleVolumes)
+	}
+}
+
+func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient) handler {
+	return handler{
+		DB:                  db,
+		NotificationsClient: notificationsClient,
 	}
 }

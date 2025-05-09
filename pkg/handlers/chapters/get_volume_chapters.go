@@ -1,6 +1,7 @@
 package chapters
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -14,16 +15,24 @@ func (h handler) GetVolumeChapters(c *gin.Context) {
 		return
 	}
 
-	var existingVolumeID uint
-	h.DB.Raw("SELECT id FROM volumes WHERE id = ?", desiredVolumeID).Scan(&existingVolumeID)
-	if existingVolumeID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
-		return
+	limit := 10
+	if c.Query("limit") != "" {
+		if limit, err = strconv.Atoi(c.Query("limit")); err != nil {
+			c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный лимит"})
+			return
+		}
 	}
 
 	var chapters []models.ChapterDTO
 
-	h.DB.Raw("SELECT id, created_at, name, description, number_of_pages FROM chapters WHERE volume_id = ?", existingVolumeID).Scan(&chapters)
+	if err := h.DB.Raw(
+		"SELECT id, created_at, name, description, number_of_pages FROM chapters WHERE volume_id = ? LIMIT ?",
+		desiredVolumeID, limit,
+	).Scan(&chapters).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
 	if len(chapters) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено глав в этом томе"})

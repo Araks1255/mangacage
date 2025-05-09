@@ -11,7 +11,7 @@ import (
 
 	"github.com/Araks1255/mangacage/internal/testhelpers"
 	moderationHelpers "github.com/Araks1255/mangacage/internal/testhelpers/moderation"
-	"github.com/Araks1255/mangacage/pkg/constants"
+	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/users"
 	"github.com/Araks1255/mangacage/pkg/handlers/users/favorites"
 	"github.com/Araks1255/mangacage/pkg/handlers/users/moderation"
@@ -21,7 +21,7 @@ import (
 
 // Users
 func TestEditProfile(t *testing.T) {
-	usersOnModerationProfilePictures := env.MongoDB.Collection(constants.UsersOnModerationProfilePicturesCollection)
+	usersOnModerationProfilePictures := env.MongoDB.Collection(mongodb.UsersOnModerationProfilePicturesCollection)
 
 	userID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
@@ -80,7 +80,7 @@ func TestEditProfile(t *testing.T) {
 }
 
 func TestGetMyProfilePicture(t *testing.T) {
-	usersProfilePictures := env.MongoDB.Collection(constants.UsersProfilePicturesCollection)
+	usersProfilePictures := env.MongoDB.Collection(mongodb.UsersProfilePicturesCollection)
 
 	data, err := os.ReadFile("./test_data/user_profile_picture.png")
 	if err != nil {
@@ -526,7 +526,7 @@ func TestDeleteChapterFromFavorites(t *testing.T) {
 // Moderation
 
 func TestCancelAppealForChapterOnModeration(t *testing.T) {
-	chaptersOnModerationsPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
+	chaptersOnModerationsPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
 
 	userID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
@@ -566,7 +566,7 @@ func TestCancelAppealForChapterOnModeration(t *testing.T) {
 }
 
 func TestGetMyChapterOnModerationPage(t *testing.T) {
-	chaptersOnModerationPages := env.MongoDB.Collection(constants.ChaptersOnModerationPagesCollection)
+	chaptersOnModerationPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
 
 	userID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
@@ -688,7 +688,7 @@ func TestGetMyNewChaptersOnModeration(t *testing.T) {
 }
 
 func TestCancelAppealForProfileChanges(t *testing.T) {
-	usersOnModerationProfilePictures := env.MongoDB.Collection(constants.UsersOnModerationProfilePicturesCollection)
+	usersOnModerationProfilePictures := env.MongoDB.Collection(mongodb.UsersOnModerationProfilePicturesCollection)
 
 	userID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
@@ -726,7 +726,7 @@ func TestCancelAppealForProfileChanges(t *testing.T) {
 }
 
 func TestGetMyProfilePictureOnModeration(t *testing.T) {
-	usersOnModerationProfilePictures := env.MongoDB.Collection(constants.UsersOnModerationProfilePicturesCollection)
+	usersOnModerationProfilePictures := env.MongoDB.Collection(mongodb.UsersOnModerationProfilePicturesCollection)
 
 	userID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
@@ -807,7 +807,7 @@ func TestGetMyProfileChangesOnModeration(t *testing.T) {
 }
 
 func TestCancelAppealForTitleModeration(t *testing.T) {
-	titlesOnModerationCovers := env.MongoDB.Collection(constants.TitlesOnModerationCoversCollection)
+	titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
 
 	userID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
@@ -847,7 +847,7 @@ func TestCancelAppealForTitleModeration(t *testing.T) {
 }
 
 func TestGetMyTitleOnModerationCover(t *testing.T) {
-	titlesOnModerationCovers := env.MongoDB.Collection(constants.TitlesOnModerationCoversCollection)
+	titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
 
 	data, err := os.ReadFile("./test_data/title_cover.png")
 	if err != nil {
@@ -902,7 +902,14 @@ func TestGetMyNewTitlesOnModeration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := moderationHelpers.CreateTitleOnModeration(env.DB, userID); err != nil {
+	authorID, err := testhelpers.CreateAuthor(env.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := moderationHelpers.CreateTitleOnModeration(
+		env.DB, userID, moderationHelpers.CreateTitleOnModerationOptions{Genres: []string{"fighting"}, AuthorID: authorID},
+	); err != nil {
 		t.Fatal(err)
 	}
 
@@ -943,7 +950,9 @@ func TestGetMyEditedTitlesOnModeration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := moderationHelpers.CreateTitleOnModeration(env.DB, userID, moderationHelpers.CreateTitleOnModerationOptions{ExistingID: titleID}); err != nil {
+	if _, err := moderationHelpers.CreateTitleOnModeration(
+		env.DB, userID, moderationHelpers.CreateTitleOnModerationOptions{ExistingID: titleID, Genres: []string{"fighting"}},
+	); err != nil {
 		t.Fatal(err)
 	}
 

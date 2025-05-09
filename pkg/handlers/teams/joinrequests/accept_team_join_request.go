@@ -6,24 +6,19 @@ import (
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) AcceptTeamJoinRequest(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var userTeamID uint
-	h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
-	if userTeamID == 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "вы не состоите в команде перевода"})
-		return
-	}
-
 	desiredRequestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "id запроса на вступление в команду должен быть числом"})
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id заявки на вступление в команду"})
 		return
 	}
 
@@ -44,30 +39,55 @@ func (h handler) AcceptTeamJoinRequest(c *gin.Context) {
 	defer tx.Rollback()
 
 	var teamJoinRequest models.TeamJoinRequest
-	tx.Raw("SELECT * FROM team_join_requests WHERE id = ?", desiredRequestID).Scan(&teamJoinRequest)
+
+	if err := tx.Raw(
+		"SELECT * FROM team_join_requests WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)",
+		desiredRequestID, claims.ID,
+	).Scan(&teamJoinRequest).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
 	if teamJoinRequest.ID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "запрос на вступление в команду не найден"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "заявка не найдена среди заявок на вступление в вашу команду"})
 		return
 	}
 
-	if teamJoinRequest.TeamID != userTeamID {
-		c.AbortWithStatusJSON(409, gin.H{"error": "запрос на вступление в команду отправлен не в вашу команду"})
-		return
-	}
+	result := tx.Exec("UPDATE users SET team_id = ? WHERE id = ?", teamJoinRequest.TeamID, teamJoinRequest.CandidateID)
 
-	if result := tx.Exec("UPDATE users SET team_id = ? WHERE id = ?", teamJoinRequest.TeamID, teamJoinRequest.CandidateID); result.Error != nil {
-		log.Println(result.Error)
+	if result.Error != nil {
+		log.Println(result.Error.Error())
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.AbortWithStatusJSON(500, gin.H{"error": "не удалось присоединить кандидата к команде"})
 		return
 	}
 
 	response := make(gin.H, 2)
 
 	if teamJoinRequest.RoleID.Valid {
-		if result := tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", teamJoinRequest.CandidateID, teamJoinRequest.RoleID); result.Error != nil {
-			log.Println(result.Error)
-			response["warning"] = "не удалось назначить пользователю роль из запроса"
+		err = tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", teamJoinRequest.CandidateID, teamJoinRequest.RoleID.Int64).Error
+
+		if err != nil {
+			if dbErrors.IsUniqueViolation(err, constraints.UserRolesPkey) {
+				response["warning"] = "не удалось назначить роль из заявки кандидату (кандидат уже имеет такую роль)"
+			} else if dbErrors.IsForeignKeyViolation(err, constraints.FkUserRolesRole) {
+				response["warning"] = "не удалось назначить роль из заявки кандидату (указан id несуществующей роли)"
+			} else {
+				log.Println(err)
+				response["warning"] = "не удалось назначить роль из заявки кандидату по неизвестной причине"
+			}
 		}
+	}
+
+	if err := tx.Exec("DELETE FROM team_join_requests WHERE candidate_id = ?", teamJoinRequest.CandidateID).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
 	}
 
 	tx.Commit()
@@ -75,5 +95,5 @@ func (h handler) AcceptTeamJoinRequest(c *gin.Context) {
 	response["success"] = "пользователь успешно присоединён к вашей команде"
 
 	c.JSON(200, response)
-	// Возможно уведомление юзеру которого приняли сделать
+	// Уведомление кандидату
 }

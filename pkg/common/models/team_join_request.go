@@ -13,10 +13,10 @@ type TeamJoinRequest struct {
 	RoleID sql.NullInt64
 	Role   *Role `gorm:"foreignKey:RoleID;references:id;OnDelete:SET NULL"`
 
-	CandidateID uint
+	CandidateID uint  `gorm:"NOT NULL"`
 	User        *User `gorm:"foreignKey:CandidateID;references:id;OnDelete:CASCADE"`
 
-	TeamID uint
+	TeamID uint  `gorm:"NOT NULL"`
 	Team   *Team `gorm:"foreignKey:TeamID;references:id;OnDelete:CASCADE"`
 }
 
@@ -24,12 +24,14 @@ type TeamJoinRequestDTO struct {
 	ID        uint      `json:"id"`
 	CreatedAt time.Time `json:"createdAt,omitempty"`
 
-	Role   string `json:"role"`
-	RoleID uint   `json:"roleId"`
+	IntroductoryMessage string `json:"introductoryMessage,omitempty"`
 
-	Candidate   string `json:"candidate"`
-	CandidateID uint   `json:"candidateId"`
+	Role   string `json:"role,omitempty"`
+	RoleID uint   `json:"roleId,omitempty"`
 
-	Team   string `json:"team"`
-	TeamID uint   `json:"teamId"`
+	Candidate   string `json:"candidate,omitempty"`
+	CandidateID uint   `json:"candidateId,omitempty"`
+
+	Team   string `json:"team,omitempty"`
+	TeamID uint   `json:"teamId,omitempty"`
 }

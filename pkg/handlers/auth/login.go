@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"database/sql"
 	"log"
 	"time"
 
@@ -9,15 +10,9 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 )
 
 func (h handler) Login(c *gin.Context) {
-	viper.SetConfigFile("./pkg/common/envs/.env")
-	viper.ReadInConfig()
-
-	secretKey := []byte(viper.Get("SECRET_KEY").(string))
-
 	var requestBody struct {
 		UserName string `json:"userName" binding:"required"`
 		Password string `json:"password" binding:"required"`
@@ -30,22 +25,24 @@ func (h handler) Login(c *gin.Context) {
 	}
 
 	var (
-		userID   uint
-		password string
+		userID       sql.NullInt64
+		passwordHash sql.NullString
 	)
 
 	row := h.DB.Raw("SELECT id, password FROM users WHERE user_name = ?", requestBody.UserName).Row()
 
-	if err := row.Scan(&userID, &password); err != nil {
+	if err := row.Scan(&userID, &passwordHash); err != nil {
 		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
 	}
 
-	if userID == 0 {
+	if !userID.Valid {
 		c.AbortWithStatusJSON(404, gin.H{"error": "аккаунт не найден. возможно, он ещё не прошел верификацию"}) // Сомнительная тема, но я так думаю, что неверифицированный аккаунт итак никаких привелегий не даёт, так что без разницы, войдет в него юзер или нет. Если в будующем это будет не так - поменяю
 		return
 	}
 
-	if ok := utils.CompareHashPassword(requestBody.Password, password); !ok {
+	if ok := utils.CompareHashPassword(requestBody.Password, passwordHash.String); !ok {
 		c.AbortWithStatusJSON(401, gin.H{"error": "неверный пароль"})
 		return
 	}
@@ -53,7 +50,7 @@ func (h handler) Login(c *gin.Context) {
 	expirationTime := time.Now().Add(2016 * time.Hour)
 
 	claims := auth.Claims{
-		ID: userID,
+		ID: uint(userID.Int64),
 		StandardClaims: jwt.StandardClaims{
 			Subject:   requestBody.UserName, // Если до сюда дошло, то юзернейм из запроса валидный
 			ExpiresAt: expirationTime.Unix(),
@@ -62,7 +59,7 @@ func (h handler) Login(c *gin.Context) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	tokenString, err := token.SignedString(secretKey)
+	tokenString, err := token.SignedString([]byte(h.SecretKey))
 	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

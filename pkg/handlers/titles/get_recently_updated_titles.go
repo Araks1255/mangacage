@@ -1,13 +1,14 @@
 package titles
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/gin-gonic/gin"
 )
 
-func (h handler) GetRecentlyUpdatedTitles(c *gin.Context) {
+func (h handler) GetRecentlyUpdatedTitles(c *gin.Context) { // Это получение тайтлов, в которых недавно вышли главы
 	var limit uint64 = 10
 
 	if c.Query("limit") != "" {
@@ -21,8 +22,12 @@ func (h handler) GetRecentlyUpdatedTitles(c *gin.Context) {
 
 	var titles []models.TitleDTO
 
-	h.DB.Raw("SELECT * FROM get_recently_updated_titles(?)", limit).Scan(&titles) // Функция описана в ./internal/migrations/sql/create_get_recently_updated_titles.sql
-
+	if err := h.DB.Raw("SELECT * FROM get_recently_updated_titles(?)", limit).Scan(&titles).Error; err != nil { // Функция описана в ./internal/migrations/sql/create_get_recently_updated_titles.sql
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	
 	if len(titles) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено тайтлов с недавно вышедшими главами"})
 		return

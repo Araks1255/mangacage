@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/Araks1255/mangacage/internal/testhelpers"
-	"github.com/Araks1255/mangacage/pkg/constants"
+	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams/joinrequests"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams/participants"
@@ -26,8 +26,7 @@ func TestCreateTeam(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	teamsOnModerationCovers := env.MongoDB.Collection(constants.TeamsOnModerationCoversCollection)
-	teamsCovers := env.MongoDB.Collection(constants.TeamsCoversCollection)
+	teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
 
 	tokenString, err := testhelpers.GenerateTokenString(userID, env.SecretKey)
 	if err != nil {
@@ -58,7 +57,7 @@ func TestCreateTeam(t *testing.T) {
 
 	writer.Close()
 
-	h := teams.NewHandler(env.DB, teamsOnModerationCovers, teamsCovers)
+	h := teams.NewHandler(env.DB, teamsOnModerationCovers, nil)
 
 	r := gin.New()
 	r.Use(middlewares.AuthMiddleware(env.SecretKey))
@@ -100,8 +99,8 @@ func TestEditTeam(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	teamsOnModerationCovers := env.MongoDB.Collection(constants.TeamsOnModerationCoversCollection)
-	teamsCovers := env.MongoDB.Collection(constants.TeamsCoversCollection)
+	teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
+	teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -152,8 +151,8 @@ func TestEditTeam(t *testing.T) {
 }
 
 func TestGetTeamCover(t *testing.T) {
-	teamsCovers := env.MongoDB.Collection(constants.TeamsCoversCollection)
-	teamsOnModerationCovers := env.MongoDB.Collection(constants.TeamsOnModerationCoversCollection)
+	teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
+	teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
 
 	creatorID, err := testhelpers.CreateUser(env.DB)
 	if err != nil {
@@ -509,7 +508,7 @@ func TestSubmitTeamJoinRequest(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if w.Code != 200 {
+	if w.Code != 201 {
 		t.Fatal(w.Body.String())
 	}
 }

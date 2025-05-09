@@ -19,8 +19,8 @@ func CreateVolumeOnModeration(db *gorm.DB, titleID, userID uint, opts ...CreateV
 	}
 
 	volume := models.VolumeOnModeration{
-		Name:      uuid.New().String(),
-		TitleID:   sql.NullInt64{Int64: int64(titleID), Valid: true},
+		Name:      sql.NullString{String: uuid.New().String(), Valid: true},
+		TitleID:   titleID,
 		CreatorID: userID,
 	}
 

@@ -1,7 +1,7 @@
 package moderation
 
 import (
-	"github.com/Araks1255/mangacage/pkg/constants"
+	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -22,9 +22,9 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
-	titlesOnModerationCovers := client.Database("mangacage").Collection(constants.TitlesOnModerationCoversCollection)
-	chaptersOnModerationPages := client.Database("mangacage").Collection(constants.ChaptersOnModerationPagesCollection)
-	usersOnModerationProfilePictures := client.Database("mangacage").Collection(constants.UsersOnModerationProfilePicturesCollection)
+	titlesOnModerationCovers := client.Database("mangacage").Collection(mongodb.TitlesOnModerationCoversCollection)
+	chaptersOnModerationPages := client.Database("mangacage").Collection(mongodb.ChaptersOnModerationPagesCollection)
+	usersOnModerationProfilePictures := client.Database("mangacage").Collection(mongodb.UsersOnModerationProfilePicturesCollection)
 
 	h := handler{
 		DB:              db,

@@ -12,7 +12,7 @@ type Volume struct {
 	Name        string
 	Description string
 
-	TitleID uint
+	TitleID uint   `gorm:"not null"`
 	Title   *Title `gorm:"foreignKey:TitleID;references:id"`
 
 	CreatorID uint
@@ -24,13 +24,13 @@ type Volume struct {
 
 type VolumeOnModeration struct {
 	gorm.Model
-	Name        string
+	Name        sql.NullString
 	Description string
 
 	ExistingID sql.NullInt64 `gorm:"unique"`
 	Volume     *Volume       `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
-	TitleID sql.NullInt64
+	TitleID uint   `gorm:"not null"`
 	Title   *Title `gorm:"foreignKey:TitleID;references:id;OnDelete:SET NULL"`
 
 	CreatorID uint

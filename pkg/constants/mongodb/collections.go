@@ -1,4 +1,4 @@
-package constants
+package mongodb
 
 const (
 	TitlesCoversCollection             = "titles_covers"

@@ -1,27 +1,20 @@
 package titles
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 )
-
-type createTitleBody struct {
-	Name        string
-	Description string
-	AuthorID    uint
-	Genres      []string
-	Cover       []byte
-}
 
 func (h handler) CreateTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
@@ -33,13 +26,13 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	if len(form.Value["name"]) == 0 || len(form.Value["authorId"]) == 0 || len(form.Value["genres"]) == 0 && len(form.File["cover"]) == 0 {
+	if len(form.Value["name"]) == 0 || len(form.Value["authorId"]) == 0 || len(form.Value["genresIds"]) == 0 && len(form.File["cover"]) == 0 {
 		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе недостаточно данных"})
 		return
 	}
 
 	name := form.Value["name"][0]
-	genres := form.Value["genres"]
+	genresIDs := form.Value["genresIds"]
 
 	coverFileHeader := form.File["cover"][0]
 	if coverFileHeader.Size > 10<<20 {
@@ -58,46 +51,18 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	var numberOfExistingGenres int64
-	h.DB.Raw(
-		`SELECT COUNT(*) FROM GENRES
-		WHERE name IN
-			(SELECT unnest(?::TEXT[]))`,
-		pq.Array(genres),
-	).Scan(&numberOfExistingGenres)
-
-	if numberOfExistingGenres != int64(len(genres)) {
-		c.AbortWithStatusJSON(409, gin.H{"error": "указаны невалидные жанры"})
-		return
-	}
-
 	tx := h.DB.Begin()
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var existing struct {
-		AuthorID            uint
-		TitleOnModerationID uint
-		TitleID             uint
-	}
-
-	tx.Raw(
-		`SELECT
-			(SELECT id FROM authors WHERE id = ?) AS author_id,
-			(SELECT id FROM titles_on_moderation WHERE lower(name) = lower(?)) AS title_on_moderation_id,
-			(SELECT id FROM titles WHERE lower(name) = lower(?)) AS title_id`,
-		desiredAuthorID, name, name,
-	).Scan(&existing)
-
-	if existing.AuthorID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "автор не найден"})
+	var doesTitleWithTheSameNameExist bool
+	if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM titles WHERE lower(name) = lower(?))", name).Scan(&doesTitleWithTheSameNameExist).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	if existing.TitleOnModerationID != 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже ожидает модерации"})
-		return
-	}
-	if existing.TitleID != 0 {
+
+	if doesTitleWithTheSameNameExist {
 		c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
 		return
 	}
@@ -106,18 +71,45 @@ func (h handler) CreateTitle(c *gin.Context) {
 		Name:        sql.NullString{String: name, Valid: true},
 		Description: description,
 		CreatorID:   claims.ID,
-		AuthorID:    sql.NullInt64{Int64: int64(existing.AuthorID), Valid: true},
-		Genres:      genres,
+		AuthorID:    sql.NullInt64{Int64: int64(desiredAuthorID), Valid: true},
 	}
 
-	if result := tx.Create(&newTitle); result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+	err = tx.Create(&newTitle).Error
+
+	if err != nil {
+		if dbErrors.IsUniqueViolation(err, constraints.UniTitlesOnModerationName) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже ожидает модерации"})
+			return
+		}
+
+		if dbErrors.IsForeignKeyViolation(err, constraints.FkTitlesOnModerationAuthor) {
+			c.AbortWithStatusJSON(404, gin.H{"error": "автор не найден"})
+			return
+		}
+
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = tx.Exec(
+		`INSERT INTO title_on_moderation_genres (title_on_moderation_id, genre_id)
+		SELECT ?, UNNEST(?::INTEGER[])`,
+		newTitle.ID, pq.Array(genresIDs),
+	).Error
+
+	if err != nil {
+		if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleGenresGenre) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "указаны невалидные жанры"})
+		} else {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
 	var titleCover struct {
-		TitleOnModerationID uint   `bson:"title_on_moderation_id"`
+		TitleOnModerationID uint   `bson:"title_on_moderation"`
 		Cover               []byte `bson:"cover"`
 	}
 
@@ -126,9 +118,10 @@ func (h handler) CreateTitle(c *gin.Context) {
 	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
 	}
 
-	if _, err := h.TitlesOnModerationCovers.InsertOne(context.Background(), titleCover); err != nil {
+	if _, err = h.TitlesOnModerationCovers.InsertOne(c.Request.Context(), titleCover); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -136,9 +129,9 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "тайтл успешно отправлен на модерацию"})
+	c.JSON(201, gin.H{"error": "тайтл успешно отправлен на модерацию"})
 
-	if _, err = h.NotificationsClient.NotifyAboutTitleOnModeration(context.Background(), &pb.TitleOnModeration{ID: uint64(newTitle.ID), New: true}); err != nil {
+	if _, err = h.NotificationsClient.NotifyAboutTitleOnModeration(c.Request.Context(), &pb.TitleOnModeration{ID: uint64(newTitle.ID), New: true}); err != nil {
 		log.Println(err)
 	}
 }

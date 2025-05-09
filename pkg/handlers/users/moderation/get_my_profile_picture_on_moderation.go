@@ -1,8 +1,8 @@
 package moderation
 
 import (
-	"context"
 	"log"
+	"database/sql"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/gin-gonic/gin"
@@ -13,9 +13,15 @@ import (
 func (h handler) GetMyProfilePictureOnModeration(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var userOnModerationID uint
-	h.DB.Raw("SELECT id FROM users_on_moderation WHERE existing_id = ?", claims.ID).Scan(&userOnModerationID)
-	if userOnModerationID == 0 {
+	var userOnModerationID sql.NullInt64
+
+	if err := h.DB.Raw("SELECT id FROM users_on_moderation WHERE existing_id = ?", claims.ID).Scan(&userOnModerationID).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error":err.Error()})
+		return
+	}
+
+	if !userOnModerationID.Valid {
 		c.AbortWithStatusJSON(404, gin.H{"error": "у вас нет изменений профиля, ожидающих модерации"})
 		return
 	}
@@ -25,9 +31,9 @@ func (h handler) GetMyProfilePictureOnModeration(c *gin.Context) {
 		ProfilePicture []byte `bson:"profile_picture"`
 	}
 
-	filter := bson.M{"user_on_moderation_id": userOnModerationID}
+	filter := bson.M{"user_on_moderation_id": userOnModerationID.Int64}
 
-	if err := h.ProfilePictures.FindOne(context.TODO(), filter).Decode(&result); err != nil {
+	if err := h.ProfilePictures.FindOne(c.Request.Context(), filter).Decode(&result); err != nil {
 		if err == mongo.ErrNoDocuments {
 			c.AbortWithStatusJSON(404, gin.H{"error": "у вас нет изменений аватарки на модерации"})
 			return

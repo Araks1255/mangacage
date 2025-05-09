@@ -1,6 +1,7 @@
 package search
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -21,34 +22,32 @@ func (h handler) Search(c *gin.Context) {
 		return
 	}
 
-	var (
-		result   any
-		quantity int
-	)
+	var result any
 
 	switch searchingType {
 	case "titles":
-		result, quantity = h.SearchTitles(query, limit)
+		result, err = h.SearchTitles(query, limit)
 
 	case "chapters":
-		result, quantity = h.SearchChapters(query, limit)
+		result, err = h.SearchChapters(query, limit)
 
 	case "volumes":
-		result, quantity = h.SearchVolumes(query, limit)
+		result, err = h.SearchVolumes(query, limit)
 
 	case "teams":
-		result, quantity = h.SearchTeams(query, limit)
+		result, err = h.SearchTeams(query, limit)
 
 	case "authors":
-		result, quantity = h.SearchAuthors(query, limit)
+		result, err = h.SearchAuthors(query, limit)
 
 	default:
 		c.AbortWithStatusJSON(400, gin.H{"error": "недопустимая область поиска"})
 		return
 	}
 
-	if quantity == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "по вашему запросу ничего не найдено"})
+	if err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 

@@ -13,7 +13,7 @@ type Chapter struct {
 	Description   string
 	NumberOfPages int
 
-	VolumeID uint
+	VolumeID uint    `gorm:"not null"`
 	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id" json:"-"`
 
 	CreatorID uint
@@ -25,14 +25,14 @@ type Chapter struct {
 
 type ChapterOnModeration struct {
 	gorm.Model
-	Name          string
+	Name          sql.NullString
 	Description   string
 	NumberOfPages int
 
 	ExistingID sql.NullInt64 `gorm:"unique"`
 	Chapter    *Chapter      `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
 
-	VolumeID sql.NullInt64
+	VolumeID uint    `gorm:"not null"`
 	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id;OnDelete:SET NULL" json:"-"`
 
 	CreatorID uint

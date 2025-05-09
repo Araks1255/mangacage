@@ -2,6 +2,7 @@ package moderation
 
 import (
 	"strconv"
+	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -22,7 +23,7 @@ func (h handler) GetMyNewVolumesOnModeration(c *gin.Context) {
 
 	var volumes []models.VolumeOnModerationDTO
 
-	h.DB.Raw(`
+	if err := h.DB.Raw(`
 		SELECT
 			vom.id, vom.created_at, vom.name, vom.description,
 			t.name AS title, t.id AS title_id
@@ -35,7 +36,11 @@ func (h handler) GetMyNewVolumesOnModeration(c *gin.Context) {
 			vom.creator_id = ?
 		LIMIT ?`,
 		claims.ID, limit,
-	).Scan(&volumes)
+	).Scan(&volumes).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error":err.Error()})
+		return
+	}
 
 	if len(volumes) == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено ваших новых томов на модерации"})

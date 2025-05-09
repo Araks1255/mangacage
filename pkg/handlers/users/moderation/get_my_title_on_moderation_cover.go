@@ -1,7 +1,6 @@
 package moderation
 
 import (
-	"context"
 	"log"
 	"strconv"
 
@@ -14,15 +13,24 @@ import (
 func (h handler) GetMyTitleOnModerationCover(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	desiredTitleOnModerationID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	titleOnModerationID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тайтла на модерации"})
 		return
 	}
 
-	var existingTitleOnModerationID uint
-	h.DB.Raw("SELECT id FROM titles_on_moderation WHERE id = ? AND creator_id = ?", desiredTitleOnModerationID, claims.ID).Scan(&existingTitleOnModerationID)
-	if existingTitleOnModerationID == 0 {
+	var doesTitleOnModerationExist bool
+
+	if err := h.DB.Raw(
+		"SELECT EXISTS(SELECT 1 FROM titles_on_moderation WHERE id = ? AND creator_id = ?)",
+		titleOnModerationID, claims.ID,
+	).Scan(&doesTitleOnModerationExist).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !doesTitleOnModerationExist {
 		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди ваших тайтлов на модерации"})
 		return
 	}
@@ -32,9 +40,9 @@ func (h handler) GetMyTitleOnModerationCover(c *gin.Context) {
 		Cover               []byte `bson:"cover"`
 	}
 
-	filter := bson.M{"title_on_moderation_id": existingTitleOnModerationID}
+	filter := bson.M{"title_on_moderation_id": titleOnModerationID}
 
-	if err := h.TitlesCovers.FindOne(context.TODO(), filter).Decode(&result); err != nil {
+	if err := h.TitlesCovers.FindOne(c.Request.Context(), filter).Decode(&result); err != nil {
 		if err == mongo.ErrNoDocuments {
 			c.AbortWithStatusJSON(404, gin.H{"error": "обложка тайтла на модерации не найдена"})
 			return

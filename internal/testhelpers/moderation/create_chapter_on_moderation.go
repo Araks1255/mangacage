@@ -24,8 +24,8 @@ func CreateChapterOnModeration(db *gorm.DB, volumeID, userID uint, opts ...Creat
 	}
 
 	chapter := models.ChapterOnModeration{
-		Name:      uuid.New().String(),
-		VolumeID:  sql.NullInt64{Int64: int64(volumeID), Valid: true},
+		Name:      sql.NullString{String: uuid.New().String(), Valid: true},
+		VolumeID:  volumeID,
 		CreatorID: userID,
 	}
 

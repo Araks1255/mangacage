@@ -1,14 +1,15 @@
 package users
 
 import (
-	"context"
 	"database/sql"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -39,41 +40,32 @@ func (h handler) EditProfile(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	if len(form.Value["userName"]) != 0 {
-		var existing struct {
-			UserOnModerationID uint
-			UserID             uint
-		}
-
-		tx.Raw(
-			`SELECT
-				(SELECT id FROM users_on_moderation WHERE lower(user_name) = lower(?)) AS user_on_moderation_id,
-				(SELECT id FROM users WHERE lower(user_name) = lower(?)) AS user_id`,
-			form.Value["userName"][0], form.Value["userName"][0],
-		).Scan(&existing)
-
-		if existing.UserOnModerationID != 0 {
-			c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже ожидает верификации аккаунта"})
-			return
-		}
-		if existing.UserID != 0 {
-			c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже существует"})
-			return
-		}
-	}
-
 	editedProfile := models.UserOnModeration{
 		ExistingID: sql.NullInt64{Int64: int64(claims.ID), Valid: true},
 	}
 
 	if len(form.Value["userName"]) != 0 {
-		editedProfile.UserName = sql.NullString{String: form.Value["userName"][0]}
+		var doesUserWithTheSameNameExist bool
+
+		if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM users WHERE lower(user_name) = lower(?))", form.Value["userName"][0]).Scan(&doesUserWithTheSameNameExist).Error; err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		if doesUserWithTheSameNameExist {
+			c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже существует"})
+			return
+		}
+
+		editedProfile.UserName = sql.NullString{String: form.Value["userName"][0], Valid: true}
 	}
+
 	if len(form.Value["aboutYourself"]) != 0 {
 		editedProfile.AboutYourself = form.Value["aboutYourself"][0]
 	}
 
-	if result := tx.Raw(
+	err = tx.Raw(
 		`INSERT INTO users_on_moderation (created_at, user_name, about_yourself, existing_id)
 		VALUES(NOW(), ?, ?, ?)
 		ON CONFLICT (existing_id) DO UPDATE
@@ -83,9 +75,15 @@ func (h handler) EditProfile(c *gin.Context) {
 			about_yourself = EXCLUDED.about_yourself
 		RETURNING id`,
 		editedProfile.UserName, editedProfile.AboutYourself, editedProfile.ExistingID,
-	).Scan(&editedProfile.ID); result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error})
+	).Scan(&editedProfile.ID).Error
+
+	if err != nil {
+		if dbErrors.IsUniqueViolation(err, constraints.UniUsersOnModerationUsername) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже ожидает модерации"})
+		} else {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -101,7 +99,7 @@ func (h handler) EditProfile(c *gin.Context) {
 		update := bson.M{"$set": bson.M{"profile_picture": profilePicture}}
 		opts := options.Update().SetUpsert(true)
 
-		if _, err = h.UsersOnModerationProfilePictures.UpdateOne(context.Background(), filter, update, opts); err != nil {
+		if _, err = h.UsersOnModerationProfilePictures.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
@@ -112,7 +110,7 @@ func (h handler) EditProfile(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "изменения профиля успешно отправлены на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutUserOnModeration(context.Background(), &pb.User{ID: uint64(editedProfile.ExistingID.Int64), New: false}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutUserOnModeration(c.Request.Context(), &pb.User{ID: uint64(editedProfile.ExistingID.Int64), New: false}); err != nil {
 		log.Println(err)
 	}
 }

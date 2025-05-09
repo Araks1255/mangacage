@@ -1,14 +1,15 @@
 package teams
 
 import (
-	"context"
 	"database/sql"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,8 +23,12 @@ func (h handler) CreateTeam(c *gin.Context) {
 		return
 	}
 
-	if len(form.Value["name"]) == 0 || len(form.File["cover"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе нет имени команды или её обложки"})
+	if len(form.Value["name"]) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает названия команды"})
+		return
+	}
+	if len(form.File["cover"]) == 0 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает обложки команды"})
 		return
 	}
 
@@ -44,36 +49,27 @@ func (h handler) CreateTeam(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var userTeamID uint
-	tx.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID)
-	if userTeamID != 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "у вас уже есть команда перевода"})
-		return
+	var check struct {
+		DoesUserHaveTeam             bool
+		DoesTeamWithTheSameNameExist bool
 	}
 
-	var existing struct {
-		UserTeamOnModerationID uint
-		TeamOnModerationID     uint
-		TeamID                 uint
-	}
-
-	tx.Raw(
+	if err := tx.Raw(
 		`SELECT
-			(SELECT id FROM teams_on_moderation WHERE creator_id = ? LIMIT 1) AS user_team_on_moderation_id,
-			(SELECT id FROM teams_on_moderation WHERE lower(name) = lower(?) LIMIT 1) AS team_on_moderation_id,
-			(SELECT id FROM teams WHERE lower(name) = lower(?) LIMIT 1) AS team_id`,
-		claims.ID, name, name,
-	).Scan(&existing)
+			EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id IS NOT NULL) AS does_user_have_team,
+			EXISTS(SELECT 1 FROM teams WHERE lower(name) = lower(?)) AS does_team_with_the_same_name_exist`,
+		claims.ID, name,
+	).Scan(&check).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
 
-	if existing.UserTeamOnModerationID != 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "у вас уже есть команда, ожидающая модерации"})
+	if check.DoesUserHaveTeam {
+		c.AbortWithStatusJSON(409, gin.H{"error": "вы уже состоите в команде перевода"})
 		return
 	}
-	if existing.TeamOnModerationID != 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже ожидает модерации"})
-		return
-	}
-	if existing.TeamID != 0 {
+	if check.DoesTeamWithTheSameNameExist {
 		c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже существует"})
 		return
 	}
@@ -84,9 +80,21 @@ func (h handler) CreateTeam(c *gin.Context) {
 		CreatorID:   claims.ID,
 	}
 
-	if result := tx.Create(&newTeam); result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+	err = tx.Create(&newTeam).Error
+
+	if err != nil {
+		if dbErrors.IsUniqueViolation(err, constraints.UniTeamsOnModerationCreatorID) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "у вас уже есть команда, ожидающая модерации"})
+			return
+		}
+
+		if dbErrors.IsUniqueViolation(err, constraints.UniTeamsOnModerationName) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже ожидает модерации"})
+			return
+		}
+
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -103,7 +111,7 @@ func (h handler) CreateTeam(c *gin.Context) {
 		return
 	}
 
-	if _, err := h.TeamsOnModerationCovers.InsertOne(context.Background(), teamCover); err != nil {
+	if _, err := h.TeamsOnModerationCovers.InsertOne(c.Request.Context(), teamCover); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -112,5 +120,5 @@ func (h handler) CreateTeam(c *gin.Context) {
 	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "команда успешно отправлена на модерацию"})
-	// Уведомление модерам
+	// Уведомление
 }

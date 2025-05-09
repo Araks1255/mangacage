@@ -1,7 +1,7 @@
 package users
 
 import (
-	"github.com/Araks1255/mangacage/pkg/constants"
+	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
@@ -23,8 +23,8 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 
 	secretKey := viper.Get("SECRET_KEY").(string)
 
-	usersOnModerationProfilePictures := client.Database("mangacage").Collection(constants.UsersOnModerationProfilePicturesCollection)
-	usersProfilePictures := client.Database("mangacage").Collection(constants.UsersProfilePicturesCollection)
+	usersOnModerationProfilePictures := client.Database("mangacage").Collection(mongodb.UsersOnModerationProfilePicturesCollection)
+	usersProfilePictures := client.Database("mangacage").Collection(mongodb.UsersProfilePicturesCollection)
 
 	h := handler{
 		DB:                               db,
