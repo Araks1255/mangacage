@@ -4,7 +4,6 @@ import (
 	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
@@ -16,12 +15,7 @@ type handler struct {
 	ProfilePictures *mongo.Collection
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
-	viper.SetConfigFile("./pkg/common/envs/.env")
-	viper.ReadInConfig()
-
-	secretKey := viper.Get("SECRET_KEY").(string)
-
+func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.Engine) {
 	titlesOnModerationCovers := client.Database("mangacage").Collection(mongodb.TitlesOnModerationCoversCollection)
 	chaptersOnModerationPages := client.Database("mangacage").Collection(mongodb.ChaptersOnModerationPagesCollection)
 	usersOnModerationProfilePictures := client.Database("mangacage").Collection(mongodb.UsersOnModerationProfilePicturesCollection)
@@ -34,7 +28,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 	}
 
 	moderation := r.Group("/api/users/me/moderation")
-	moderation.Use(middlewares.AuthMiddleware(secretKey))
+	moderation.Use(middlewares.Auth(secretKey))
 	{
 		profile := moderation.Group("/profile")
 		{

@@ -78,8 +78,8 @@ func (h handler) DeleteParticipantRole(c *gin.Context) {
 	result := tx.Exec("DELETE FROM user_roles WHERE user_id = ? AND role_id = ?", participantID, requestBody.RoleID)
 
 	if result.Error != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		log.Println(result.Error)
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 

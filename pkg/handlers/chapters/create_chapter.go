@@ -6,7 +6,6 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -26,23 +25,6 @@ type ChapterPages struct {
 
 func (h handler) CreateChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
-
-	var userRoles []string
-
-	if err := h.DB.Raw(
-		`SELECT r.name FROM roles AS r
-		INNER JOIN user_roles AS ur ON ur.role_id = r.id
-		WHERE ur.user_id = ?`, claims.ID,
-	).Scan(&userRoles).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для добавления глав"})
-		return
-	}
 
 	volumeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

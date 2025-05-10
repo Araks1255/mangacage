@@ -26,21 +26,41 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 		NotificationsClient:       notificationsClient,
 	}
 
-	privateChapter := r.Group("/api/chapters")
-	privateChapter.Use(middlewares.AuthMiddleware(secretKey))
+	api := r.Group("/api")
 	{
-		privateChapter.POST("/", h.CreateChapter)
-		privateChapter.DELETE("/:id", h.DeleteChapter)
-		privateChapter.POST("/:id/edited", h.EditChapter) // Тут идёт создание отредактированной главы (прямо отдельная сущность в отдельной таблице базы данных), поэтому post а не put
-	}
+		volumes := api.Group("/volumes/:id")
+		{
+			volumes.GET("/chapters", h.GetVolumeChapters)
+			volumes.POST(
+				"/chapters",
+				middlewares.Auth(secretKey),
+				middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}),
+				h.CreateChapter,
+			)
+		}
 
-	publicChapter := r.Group("/api/chapters")
-	{
-		publicChapter.GET("/:id", h.GetChapter)
-		publicChapter.GET("/:id/page/:page")
-	}
+		chapters := api.Group("/chapters/:id")
+		{
+			chapters.GET("/", h.GetChapter)
+			chapters.GET("/page/:page", h.GetChapterPage)
 
-	r.GET("/api/volume/:id/chapters", h.GetVolumeChapters)
+			chaptersAuth := chapters.Group("/")
+			chaptersAuth.Use(middlewares.Auth(secretKey))
+			{
+				chaptersAuth.DELETE(
+					"/",
+					middlewares.RequireRoles(db, []string{"team_leader"}),
+					h.DeleteChapter,
+				)
+
+				chaptersAuth.POST( // Тут идёт создание отредактированной главы (прямо отдельная сущность в отдельной таблице базы данных), поэтому post а не put
+					"/",
+					middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}),
+					h.EditChapter,
+				)
+			}
+		}
+	}
 }
 
 func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, chaptersOnModerationPages, chaptersPages *mongo.Collection) handler {

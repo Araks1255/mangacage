@@ -10,7 +10,6 @@ import (
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	pb "github.com/Araks1255/mangacage_protos"
-	"github.com/lib/pq"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,7 +35,6 @@ func (h handler) Signup(c *gin.Context) {
 	user := models.UserOnModeration{
 		UserName:      sql.NullString{String: requestBody.UserName, Valid: true},
 		AboutYourself: requestBody.AboutYourself,
-		Roles:         pq.StringArray([]string{"user"}),
 	}
 
 	var errHash error

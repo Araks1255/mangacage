@@ -71,7 +71,7 @@ func TestCreateTitle(t *testing.T) {
 	h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.POST("/titles", h.CreateTitle)
 
 	req := httptest.NewRequest("POST", "/titles", &body)
@@ -135,7 +135,7 @@ func TestDeleteTitle(t *testing.T) {
 	h := titles.NewHandler(env.DB, env.NotificationsClient, titlesCovers, titlesOnModerationCovers)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.DELETE("/titles/:id", h.DeleteTitle)
 
 	url := fmt.Sprintf("/titles/%d", titleID)
@@ -193,7 +193,7 @@ func TestEditTitle(t *testing.T) {
 	h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.POST("/titles/:id/edited", h.EditTitle)
 
 	var authorName string
@@ -455,7 +455,7 @@ func TestQuitTranslatingTitle(t *testing.T) {
 	h := titles.NewHandler(env.DB, nil, nil, nil)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.PATCH("/titles/:id/quit-translating", h.QuitTranslatingTitle)
 
 	url := fmt.Sprintf("/titles/%d/quit-translating", titleID)
@@ -498,7 +498,7 @@ func TestSubscribeToTitle(t *testing.T) {
 	h := titles.NewHandler(env.DB, nil, nil, nil)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.POST("/titles/:id/subscriptions", h.SubscribeToTitle)
 
 	url := fmt.Sprintf("/titles/%d/subscriptions", titleID)
@@ -550,7 +550,7 @@ func TestTranslateTitle(t *testing.T) {
 	h := titles.NewHandler(env.DB, nil, nil, nil)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.PATCH("/titles/:id/translate", h.TranslateTitle)
 
 	url := fmt.Sprintf("/titles/%d/translate", titleID)

@@ -3,7 +3,6 @@ package favorites
 import (
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 	"gorm.io/gorm"
 )
 
@@ -11,36 +10,31 @@ type handler struct {
 	DB *gorm.DB
 }
 
-func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
-	viper.SetConfigFile("./pkg/common/envs/.env")
-	viper.ReadInConfig()
-
-	secretKey := viper.Get("SECRET_KEY").(string)
-
+func RegisterRoutes(db *gorm.DB, secretKey string, r *gin.Engine) {
 	h := handler{DB: db}
 
-	privateFavorites := r.Group("api/users/me/favorites")
-	privateFavorites.Use(middlewares.AuthMiddleware(secretKey))
+	favorites := r.Group("api/users/me/favorites")
+	favorites.Use(middlewares.Auth(secretKey))
 	{
-		privateFavoriteTitles := privateFavorites.Group("/titles")
+		favoriteTitles := favorites.Group("/titles")
 		{
-			privateFavoriteTitles.POST("/:id", h.AddTitleToFavorites)
-			privateFavoriteTitles.GET("/", h.GetFavoriteTitles)
-			privateFavoriteTitles.DELETE("/:id", h.DeleteTitleFromFavorites)
+			favoriteTitles.POST("/:id", h.AddTitleToFavorites)
+			favoriteTitles.GET("/", h.GetFavoriteTitles)
+			favoriteTitles.DELETE("/:id", h.DeleteTitleFromFavorites)
 		}
 
-		privateFavoriteChapters := privateFavorites.Group("/chapters")
+		favoriteChapters := favorites.Group("/chapters")
 		{
-			privateFavoriteChapters.POST("/:id", h.AddChapterToFavorites)
-			privateFavoriteChapters.GET("/", h.GetFavoriteChapters)
-			privateFavoriteChapters.DELETE("/:id", h.DeleteChapterFromFavorites)
+			favoriteChapters.POST("/:id", h.AddChapterToFavorites)
+			favoriteChapters.GET("/", h.GetFavoriteChapters)
+			favoriteChapters.DELETE("/:id", h.DeleteChapterFromFavorites)
 		}
 
-		privateFavoriteGenres := privateFavorites.Group("/genres")
+		favoriteGenres := favorites.Group("/genres")
 		{
-			privateFavoriteGenres.POST("/:id", h.AddGenreToFavorites)
-			privateFavoriteGenres.GET("/", h.GetFavoriteGenres)
-			privateFavoriteGenres.DELETE("/:id", h.DeleteGenreFromFavorites)
+			favoriteGenres.POST("/:id", h.AddGenreToFavorites)
+			favoriteGenres.GET("/", h.GetFavoriteGenres)
+			favoriteGenres.DELETE("/:id", h.DeleteGenreFromFavorites)
 		}
 	}
 }

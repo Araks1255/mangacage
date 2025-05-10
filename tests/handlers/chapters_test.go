@@ -23,7 +23,7 @@ func TestCreateChapter(t *testing.T) {
 	h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersOnModerationPages, nil)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 
 	r.POST("/volume/:id/chapters", h.CreateChapter)
 
@@ -92,7 +92,7 @@ func TestDeleteChapter(t *testing.T) {
 	h := chapters.NewHandler(env.DB, nil, nil, chaptersPages)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 
 	r.DELETE("/chapters/:id", h.DeleteChapter)
 
@@ -139,7 +139,7 @@ func TestEditChapter(t *testing.T) {
 	h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersOnModerationPages, nil)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 
 	r.POST("/chapters/:id/edited", h.EditChapter)
 

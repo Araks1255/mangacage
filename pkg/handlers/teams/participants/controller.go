@@ -3,7 +3,6 @@ package participants
 import (
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 	"gorm.io/gorm"
 )
 
@@ -11,25 +10,24 @@ type handler struct {
 	DB *gorm.DB
 }
 
-func RegisterRoutes(db *gorm.DB, r *gin.Engine) {
-	viper.SetConfigFile("./pkg/common/envs/.env")
-	viper.ReadInConfig()
-
-	secretKey := viper.Get("SECRET_KEY").(string)
-
+func RegisterRoutes(db *gorm.DB, secretKey string, r *gin.Engine) {
 	h := handler{DB: db}
 
-	privateParticipants := r.Group("/api/teams/my/participants")
-	privateParticipants.Use(middlewares.AuthMiddleware(secretKey))
+	teams := r.Group("/api/teams")
 	{
-		privateParticipants.POST("/:id/roles", h.AddRoleToParticipant)
-		privateParticipants.DELETE("/:id/roles", h.DeleteParticipantRole)
-		privateParticipants.DELETE("/me", h.LeaveTeam)
-	}
+		participantsOfMyTeam := teams.Group("/my/participants")
+		participantsOfMyTeam.Use(middlewares.Auth(secretKey))
+		{
+			participantsOfMyTeam.DELETE("/me", h.LeaveTeam)                // Это покидание команды, роли никакие не нужны
+			participantsOfMyTeam.POST(":id/roles", h.AddRoleToParticipant) // Это 2 хэндлера управления ролями участников. Они требуют более гибкой работы над ролями пользователя, так что middleware в их случае не используется
+			participantsOfMyTeam.DELETE("/:id/roles", h.DeleteParticipantRole)
+			participantsOfMyTeam.DELETE("/:id", middlewares.RequireRoles(db, []string{"team_leader"}), h.ExcludeParticipant) // Исключать может только лидер
+		}
 
-	publicParticipants := r.Group("/api/teams/:id/participants")
-	{
-		publicParticipants.GET("/", h.GetTeamParticipants)
+		participants := teams.Group("/:id/participants")
+		{
+			participants.GET("/", h.GetTeamParticipants)
+		}
 	}
 }
 

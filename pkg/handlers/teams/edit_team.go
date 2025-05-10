@@ -3,7 +3,6 @@ package teams
 import (
 	"database/sql"
 	"log"
-	"slices"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
@@ -18,18 +17,6 @@ import (
 
 func (h handler) EditTeam(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
-
-	var userRoles []string
-	h.DB.Raw(
-		`SELECT roles.name FROM roles
-		INNER JOIN user_roles ON roles.id = user_roles.role_id
-		WHERE user_roles.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
-
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") && !slices.Contains(userRoles, "moder") && !slices.Contains(userRoles, "admin") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь владельцем команды перевода"})
-		return
-	}
 
 	form, err := c.MultipartForm()
 	if err != nil {

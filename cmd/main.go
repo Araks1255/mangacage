@@ -75,16 +75,16 @@ func main() {
 
 	auth.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
 	titles.RegisterRoutes(db, mongoClient, notificationsClient, router)
-	teams.RegisterRoutes(db, mongoClient, router)
-	joinrequests.RegisterRoutes(db, router)
-	participants.RegisterRoutes(db, router)
+	teams.RegisterRoutes(db, mongoClient, secretKey, router)
+	joinrequests.RegisterRoutes(db, secretKey, router)
+	participants.RegisterRoutes(db, secretKey, router)
 	chapters.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
 	volumes.RegisterRoutes(db, notificationsClient, secretKey, router)
 	search.RegisterRoutes(db, router)
-	users.RegisterRoutes(db, mongoClient, notificationsClient, router)
+	users.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
 	views.RegisterRoutes(db, router)
-	favorites.RegisterRoutes(db, router)
-	moderation.RegisterRoutes(db, mongoClient, router)
+	favorites.RegisterRoutes(db, secretKey, router)
+	moderation.RegisterRoutes(db, mongoClient, secretKey, router)
 
 	router.Run(":8080")
 }

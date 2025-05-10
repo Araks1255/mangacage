@@ -33,7 +33,7 @@ func TestCreateVolume(t *testing.T) {
 	h := volumes.NewHandler(env.DB, env.NotificationsClient)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.POST("/titles/:id/volumes", h.CreateVolume)
 
 	body := gin.H{
@@ -82,7 +82,7 @@ func TestDeleteVolume(t *testing.T) {
 	h := volumes.NewHandler(env.DB, env.NotificationsClient)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.DELETE("/volumes/:id", h.DeleteVolume)
 
 	url := fmt.Sprintf("/volumes/%d", volumeID)
@@ -120,7 +120,7 @@ func TestEditVolume(t *testing.T) {
 	h := volumes.NewHandler(env.DB, env.NotificationsClient)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.POST("/volumes/:id/edited", h.EditVolume)
 
 	body := gin.H{

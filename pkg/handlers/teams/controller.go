@@ -3,7 +3,6 @@ package teams
 import (
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
@@ -14,12 +13,7 @@ type handler struct {
 	TeamsCovers             *mongo.Collection
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
-	viper.SetConfigFile("./pkg/common/envs/.env")
-	viper.ReadInConfig()
-
-	secretKey := viper.Get("SECRET_KEY").(string)
-
+func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.Engine) {
 	teamsOnModerationCoversCollection := client.Database("mangacage").Collection("teams_on_moderation_covers")
 	teamsCoversCollection := client.Database("mangacage").Collection("teams_covers")
 
@@ -29,17 +23,25 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, r *gin.Engine) {
 		TeamsCovers:             teamsCoversCollection,
 	}
 
-	privateTeam := r.Group("api/teams")
-	privateTeam.Use(middlewares.AuthMiddleware(secretKey))
-	{
-		privateTeam.POST("/", h.CreateTeam)
-		privateTeam.POST("/my/edited", h.EditTeam)
-	}
+	rolesRequired := []string{"team_leader"}
 
-	publicTeam := r.Group("api/teams")
+	teams := r.Group("/api/teams")
 	{
-		publicTeam.GET("/:id/cover", h.GetTeamCover)
-		publicTeam.GET("/:id", h.GetTeam)
+		teams.GET("/:id/cover", h.GetTeamCover)
+		teams.GET("/:id/", h.GetTeam)
+
+		teamsAuth := teams.Group("/")
+		teamsAuth.Use(middlewares.Auth(secretKey))
+		{
+			teamsAuth.POST("/", h.CreateTeam)
+
+			teamsForTeamLeaders := teamsAuth.Group("/my")
+			teamsForTeamLeaders.Use(middlewares.RequireRoles(db, rolesRequired))
+			{
+				teamsForTeamLeaders.POST("/edited", h.EditTeam) // Тут создание отредактированной команды, поэтому post
+				teamsForTeamLeaders.DELETE("/", h.DeleteTeam)
+			}
+		}
 	}
 }
 

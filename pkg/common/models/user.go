@@ -39,8 +39,6 @@ type UserOnModeration struct {
 
 	TeamID sql.NullInt64
 	Team   *Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
-
-	Roles pq.StringArray `gorm:"type:text[]"`
 }
 
 func (UserOnModeration) TableName() string {

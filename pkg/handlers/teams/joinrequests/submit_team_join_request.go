@@ -36,17 +36,44 @@ func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var userTeamID sql.NullInt64
+	if requestBody.RoleID != 0 {
+		var check struct {
+			DoesUserHaveTeam bool
+			DoesRoleExist    bool
+		}
 
-	if err := tx.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
+		if err := tx.Raw(
+			`SELECT
+				EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id IS NOT NULL) AS does_user_have_team,
+				EXISTS(SELECT 1 FROM roles WHERE id = ? AND type = 'team') AS does_role_exist`,
+			claims.ID, requestBody.RoleID,
+		).Scan(&check).Error; err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
+		}
 
-	if userTeamID.Valid {
-		c.AbortWithStatusJSON(409, gin.H{"error": "вы уже состоите в команде перевода"})
-		return
+		if check.DoesUserHaveTeam {
+			c.AbortWithStatusJSON(409, gin.H{"error": "вы уже состоите в команде перевода"})
+			return
+		}
+		if !check.DoesRoleExist {
+			c.AbortWithStatusJSON(404, gin.H{"error": "роль не найдена"})
+			return
+		}
+	} else {
+		var doesUserHaveTeam bool
+
+		if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id IS NOT NULL)", claims.ID).Scan(&doesUserHaveTeam).Error; err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		if doesUserHaveTeam {
+			c.AbortWithStatusJSON(409, gin.H{"error": "вы уже состоите в команде перевода"})
+			return
+		}
 	}
 
 	joinRequest := models.TeamJoinRequest{
@@ -65,14 +92,12 @@ func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 			c.AbortWithStatusJSON(409, gin.H{"error": "вы уже оставили заявку на вступление в эту команду"})
 			return
 		}
+
 		if dbErrors.IsForeignKeyViolation(err, "fk_team_join_requests_team") {
 			c.AbortWithStatusJSON(404, gin.H{"error": "команда не найдена"})
 			return
 		}
-		if dbErrors.IsForeignKeyViolation(err, "fk_team_join_requests_role") {
-			c.AbortWithStatusJSON(404, gin.H{"error": "роль не найдена"})
-			return
-		}
+
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return

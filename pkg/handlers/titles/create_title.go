@@ -109,7 +109,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 	}
 
 	var titleCover struct {
-		TitleOnModerationID uint   `bson:"title_on_moderation"`
+		TitleOnModerationID uint   `bson:"title_on_moderation_id"`
 		Cover               []byte `bson:"cover"`
 	}
 

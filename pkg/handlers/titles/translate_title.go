@@ -3,7 +3,6 @@ package titles
 import (
 	"database/sql"
 	"log"
-	"slices"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -18,18 +17,6 @@ func (h handler) TranslateTitle(c *gin.Context) {
 	titleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "id тайтла должен быть числом"})
-		return
-	}
-
-	var userRoles []string
-	h.DB.Raw(
-		`SELECT r.name FROM roles AS r
-		INNER JOIN user_roles AS ur ON r.id = ur.role_id
-		WHERE ur.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
-
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для взятия тайтла на перевод"})
 		return
 	}
 

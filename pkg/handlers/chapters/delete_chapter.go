@@ -2,7 +2,6 @@ package chapters
 
 import (
 	"log"
-	"slices"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -13,18 +12,6 @@ import (
 
 func (h handler) DeleteChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
-
-	var userRoles []string
-	h.DB.Raw(
-		`SELECT roles.name FROM roles
-		INNER JOIN user_roles ON roles.id = user_roles.role_id
-		WHERE user_roles.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
-
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для удаления главы"})
-		return
-	}
 
 	chapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

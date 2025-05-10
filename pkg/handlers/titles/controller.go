@@ -35,24 +35,34 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 		NotificationsClient:      notificationsClient,
 	}
 
-	privateTitle := r.Group("/api/titles")
-	privateTitle.Use(middlewares.AuthMiddleware(secretKey))
+	titles := r.Group("/api/titles")
 	{
-		privateTitle.POST("/", h.CreateTitle)
-		privateTitle.PATCH("/:id/translate", h.TranslateTitle)
-		privateTitle.POST("/:id/subscriptions", h.SubscribeToTitle)
-		privateTitle.POST("/:id/edited", h.EditTitle)
-		privateTitle.DELETE("/:id", h.DeleteTitle)
-		privateTitle.PATCH("/:id/quit-translating", h.QuitTranslatingTitle)
-	}
+		titles.GET("/:id/cover", h.GetTitleCover)
+		titles.GET("/most-popular", h.GetMostPopularTitles)
+		titles.GET("/recently-updated", h.GetRecentlyUpdatedTitles)
+		titles.GET("/new", h.GetNewTitles)
+		titles.GET("/:id", h.GetTitle)
 
-	publicTitle := r.Group("/api/titles")
-	{
-		publicTitle.GET("/:id/cover", h.GetTitleCover)
-		publicTitle.GET("/most-popular", h.GetMostPopularTitles)
-		publicTitle.GET("/recently-updated", h.GetRecentlyUpdatedTitles)
-		publicTitle.GET("/new", h.GetNewTitles)
-		publicTitle.GET("/:id", h.GetTitle)
+		titlesAuth := titles.Group("/")
+		titlesAuth.Use(middlewares.Auth(secretKey))
+		{
+			titlesAuth.POST("/:id/subscriptions", h.SubscribeToTitle)
+			titlesAuth.POST("/", h.CreateTitle)
+
+			titlesForTeamLeaders := titlesAuth.Group("/:id")
+			titlesForTeamLeaders.Use(middlewares.RequireRoles(db, []string{"team_leader"}))
+			{
+				titlesForTeamLeaders.PATCH("/translate", h.TranslateTitle)
+				titlesForTeamLeaders.PATCH("/quit-translating", h.QuitTranslatingTitle)
+				titlesForTeamLeaders.DELETE("/", h.DeleteTitle)
+			}
+
+			titlesForExTeamLeaders := titlesAuth.Group("/:id")
+			titlesForExTeamLeaders.Use(middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}))
+			{
+				titlesForExTeamLeaders.POST("/edited", h.EditTitle)
+			}
+		}
 	}
 }
 

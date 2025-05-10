@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AuthMiddleware(secretKey string) gin.HandlerFunc {
+func Auth(secretKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		cookie, err := c.Cookie("mangacage_token")
 		if err != nil {

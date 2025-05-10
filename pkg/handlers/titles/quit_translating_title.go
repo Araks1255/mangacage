@@ -2,7 +2,6 @@ package titles
 
 import (
 	"log"
-	"slices"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -13,18 +12,6 @@ import (
 
 func (h handler) QuitTranslatingTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
-
-	var userRoles []string
-	h.DB.Raw(
-		`SELECT roles.name FROM roles
-		INNER JOIN user_roles ON user_roles.role_id = roles.id
-		WHERE user_roles.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
-
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь лидером команды перевода"})
-		return
-	}
 
 	titleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

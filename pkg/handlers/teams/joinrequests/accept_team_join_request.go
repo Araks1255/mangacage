@@ -2,7 +2,6 @@ package joinrequests
 
 import (
 	"log"
-	"slices"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -19,18 +18,6 @@ func (h handler) AcceptTeamJoinRequest(c *gin.Context) {
 	desiredRequestID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id заявки на вступление в команду"})
-		return
-	}
-
-	var userRoles []string
-	h.DB.Raw(
-		`SELECT r.name FROM roles AS r
-		INNER JOIN user_roles AS ur ON ur.role_id = r.id
-		WHERE ur.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
-
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") && !slices.Contains(userRoles, "admin") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для приёма заявок на вступление в команду"})
 		return
 	}
 

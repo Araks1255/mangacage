@@ -18,17 +18,40 @@ func RegisterRoutes(db *gorm.DB, notificationsClient pb.NotificationsClient, sec
 		NotificationsClient: notificationsClient,
 	}
 
-	privateVolume := r.Group("api/volumes/:id")
-	privateVolume.Use(middlewares.AuthMiddleware(secretKey))
+	api := r.Group("/api")
 	{
-		privateVolume.POST("/edited", h.EditVolume)
-		privateVolume.DELETE("/", h.DeleteVolume)
-	}
-	r.POST("/api/titles/:id/volumes", middlewares.AuthMiddleware(secretKey), h.CreateVolume)
+		titles := api.Group("/titles/:id")
+		{
+			titles.GET("/volumes", h.GetTitleVolumes)
 
-	{
-		r.GET("/api/volumes/:id", h.GetVolume)
-		r.GET("/api/titles/:id/volumes", h.GetTitleVolumes)
+			titles.POST(
+				"/volumes",
+				middlewares.Auth(secretKey),
+				middlewares.RequireRoles(db, []string{"team_leader"}),
+				h.CreateVolume,
+			)
+		}
+
+		volumes := api.Group("/volumes")
+		{
+			volumes.GET("/:id", h.GetVolume)
+
+			volumesAuth := volumes.Group("/")
+			volumesAuth.Use(middlewares.Auth(secretKey))
+			{
+				volumesAuth.DELETE(
+					"/:id",
+					middlewares.RequireRoles(db, []string{"team_leader"}),
+					h.DeleteVolume,
+				)
+
+				volumesAuth.POST(
+					"/:id/edited",
+					middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}),
+					h.EditVolume,
+				)
+			}
+		}
 	}
 }
 

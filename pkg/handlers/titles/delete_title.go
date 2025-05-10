@@ -3,7 +3,6 @@ package titles
 import (
 	"database/sql"
 	"log"
-	"slices"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -20,18 +19,6 @@ func (h handler) DeleteTitle(c *gin.Context) {
 	titleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "id тайтла должен быть числом"})
-		return
-	}
-
-	var userRoles []string
-	h.DB.Raw(
-		`SELECT roles.name FROM roles
-		INNER JOIN user_roles ON roles.id = user_roles.role_id
-		WHERE user_roles.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
-
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "вы не являетесь лидером команды перевода"})
 		return
 	}
 

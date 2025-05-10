@@ -14,7 +14,6 @@ import (
 
 type CreateUserOnModerationOptions struct {
 	ExistingID     uint
-	Roles          []string
 	ProfilePicture []byte
 	Collection     *mongo.Collection
 }
@@ -31,9 +30,6 @@ func CreateUserOnModeration(db *gorm.DB, opts ...CreateUserOnModerationOptions) 
 	if len(opts) != 0 {
 		if opts[0].ExistingID != 0 {
 			user.ExistingID = sql.NullInt64{Int64: int64(opts[0].ExistingID), Valid: true}
-		}
-		if len(opts[0].Roles) != 0 {
-			user.Roles = opts[0].Roles
 		}
 	}
 

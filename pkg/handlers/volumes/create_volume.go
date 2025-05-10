@@ -3,7 +3,6 @@ package volumes
 import (
 	"database/sql"
 	"log"
-	"slices"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -32,18 +31,6 @@ func (h handler) CreateVolume(c *gin.Context) {
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	var userRoles []string
-	h.DB.Raw(
-		`SELECT r.name FROM roles AS r
-		INNER JOIN user_roles AS ur ON ur.role_id = r.id
-		WHERE ur.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
-
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
-		c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для создания тома"})
 		return
 	}
 

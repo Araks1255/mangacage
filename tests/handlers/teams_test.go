@@ -60,7 +60,7 @@ func TestCreateTeam(t *testing.T) {
 	h := teams.NewHandler(env.DB, teamsOnModerationCovers, nil)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.POST("/teams", h.CreateTeam)
 
 	req := httptest.NewRequest("POST", "/teams", &body)
@@ -129,7 +129,7 @@ func TestEditTeam(t *testing.T) {
 	h := teams.NewHandler(env.DB, teamsOnModerationCovers, teamsCovers)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 
 	r.POST("/teams/:id", h.EditTeam)
 
@@ -251,7 +251,7 @@ func TestAcceptTeamJoinRequest(t *testing.T) {
 	h := joinrequests.NewHandler(env.DB)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.POST("/teams/my/join-requests/:id/accept", h.AcceptTeamJoinRequest)
 
 	url := fmt.Sprintf("/teams/my/join-requests/%d/accept", requestID)
@@ -294,7 +294,7 @@ func TestCancelTeamJoinRequest(t *testing.T) {
 	h := joinrequests.NewHandler(env.DB)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.DELETE("/teams/join-requests/:id", h.CancelTeamJoinRequest)
 
 	url := fmt.Sprintf("/teams/join-requests/%d", requestID)
@@ -346,7 +346,7 @@ func TestDeclineTeamJoinRequest(t *testing.T) {
 	h := joinrequests.NewHandler(env.DB)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.DELETE("/teams/my/join-requests/:id", h.DeclineTeamJoinRequest)
 
 	url := fmt.Sprintf("/teams/my/join-requests/%d", requestID)
@@ -389,7 +389,7 @@ func TestGetMyTeamJoinRequests(t *testing.T) {
 	h := joinrequests.NewHandler(env.DB)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.GET("/teams/join-requests/my", h.GetMyTeamJoinRequests)
 
 	req := httptest.NewRequest("GET", "/teams/join-requests/my", nil)
@@ -440,7 +440,7 @@ func TestGetTeamJoinRequestsOfMyTeam(t *testing.T) {
 	h := joinrequests.NewHandler(env.DB)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.GET("/teams/my/join-requests", h.GetTeamJoinRequestsOfMyTeam)
 
 	req := httptest.NewRequest("GET", "/teams/my/join-requests", nil)
@@ -483,7 +483,7 @@ func TestSubmitTeamJoinRequest(t *testing.T) {
 	h := joinrequests.NewHandler(env.DB)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.POST("/teams/:id/join-requests", h.SubmitTeamJoinRequest)
 
 	body := gin.H{
@@ -549,7 +549,7 @@ func TestAddRoleToParticipant(t *testing.T) {
 	h := participants.NewHandler(env.DB)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.POST("/teams/my/participants/:id/roles", h.AddRoleToParticipant)
 
 	body := map[string]uint{
@@ -612,7 +612,7 @@ func TestDeleteParticipantRole(t *testing.T) {
 	h := participants.NewHandler(env.DB)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.DELETE("/teams/my/participants/:id/roles", h.DeleteParticipantRole)
 
 	body := map[string]uint{
@@ -664,7 +664,7 @@ func TestLeaveTeam(t *testing.T) {
 	h := participants.NewHandler(env.DB)
 
 	r := gin.New()
-	r.Use(middlewares.AuthMiddleware(env.SecretKey))
+	r.Use(middlewares.Auth(env.SecretKey))
 	r.DELETE("/teams/my/participants/me", h.LeaveTeam)
 
 	req := httptest.NewRequest("DELETE", "/teams/my/participants/me", nil)
