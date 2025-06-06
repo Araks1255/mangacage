@@ -30,8 +30,8 @@ func (h handler) EditTeam(c *gin.Context) {
 		return
 	}
 
-	if len(form.File["cover"]) != 0 && form.File["cover"][0].Size > 10<<20 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "превышен лимит размера обложки (10мб)"})
+	if len(form.File["cover"]) != 0 && form.File["cover"][0].Size > 2<<20 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "превышен лимит размера обложки (2мб)"})
 		return
 	}
 
@@ -39,8 +39,15 @@ func (h handler) EditTeam(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var userTeamID uint // Тут uint, потому-что сверху уже была проверка на роль лидера команды, а значит, команда у юзера есть, и делать sql.NullInt64 необязательно
-	if err := tx.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&userTeamID).Error; err != nil {
+	editedTeam := models.TeamOnModeration{ // Тут можно было просто на переменных сделать, но со структурой мне побольше нравится
+		CreatorID: claims.ID,
+	}
+
+	if len(form.Value["description"]) != 0 {
+		editedTeam.Description = form.Value["description"][0]
+	}
+
+	if err := tx.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&editedTeam.ExistingID).Error; err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -59,16 +66,8 @@ func (h handler) EditTeam(c *gin.Context) {
 			c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже существует"})
 			return
 		}
-	}
 
-	editedTeam := models.TeamOnModeration{ // Тут можно было просто на переменных сделать, но со структурой мне побольше нравится
-		Description: form.Value["description"][0],
-		CreatorID:   claims.ID,
-		ExistingID:  sql.NullInt64{Int64: int64(userTeamID), Valid: true},
-	}
-
-	if len(form.Value["name"]) != 0 {
-		editedTeam.Name = sql.NullString{String: form.Value["name"][0]}
+		editedTeam.Name = sql.NullString{String: form.Value["name"][0], Valid: true}
 	}
 
 	err = tx.Raw(
@@ -85,17 +84,23 @@ func (h handler) EditTeam(c *gin.Context) {
 	).Scan(&editedTeam.ID).Error
 
 	if err != nil {
+		if dbErrors.IsUniqueViolation(err, constraints.UniTeamsOnModerationCreatorID) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "у вас уже есть команда, ожидающая модерации"})
+			return
+		}
+
 		if dbErrors.IsUniqueViolation(err, constraints.UniTeamsOnModerationName) {
 			c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже ожидает модерации"})
-		} else {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
 		}
+
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
 	if len(form.File["cover"]) != 0 {
-		cover, err := utils.ReadMultipartFile(form.File["cover"][0], 10<<20)
+		cover, err := utils.ReadMultipartFile(form.File["cover"][0], 2<<20)
 		if err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

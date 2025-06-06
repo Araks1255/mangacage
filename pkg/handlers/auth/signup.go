@@ -21,7 +21,7 @@ func (h handler) Signup(c *gin.Context) {
 	}
 
 	var requestBody struct {
-		UserName      string `json:"userName" binding:"required"`
+		UserName      string `json:"userName" binding:"required,min=2,max=20"`
 		Password      string `json:"password" binding:"required,min=8"`
 		AboutYourself string `json:"aboutYourself"`
 	}

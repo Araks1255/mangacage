@@ -10,7 +10,7 @@ import (
 func (h handler) GetTitle(c *gin.Context) {
 	desiredTitleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "id тайтла должен быть числом"})
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тайтла"})
 		return
 	}
 
@@ -22,16 +22,16 @@ func (h handler) GetTitle(c *gin.Context) {
 			a.name AS author, a.id AS author_id,
 			MAX(teams.name) AS team, MAX(teams.id) AS team_id,
 			ARRAY_AGG(DISTINCT g.name)::TEXT[] AS genres,
-			COUNT(uvs.chapter_id) AS views
+			COUNT(DISTINCT uvc.*) AS views
 		FROM
 			titles AS t
 			INNER JOIN authors AS a ON a.id = t.author_id
 			LEFT JOIN teams ON t.team_id = teams.id
 			INNER JOIN title_genres AS tg ON tg.title_id = t.id
 			INNER JOIN genres AS g ON tg.genre_id = g.id
-			LEFT JOIN volumes AS v ON v.title_id = t.id
-			LEFT JOIN chapters AS c ON c.volume_id = v.id
-			LEFT JOIN user_viewed_chapters AS uvs ON uvs.chapter_id = c.id
+			LEFT JOIN volumes AS v ON t.id = v.title_id
+			LEFT JOIN chapters AS c ON v.id = c.volume_id
+			LEFT JOIN user_viewed_chapters AS uvc ON c.id = uvc.chapter_id
 		WHERE
 			t.id = ?
 		GROUP BY

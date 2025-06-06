@@ -40,8 +40,8 @@ func (h handler) CreateTeam(c *gin.Context) {
 	}
 
 	coverFileHeader := form.File["cover"][0]
-	if coverFileHeader.Size > 10<<20 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "превышен лимит размера обложки (10мб)"})
+	if coverFileHeader.Size > 2<<20 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "превышен лимит размера обложки (2мб)"})
 		return
 	}
 
@@ -104,7 +104,7 @@ func (h handler) CreateTeam(c *gin.Context) {
 	}
 
 	teamCover.TeamOnModerationID = newTeam.ID
-	teamCover.Cover, err = utils.ReadMultipartFile(coverFileHeader, 10<<20)
+	teamCover.Cover, err = utils.ReadMultipartFile(coverFileHeader, 2<<20)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

@@ -5,10 +5,8 @@ import (
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/gin-gonic/gin"
 )
 
@@ -56,18 +54,10 @@ func (h handler) AcceptTeamJoinRequest(c *gin.Context) {
 
 	response := make(gin.H, 2)
 
-	if teamJoinRequest.RoleID.Valid {
-		err = tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", teamJoinRequest.CandidateID, teamJoinRequest.RoleID.Int64).Error
-
-		if err != nil {
-			if dbErrors.IsUniqueViolation(err, constraints.UserRolesPkey) {
-				response["warning"] = "не удалось назначить роль из заявки кандидату (кандидат уже имеет такую роль)"
-			} else if dbErrors.IsForeignKeyViolation(err, constraints.FkUserRolesRole) {
-				response["warning"] = "не удалось назначить роль из заявки кандидату (указан id несуществующей роли)"
-			} else {
-				log.Println(err)
-				response["warning"] = "не удалось назначить роль из заявки кандидату по неизвестной причине"
-			}
+	if teamJoinRequest.RoleID != nil {
+		if err = tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", teamJoinRequest.CandidateID, teamJoinRequest.RoleID).Error; err != nil {
+			log.Println(err)
+			response["waring"] = err.Error()
 		}
 	}
 

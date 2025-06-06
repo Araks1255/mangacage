@@ -16,10 +16,13 @@ type Volume struct {
 	Title   *Title `gorm:"foreignKey:TitleID;references:id"`
 
 	CreatorID uint
-	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
 
-	ModeratorID sql.NullInt64
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
+	TeamID uint
+	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
+
+	ModeratorID *uint
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 type VolumeOnModeration struct {
@@ -27,17 +30,20 @@ type VolumeOnModeration struct {
 	Name        sql.NullString
 	Description string
 
-	ExistingID sql.NullInt64 `gorm:"unique"`
-	Volume     *Volume       `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
+	ExistingID *uint   `gorm:"unique"`
+	Volume     *Volume `gorm:"foreignKey:ExistingID;references:id;constraint:OnDelete:CASCADE"`
 
 	TitleID uint   `gorm:"not null"`
-	Title   *Title `gorm:"foreignKey:TitleID;references:id;OnDelete:SET NULL"`
+	Title   *Title `gorm:"foreignKey:TitleID;references:id;constraint:OnDelete:SET NULL"`
 
 	CreatorID uint
-	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
 
-	ModeratorID sql.NullInt64
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL"`
+	TeamID uint
+	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:CASCADE"`
+
+	ModeratorID *uint
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 func (VolumeOnModeration) TableName() string {
@@ -45,18 +51,18 @@ func (VolumeOnModeration) TableName() string {
 }
 
 type VolumeDTO struct {
-	ID        uint      `json:"id"`
-	CreatedAt time.Time `json:"createdAt,omitempty"`
+	ID        uint       `json:"id"`
+	CreatedAt *time.Time `json:"createdAt,omitempty"`
 
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
 
-	Title   string `json:"title,omitempty"`
-	TitleID uint   `json:"titleId,omitempty"`
+	Title   *string `json:"title,omitempty"`
+	TitleID *uint   `json:"titleId,omitempty"`
 }
 
 type VolumeOnModerationDTO struct {
 	VolumeDTO
-	Existing   string `json:"existing,omitempty"`
-	ExistingID uint   `json:"existingId,omitempty"`
+	Existing   *string `json:"existing,omitempty"`
+	ExistingID *uint   `json:"existingId,omitempty"`
 }

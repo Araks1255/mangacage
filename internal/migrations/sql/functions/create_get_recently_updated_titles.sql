@@ -10,7 +10,7 @@ RETURNS TABLE ( -- Возвращается тайтл
 ) AS $$
 DECLARE
     title_count INT := 0; -- Счётчик найденных тайтлов
-    chapter_row RECORD; -- !!!
+    chapter_row RECORD; 
 BEGIN
     CREATE TEMP TABLE temp_titles ( -- Временная таблица для результата
         id BIGINT PRIMARY KEY,

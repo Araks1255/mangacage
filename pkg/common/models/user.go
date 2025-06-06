@@ -15,8 +15,8 @@ type User struct {
 	AboutYourself string
 	TgUserID      int64
 
-	TeamID sql.NullInt64
-	Team   *Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
+	TeamID *uint
+	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
 
 	Roles                    []Role              `gorm:"many2many:user_roles;constraint:OnDelete:CASCADE"`
 	TitlesUserIsSubscribedTo []Title             `gorm:"many2many:user_titles_subscribed_to;constraint:OnDelete:CASCADE"`
@@ -34,11 +34,11 @@ type UserOnModeration struct {
 	AboutYourself string
 	TgUserID      int64
 
-	ExistingID sql.NullInt64 `gorm:"unique"`
-	User       *User         `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
+	ExistingID *uint `gorm:"unique"`
+	User       *User `gorm:"foreignKey:ExistingID;references:id;constraint:OnDelete:CASCADE"`
 
-	TeamID sql.NullInt64
-	Team   *Team `gorm:"foreignKey:TeamID;references:id;OnDelete:SET NULL"`
+	TeamID *uint
+	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 func (UserOnModeration) TableName() string {
@@ -46,14 +46,14 @@ func (UserOnModeration) TableName() string {
 }
 
 type UserDTO struct {
-	ID        uint      `json:"id"`
-	CreatedAt time.Time `json:"createdAt,omitempty"`
+	ID        uint       `json:"id"`
+	CreatedAt *time.Time `json:"createdAt,omitempty"`
 
-	UserName      string `json:"userName"`
-	AboutYourself string `json:"aboutYourself,omitempty"`
+	UserName      string  `json:"userName"`
+	AboutYourself *string `json:"aboutYourself,omitempty"`
 
-	Team   string `json:"team,omitempty"`
-	TeamID uint   `json:"teamId,omitempty"`
+	Team   *string `json:"team,omitempty"`
+	TeamID *uint   `json:"teamId,omitempty"`
 
-	Roles pq.StringArray `json:"roles,omitempty" gorm:"type:TEXT[]"`
+	Roles *pq.StringArray `json:"roles,omitempty" gorm:"type:TEXT[]"`
 }

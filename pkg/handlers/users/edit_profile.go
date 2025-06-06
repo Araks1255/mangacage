@@ -2,7 +2,9 @@ package users
 
 import (
 	"database/sql"
+	"errors"
 	"log"
+	"mime/multipart"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
@@ -26,13 +28,9 @@ func (h handler) EditProfile(c *gin.Context) {
 		return
 	}
 
-	if len(form.Value["userName"]) == 0 && len(form.Value["aboutYourself"]) == 0 && len(form.File["profilePicture"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "необходим хотя-бы один изменяемый параметр"})
-		return
-	}
-
-	if len(form.File["profilePicture"]) != 0 && form.File["profilePicture"][0].Size > 10<<20 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "превышен максимальный размер аватарки (10мб)"})
+	name, aboutYourself, profilePictureFileHeader, err := parseEditProfileParams(form)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -41,10 +39,11 @@ func (h handler) EditProfile(c *gin.Context) {
 	defer tx.Rollback()
 
 	editedProfile := models.UserOnModeration{
-		ExistingID: sql.NullInt64{Int64: int64(claims.ID), Valid: true},
+		ExistingID:    &claims.ID,
+		AboutYourself: aboutYourself,
 	}
 
-	if len(form.Value["userName"]) != 0 {
+	if name != "" {
 		var doesUserWithTheSameNameExist bool
 
 		if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM users WHERE lower(user_name) = lower(?))", form.Value["userName"][0]).Scan(&doesUserWithTheSameNameExist).Error; err != nil {
@@ -59,10 +58,6 @@ func (h handler) EditProfile(c *gin.Context) {
 		}
 
 		editedProfile.UserName = sql.NullString{String: form.Value["userName"][0], Valid: true}
-	}
-
-	if len(form.Value["aboutYourself"]) != 0 {
-		editedProfile.AboutYourself = form.Value["aboutYourself"][0]
 	}
 
 	err = tx.Raw(
@@ -87,8 +82,8 @@ func (h handler) EditProfile(c *gin.Context) {
 		return
 	}
 
-	if len(form.File["profilePicture"]) != 0 {
-		profilePicture, err := utils.ReadMultipartFile(form.File["profilePicture"][0], 10<<20)
+	if profilePictureFileHeader != nil {
+		profilePicture, err := utils.ReadMultipartFile(profilePictureFileHeader, 2<<20)
 		if err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -110,7 +105,31 @@ func (h handler) EditProfile(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "изменения профиля успешно отправлены на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutUserOnModeration(c.Request.Context(), &pb.User{ID: uint64(editedProfile.ExistingID.Int64), New: false}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutUserOnModeration(c.Request.Context(), &pb.User{ID: uint64(*editedProfile.ExistingID), New: false}); err != nil {
 		log.Println(err)
 	}
+}
+
+func parseEditProfileParams(form *multipart.Form) (userName, aboutYourself string, profilePictureFileHeader *multipart.FileHeader, err error) {
+	if len(form.Value["userName"]) == 0 && len(form.Value["aboutYourself"]) == 0 && len(form.File["profilePicture"]) == 0 {
+		return "", "", nil, errors.New("необходим как минимум 1 изменяемый параметр")
+	}
+
+	if len(form.File["profilePicture"]) != 0 && form.File["profilePicture"][0].Size > 2<<20 {
+		return "", "", nil, errors.New("превышен максимальный размер аватарки ")
+	}
+
+	if len(form.Value["userName"]) != 0 {
+		userName = form.Value["userName"][0]
+	}
+
+	if len(form.Value["aboutYourself"]) != 0 {
+		aboutYourself = form.Value["aboutYourself"][0]
+	}
+
+	if len(form.File["profilePicture"]) != 0 {
+		profilePictureFileHeader = form.File["profilePicture"][0]
+	}
+
+	return userName, aboutYourself, profilePictureFileHeader, nil
 }

@@ -46,7 +46,7 @@ func (h handler) GetNewTitles(c *gin.Context) {
 	}
 
 	if len(titles) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "новые тайтлы не найдены"}) // мало ли
+		c.AbortWithStatusJSON(404, gin.H{"error": "новые тайтлы не найдены"})
 		return
 	}
 

@@ -17,10 +17,13 @@ type Chapter struct {
 	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id" json:"-"`
 
 	CreatorID uint
-	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
 
-	ModeratorID sql.NullInt64
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL" json:"-"`
+	TeamID uint
+	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
+
+	ModeratorID *uint
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL" json:"-"`
 }
 
 type ChapterOnModeration struct {
@@ -29,17 +32,20 @@ type ChapterOnModeration struct {
 	Description   string
 	NumberOfPages int
 
-	ExistingID sql.NullInt64 `gorm:"unique"`
-	Chapter    *Chapter      `gorm:"foreignKey:ExistingID;references:id;OnDelete:CASCADE"`
+	ExistingID *uint    `gorm:"unique"`
+	Chapter    *Chapter `gorm:"foreignKey:ExistingID;references:id;constraint:OnDelete:CASCADE"`
 
 	VolumeID uint    `gorm:"not null"`
-	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id;OnDelete:SET NULL" json:"-"`
+	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id;constraint:OnDelete:SET NULL"`
 
 	CreatorID uint
-	Creator   *User `gorm:"foreignKey:CreatorID;references:id;OnDelete:SET NULL"`
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
 
-	ModeratorID sql.NullInt64
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;OnDelete:SET NULL" json:"-"`
+	TeamID uint
+	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:CASCADE"`
+
+	ModeratorID *uint
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 func (ChapterOnModeration) TableName() string {
@@ -47,22 +53,22 @@ func (ChapterOnModeration) TableName() string {
 }
 
 type ChapterDTO struct {
-	ID        uint      `json:"id"`
-	CreatedAt time.Time `json:"createdAt,omitempty"`
+	ID        uint       `json:"id"`
+	CreatedAt *time.Time `json:"createdAt,omitempty"`
 
-	Name          string `json:"name"`
-	Description   string `json:"description,omitempty"`
-	NumberOfPages int    `json:"numberOfPages,omitempty"`
+	Name          string  `json:"name"`
+	Description   *string `json:"description,omitempty"`
+	NumberOfPages *int    `json:"numberOfPages,omitempty"`
 
-	Volume   string `json:"volume,omitempty"`
-	VolumeID uint   `json:"volumeId,omitempty"`
+	Volume   *string `json:"volume,omitempty"`
+	VolumeID *uint   `json:"volumeId,omitempty"`
 
-	Title   string `json:"title,omitempty"`
-	TitleID uint   `json:"titleId,omitempty"`
+	Title   *string `json:"title,omitempty"`
+	TitleID *uint   `json:"titleId,omitempty"`
 }
 
 type ChapterOnModerationDTO struct {
 	ChapterDTO
-	Existing   string `json:"existing,omitempty"`
-	ExistingID uint   `json:"existingId,omitempty"`
+	Existing   *string `json:"existing,omitempty"`
+	ExistingID *uint   `json:"existingId,omitempty"`
 }

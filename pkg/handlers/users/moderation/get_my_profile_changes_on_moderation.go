@@ -15,11 +15,11 @@ func (h handler) GetMyProfileChangesOnModeration(c *gin.Context) {
 
 	if err := h.DB.Raw(
 		`SELECT
-			uom.id, uom.created_at, uom.user_name, uom.about_yourself
+			id, created_at, user_name, about_yourself
 		FROM
-			users_on_moderation AS uom
+			users_on_moderation
 		WHERE
-			uom.existing_id = ?`,
+			existing_id = ?`,
 		claims.ID,
 	).Scan(&editedProfile).Error; err != nil {
 		log.Println(err)

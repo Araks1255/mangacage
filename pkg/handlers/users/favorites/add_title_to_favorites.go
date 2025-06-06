@@ -22,7 +22,7 @@ func (h handler) AddTitleToFavorites(c *gin.Context) {
 	err = h.DB.Exec("INSERT INTO user_favorite_titles (user_id, title_id) VALUES (?, ?)", claims.ID, titleID).Error
 
 	if err != nil {
-		if dbErrors.IsForeignKeyViolation(err, "fk_user_favorite_titles_title") {
+		if dbErrors.IsForeignKeyViolation(err, constraints.FkUserFavoriteTitlesTitle) {
 			c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
 			return
 		}

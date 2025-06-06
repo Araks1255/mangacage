@@ -10,6 +10,7 @@ import (
 	"github.com/Araks1255/mangacage/internal/seeder"
 	dbPackage "github.com/Araks1255/mangacage/pkg/common/db"
 	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
+	"github.com/Araks1255/mangacage/tests/testenv"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson"
@@ -19,12 +20,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var env struct {
-	DB                  *gorm.DB
-	SecretKey           string
-	MongoDB             *mongo.Database
-	NotificationsClient pb.NotificationsClient
-}
+var env testenv.Env
 
 func TestMain(m *testing.M) {
 	os.Chdir("./../..")

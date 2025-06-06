@@ -2,7 +2,9 @@ package titles
 
 import (
 	"database/sql"
+	"errors"
 	"log"
+	"mime/multipart"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -21,12 +23,6 @@ import (
 func (h handler) EditTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	titleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "id тайтла должен быть числом"})
-		return
-	}
-
 	form, err := c.MultipartForm()
 	if err != nil {
 		log.Println(err)
@@ -34,13 +30,9 @@ func (h handler) EditTitle(c *gin.Context) {
 		return
 	}
 
-	if len(form.Value["name"]) == 0 && len(form.Value["description"]) == 0 && len(form.Value["genresIds"]) == 0 && len(form.File["cover"]) == 0 && len(form.Value["authorId"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "запрос должен содержать хотя-бы один изменяемый параметр"})
-		return
-	}
-
-	if len(form.File["cover"]) != 0 && form.File["cover"][0].Size > 10<<20 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "превышен лимит размера обложки (10мб)"})
+	name, description, titleID, authorID, genresIDs, coverFileHeader, err := parseEditTitleParams(form, c.Param)
+	if err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -65,22 +57,18 @@ func (h handler) EditTitle(c *gin.Context) {
 	}
 
 	editedTitle := models.TitleOnModeration{
-		ExistingID: sql.NullInt64{Int64: int64(titleID), Valid: true},
-		CreatorID:  claims.ID,
+		ExistingID:  &titleID,
+		CreatorID:   claims.ID,
+		Description: description,
 	}
 
-	if len(form.Value["authorId"]) != 0 {
-		desiredAuthorID, err := strconv.ParseUint(form.Value["authorId"][0], 10, 64)
-		if err != nil {
-			c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id автора"})
-			return
-		}
-
-		editedTitle.AuthorID = sql.NullInt64{Int64: int64(desiredAuthorID), Valid: true}
+	if authorID != 0 {
+		editedTitle.AuthorID = &authorID
 	}
 
-	if len(form.Value["name"]) != 0 {
+	if name != "" {
 		var doesTitleWithTheSameNameExist bool
+
 		if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM titles WHERE lower(name) = lower(?))", form.Value["name"][0]).Scan(&doesTitleWithTheSameNameExist).Error; err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -92,22 +80,17 @@ func (h handler) EditTitle(c *gin.Context) {
 			return
 		}
 
-		editedTitle.Name = sql.NullString{String: form.Value["name"][0], Valid: true}
-	}
-
-	if len(form.Value["description"]) != 0 {
-		editedTitle.Description = form.Value["description"][0]
+		editedTitle.Name = sql.NullString{String: name, Valid: true}
 	}
 
 	err = tx.Raw(
 		`INSERT INTO titles_on_moderation (created_at, name, description, author_id, creator_id, existing_id)
-		VALUES (NOW(), ?, ?, ?, ?, ?, ?)
+		VALUES (NOW(), ?, ?, ?, ?, ?)
 		ON CONFLICT (existing_id) DO UPDATE
 		SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			author_id = EXCLUDED.author_id,
-			genres = EXCLUDED.genres,
 			creator_id = EXCLUDED.creator_id,
 			updated_at = NOW()
 		RETURNING id`,
@@ -119,22 +102,27 @@ func (h handler) EditTitle(c *gin.Context) {
 			c.AbortWithStatusJSON(404, gin.H{"error": "автор не найден"})
 			return
 		}
+
 		if dbErrors.IsUniqueViolation(err, constraints.UniTitlesOnModerationName) {
 			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже ожидает модерации"})
 			return
 		}
+
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
 	}
 
-	if len(form.Value["genresIds"]) != 0 {
+	if len(genresIDs) != 0 {
 		err = tx.Exec(
-			`INSERT INTO titles_on_moderation_genres (title_id, genre_id)
-			SELECT ?, UNNEST(?::INTEGER[])`,
-			pq.Array(form.Value["genresIds"]),
+			`INSERT INTO title_on_moderation_genres (title_on_moderation_id, genre_id)
+			SELECT ?, UNNEST(?::BIGINT[])`,
+			editedTitle.ID, pq.Array(form.Value["genresIds"]),
 		).Error
 
 		if err != nil {
-			if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleGenresGenre) {
-				c.AbortWithStatusJSON(409, gin.H{"error": "указаны невалидные жанры"})
+			if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleOnModerationGenresGenre) {
+				c.AbortWithStatusJSON(409, gin.H{"error": "жанры не найдены"})
 			} else {
 				log.Println(err)
 				c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -143,8 +131,8 @@ func (h handler) EditTitle(c *gin.Context) {
 		}
 	}
 
-	if len(form.File["cover"]) != 0 {
-		cover, err := utils.ReadMultipartFile(form.File["cover"][0], 10<<20)
+	if coverFileHeader != nil {
+		cover, err := utils.ReadMultipartFile(coverFileHeader, 2<<20)
 		if err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -166,7 +154,50 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "изменения тайтла успешно отправлены на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutTitleOnModeration(c.Request.Context(), &pb.TitleOnModeration{ID: uint64(editedTitle.ExistingID.Int64), New: false}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutTitleOnModeration(c.Request.Context(), &pb.TitleOnModeration{ID: uint64(*editedTitle.ExistingID), New: false}); err != nil {
 		log.Println(err)
 	}
+}
+
+func parseEditTitleParams(form *multipart.Form, paramFn func(string) string) (name, description string, titleID, authorID uint, genresIDs []uint, coverFileHeader *multipart.FileHeader, err error) {
+	titleIDuint64, err := strconv.ParseUint(paramFn("id"), 10, 64)
+	if err != nil {
+		return "", "", 0, 0, nil, nil, errors.New("указан невалидный id тайтла")
+	}
+
+	if len(form.Value["name"]) == 0 && len(form.Value["description"]) == 0 && len(form.Value["genresIds"]) == 0 && len(form.File["cover"]) == 0 && len(form.Value["authorId"]) == 0 {
+		return "", "", 0, 0, nil, nil, errors.New("запрос должен содержать как минимум 1 изменяемый параметр")
+	}
+
+	if len(form.Value["name"]) != 0 {
+		name = form.Value["name"][0]
+	}
+
+	if len(form.Value["description"]) != 0 {
+		description = form.Value["description"][0]
+	}
+
+	if len(form.Value["authorId"]) != 0 {
+		authorIDuint64, err := strconv.ParseUint(form.Value["authorId"][0], 10, 64)
+		if err != nil {
+			return "", "", 0, 0, nil, nil, errors.New("указан невалидный id автора")
+		}
+		authorID = uint(authorIDuint64)
+	}
+
+	if len(form.Value["genresIds"]) != 0 {
+		genresIDs, err = utils.ParseUintSlice(form.Value["genresIds"])
+		if err != nil {
+			return "", "", 0, 0, nil, nil, errors.New("указаны невалидные id жанров")
+		}
+	}
+
+	if len(form.File["cover"]) != 0 {
+		coverFileHeader = form.File["cover"][0]
+		if coverFileHeader.Size > 2<<20 {
+			return "", "", 0, 0, nil, nil, errors.New("превышен максимальный размер обложки (2мб)")
+		}
+	}
+
+	return name, description, uint(titleIDuint64), authorID, genresIDs, coverFileHeader, nil
 }

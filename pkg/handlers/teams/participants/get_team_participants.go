@@ -36,7 +36,7 @@ func (h handler) GetTeamParticipants(c *gin.Context) {
 	}
 
 	if len(participants) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "в этой команде нет участников"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено участников команды"})
 		return
 	}
 

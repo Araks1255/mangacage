@@ -43,32 +43,37 @@ func (h handler) EditVolume(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var titleID sql.NullInt64
+	var check struct {
+		TitleID                        uint
+		DoesVolumeWithTheSameNameExist bool
+	}
 
 	if err := tx.Raw(
-		`SELECT t.id
-		FROM
-			titles AS t
-			INNER JOIN volumes AS v ON t.id = v.title_id
-			INNER JOIN users AS u ON t.team_id = u.team_id
-		WHERE
-			v.id = ? AND u.id = ?`,
-		volumeID, claims.ID,
-	).Scan(&titleID).Error; err != nil {
+		`SELECT
+			(SELECT id FROM titles WHERE id = (SELECT title_id FROM volumes WHERE id = ?) AND team_id = (SELECT team_id FROM users WHERE id = ?)) AS title_id,
+			EXISTS(SELECT 1 FROM volumes WHERE title_id = (SELECT title_id FROM volumes WHERE id = ?) AND lower(name) = lower(?)) AS does_volume_with_the_same_name_exist`,
+		volumeID, claims.ID, volumeID, requestBody.Name,
+	).Scan(&check).Error; err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if !titleID.Valid {
-		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден среди тайтлов, переводимых вашей командой"})
+	if check.TitleID == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден среди томов тайтлов, переводимых вашей командой"})
+		return
+	}
+	if check.DoesVolumeWithTheSameNameExist {
+		c.AbortWithStatusJSON(409, gin.H{"error": "том с таким названием уже существует в тайтле"})
 		return
 	}
 
+	volumeIDuint := uint(volumeID)
+
 	editedVolume := models.VolumeOnModeration{
-		ExistingID:  sql.NullInt64{Int64: int64(volumeID), Valid: true},
+		ExistingID:  &volumeIDuint,
 		Description: requestBody.Description,
-		TitleID:     uint(titleID.Int64),
+		TitleID:     check.TitleID,
 		CreatorID:   claims.ID,
 	}
 	if requestBody.Name != "" {

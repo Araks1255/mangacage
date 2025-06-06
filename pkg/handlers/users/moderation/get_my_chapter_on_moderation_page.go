@@ -1,12 +1,14 @@
 package moderation
 
 import (
+	"errors"
 	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -28,16 +30,16 @@ func (h handler) GetMyChapterOnModerationPage(c *gin.Context) {
 	var doesChapterOnModerationExist bool
 
 	if err := h.DB.Raw(
-		"SELECT EXISTS(SELECT 1 FROM chapters_on_moderation WHERE id = ? AND creator_id = ?)",
+		"SELECT EXISTS(SELECT 1 FROM chapters_on_moderation WHERE id = ? AND creator_id = ? AND existing_id IS NULL)",
 		chapterOnModerationID, claims.ID,
 	).Scan(&doesChapterOnModerationExist).Error; err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error":err.Error()})
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
 	if !doesChapterOnModerationExist {
-		c.AbortWithStatusJSON(404, gin.H{"error":"глава не найдена среди ваших глав на модерации"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена среди ваших новых глав на модерации"})
 		return
 	}
 
@@ -49,6 +51,10 @@ func (h handler) GetMyChapterOnModerationPage(c *gin.Context) {
 	}
 
 	if err = h.ChaptersPages.FindOne(c.Request.Context(), filter, options.FindOne().SetProjection(projection)).Decode(&result); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			c.AbortWithStatusJSON(404, gin.H{"error": "страница не найдена"})
+			return
+		}
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return

@@ -19,7 +19,7 @@ func (h handler) EditChapter(c *gin.Context) {
 
 	chapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "id главы должен быть числом"})
+		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id главы"})
 		return
 	}
 
@@ -65,10 +65,12 @@ func (h handler) EditChapter(c *gin.Context) {
 		return
 	}
 
+	chapterIDuint := uint(chapterID)
+
 	editedChapter := models.ChapterOnModeration{
 		CreatorID:   claims.ID,
 		Description: requestBody.Description,
-		ExistingID:  sql.NullInt64{Int64: int64(chapterID), Valid: true},
+		ExistingID:  &chapterIDuint,
 	}
 
 	if requestBody.VolumeID != 0 {
@@ -87,7 +89,7 @@ func (h handler) EditChapter(c *gin.Context) {
 		if err := tx.Raw(
 			"SELECT EXISTS(SELECT 1 FROM chapters WHERE lower(name) = lower(?) AND volume_id = ?)",
 			requestBody.Name, editedChapter.VolumeID,
-		).Scan(&doesChapterExist).Error; err != nil {
+		).Scan(&doesChapterWithThisNameAlreadyExist).Error; err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
@@ -97,6 +99,7 @@ func (h handler) EditChapter(c *gin.Context) {
 			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже существует в этом томе"})
 			return
 		}
+
 		editedChapter.Name = sql.NullString{String: requestBody.Name, Valid: true}
 	}
 
@@ -120,7 +123,7 @@ func (h handler) EditChapter(c *gin.Context) {
 		}
 
 		if dbErrors.IsForeignKeyViolation(err, constraints.FkChaptersOnModerationVolume) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "том не найден"})
+			c.AbortWithStatusJSON(404, gin.H{"error": "том не найден"})
 			return
 		}
 
@@ -133,7 +136,7 @@ func (h handler) EditChapter(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "изменения главы успешно отправлены на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutChapterOnModeration(c.Request.Context(), &pb.ChapterOnModeration{ID: uint64(editedChapter.ExistingID.Int64), New: false}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutChapterOnModeration(c.Request.Context(), &pb.ChapterOnModeration{ID: uint64(*editedChapter.ExistingID), New: false}); err != nil {
 		log.Println(err)
 	}
 }

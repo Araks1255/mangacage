@@ -1,8 +1,8 @@
 package moderation
 
 import (
-	"log"
 	"database/sql"
+	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/gin-gonic/gin"
@@ -17,7 +17,7 @@ func (h handler) GetMyProfilePictureOnModeration(c *gin.Context) {
 
 	if err := h.DB.Raw("SELECT id FROM users_on_moderation WHERE existing_id = ?", claims.ID).Scan(&userOnModerationID).Error; err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error":err.Error()})
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -39,7 +39,7 @@ func (h handler) GetMyProfilePictureOnModeration(c *gin.Context) {
 			return
 		}
 		log.Println(err)
-		c.AbortWithStatusJSON(404, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 

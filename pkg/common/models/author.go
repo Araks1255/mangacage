@@ -10,8 +10,8 @@ type Author struct {
 }
 
 type AuthorDTO struct {
-	ID     uint           `json:"id"`
-	Name   string         `json:"name"`
-	About  string         `json:"about,omitempty"`
-	Genres pq.StringArray `json:"genres,omitempty" gorm:"type:TEXT[]"`
+	ID     uint            `json:"id"`
+	Name   string          `json:"name"`
+	About  *string         `json:"about,omitempty"`
+	Genres *pq.StringArray `json:"genres,omitempty" gorm:"type:TEXT[]"`
 }

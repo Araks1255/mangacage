@@ -1,8 +1,11 @@
 package titles
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"log"
+	"mime/multipart"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -14,6 +17,8 @@ import (
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
+	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
 )
 
 func (h handler) CreateTitle(c *gin.Context) {
@@ -21,33 +26,13 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		log.Println(err)
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	if len(form.Value["name"]) == 0 || len(form.Value["authorId"]) == 0 || len(form.Value["genresIds"]) == 0 && len(form.File["cover"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе недостаточно данных"})
-		return
-	}
-
-	name := form.Value["name"][0]
-	genresIDs := form.Value["genresIds"]
-
-	coverFileHeader := form.File["cover"][0]
-	if coverFileHeader.Size > 10<<20 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "слишком большой размер фото (лимит 10мб)"})
-		return
-	}
-
-	var description string
-	if len(form.Value["description"]) != 0 {
-		description = form.Value["description"][0]
-	}
-
-	desiredAuthorID, err := strconv.ParseUint(form.Value["authorId"][0], 10, 64)
+	name, description, authorID, genresIDs, coverFileHeader, err := parseCreateTitleParams(form)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id автора"})
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -55,14 +40,14 @@ func (h handler) CreateTitle(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var doesTitleWithTheSameNameExist bool
-	if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM titles WHERE lower(name) = lower(?))", name).Scan(&doesTitleWithTheSameNameExist).Error; err != nil {
+	ok, err := checkTitleWithTheSameNameExistence(tx, name)
+	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if doesTitleWithTheSameNameExist {
+	if ok {
 		c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
 		return
 	}
@@ -71,7 +56,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 		Name:        sql.NullString{String: name, Valid: true},
 		Description: description,
 		CreatorID:   claims.ID,
-		AuthorID:    sql.NullInt64{Int64: int64(desiredAuthorID), Valid: true},
+		AuthorID:    &authorID,
 	}
 
 	err = tx.Create(&newTitle).Error
@@ -94,13 +79,13 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	err = tx.Exec(
 		`INSERT INTO title_on_moderation_genres (title_on_moderation_id, genre_id)
-		SELECT ?, UNNEST(?::INTEGER[])`,
+		SELECT ?, UNNEST(?::BIGINT[])`,
 		newTitle.ID, pq.Array(genresIDs),
 	).Error
 
 	if err != nil {
-		if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleGenresGenre) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "указаны невалидные жанры"})
+		if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleOnModerationGenresGenre) {
+			c.AbortWithStatusJSON(404, gin.H{"error": "жанры не найдены"})
 		} else {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -108,20 +93,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	var titleCover struct {
-		TitleOnModerationID uint   `bson:"title_on_moderation_id"`
-		Cover               []byte `bson:"cover"`
-	}
-
-	titleCover.TitleOnModerationID = newTitle.ID
-	titleCover.Cover, err = utils.ReadMultipartFile(coverFileHeader, 10<<20)
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if _, err = h.TitlesOnModerationCovers.InsertOne(c.Request.Context(), titleCover); err != nil {
+	if err := insertTitleCover(c.Request.Context(), h.TitlesOnModerationCovers, newTitle.ID, coverFileHeader); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -129,9 +101,70 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"error": "тайтл успешно отправлен на модерацию"})
+	c.JSON(201, gin.H{"success": "тайтл успешно отправлен на модерацию"})
 
 	if _, err = h.NotificationsClient.NotifyAboutTitleOnModeration(c.Request.Context(), &pb.TitleOnModeration{ID: uint64(newTitle.ID), New: true}); err != nil {
 		log.Println(err)
 	}
+}
+
+func parseCreateTitleParams(form *multipart.Form) (name, description string, authorID uint, genresIDs []uint, coverFileHeader *multipart.FileHeader, err error) {
+	if len(form.Value["name"]) == 0 || len(form.Value["authorId"]) == 0 || len(form.Value["genresIds"]) == 0 || len(form.File["cover"]) == 0 {
+		return "", "", 0, nil, nil, errors.New("в запросе недостаточно данных")
+	}
+
+	genresIDs, err = utils.ParseUintSlice(form.Value["genresIds"])
+	if err != nil {
+		return "", "", 0, nil, nil, errors.New("указаны невалидные id жанров")
+	}
+
+	authorIDuint64, err := strconv.ParseUint(form.Value["authorId"][0], 10, 64)
+	if err != nil {
+		return "", "", 0, nil, nil, errors.New("указан невалидный id автора")
+	}
+
+	coverFileHeader = form.File["cover"][0]
+	if coverFileHeader.Size > 2<<20 {
+		return "", "", 0, nil, nil, errors.New("превышен лимит размера обложки (2мб)")
+	}
+
+	if len(form.Value["description"]) != 0 {
+		description = form.Value["description"][0]
+	}
+
+	return form.Value["name"][0], description, uint(authorIDuint64), genresIDs, coverFileHeader, nil
+}
+
+func checkTitleWithTheSameNameExistence(db *gorm.DB, name string) (bool, error) {
+	var doesTitleWithTheSameNameExist bool
+
+	if err := db.Raw("SELECT EXISTS(SELECT 1 FROM titles WHERE lower(name) = lower(?))", name).Scan(&doesTitleWithTheSameNameExist).Error; err != nil {
+		return false, err
+	}
+
+	if doesTitleWithTheSameNameExist {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func insertTitleCover(ctx context.Context, collection *mongo.Collection, titleID uint, coverFileHeader *multipart.FileHeader) (err error) {
+	var titleCover struct {
+		TitleOnModerationID uint   `bson:"title_on_moderation_id"`
+		Cover               []byte `bson:"cover"`
+	}
+
+	titleCover.TitleOnModerationID = titleID
+	titleCover.Cover, err = utils.ReadMultipartFile(coverFileHeader, 2<<20)
+
+	if err != nil {
+		return err
+	}
+
+	if _, err = collection.InsertOne(ctx, titleCover); err != nil {
+		return err
+	}
+
+	return nil
 }

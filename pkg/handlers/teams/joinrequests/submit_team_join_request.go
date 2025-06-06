@@ -1,7 +1,6 @@
 package joinrequests
 
 import (
-	"database/sql"
 	"log"
 	"strconv"
 
@@ -9,13 +8,14 @@ import (
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	desiredTeamID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	teamID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id команды"})
 		return
@@ -26,15 +26,21 @@ func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 		RoleID              uint   `json:"roleId"`
 	}
 
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
+	if err := c.ShouldBindJSON(&requestBody); err != nil && c.Request.ContentLength != 0 {
 		log.Println(err)
-		c.AbortWithStatusJSON(404, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
 	tx := h.DB.Begin()
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
+
+	joinRequest := models.TeamJoinRequest{
+		CandidateID:         claims.ID,
+		TeamID:              uint(teamID),
+		IntroductoryMessage: requestBody.IntroductoryMessage,
+	}
 
 	if requestBody.RoleID != 0 {
 		var check struct {
@@ -61,6 +67,8 @@ func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 			c.AbortWithStatusJSON(404, gin.H{"error": "роль не найдена"})
 			return
 		}
+
+		joinRequest.RoleID = &requestBody.RoleID
 	} else {
 		var doesUserHaveTeam bool
 
@@ -76,24 +84,15 @@ func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 		}
 	}
 
-	joinRequest := models.TeamJoinRequest{
-		CandidateID:         claims.ID,
-		TeamID:              uint(desiredTeamID),
-		IntroductoryMessage: requestBody.IntroductoryMessage,
-	}
-	if requestBody.RoleID != 0 {
-		joinRequest.RoleID = sql.NullInt64{Int64: int64(requestBody.RoleID), Valid: true}
-	}
-
 	err = tx.Create(&joinRequest).Error
 
 	if err != nil {
-		if dbErrors.IsUniqueViolation(err, "uniq_team_join_request") {
+		if dbErrors.IsUniqueViolation(err, constraints.UniqTeamJoinRequest) {
 			c.AbortWithStatusJSON(409, gin.H{"error": "вы уже оставили заявку на вступление в эту команду"})
 			return
 		}
 
-		if dbErrors.IsForeignKeyViolation(err, "fk_team_join_requests_team") {
+		if dbErrors.IsForeignKeyViolation(err, constraints.FkTeamJoinRequestsTeam) {
 			c.AbortWithStatusJSON(404, gin.H{"error": "команда не найдена"})
 			return
 		}

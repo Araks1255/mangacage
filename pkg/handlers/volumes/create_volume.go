@@ -39,29 +39,27 @@ func (h handler) CreateVolume(c *gin.Context) {
 	defer tx.Rollback()
 
 	var check struct {
-		DoesTitleExist                 bool
-		DoesUserTeamTranslateTitle     bool
+		UserTeamID                     sql.NullInt64
 		DoesVolumeWithTheSameNameExist bool
 	}
 
 	if err := tx.Raw(
 		`SELECT
-			EXISTS(SELECT 1 FROM titles WHERE id = ?) AS does_title_exist,
-			(SELECT (SELECT team_id FROM titles WHERE id = ?) = (SELECT team_id FROM users WHERE id = ?)) AS does_user_team_translate_title,
+			(
+				SELECT u.team_id FROM users AS u
+				INNER JOIN titles AS t ON t.team_id = u.team_id
+				WHERE t.id = ? AND u.id = ?
+			) AS user_team_id,
 			EXISTS(SELECT 1 FROM volumes WHERE lower(name) = lower(?)) AS does_volume_with_the_same_name_exist`,
-		titleID, titleID, claims.ID, requestBody.Name,
+		titleID, claims.ID, requestBody.Name,
 	).Scan(&check).Error; err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if !check.DoesTitleExist {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
-		return
-	}
-	if !check.DoesUserTeamTranslateTitle {
-		c.AbortWithStatusJSON(403, gin.H{"error": "ваша команда не переводит этот тайтл"})
+	if !check.UserTeamID.Valid {
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди переводимых вашей командой"}) // Тут Valid как флаг, не найден тайтл - users.team_id будет NULL
 		return
 	}
 	if check.DoesVolumeWithTheSameNameExist {
@@ -74,6 +72,7 @@ func (h handler) CreateVolume(c *gin.Context) {
 		Description: requestBody.Description,
 		TitleID:     uint(titleID),
 		CreatorID:   claims.ID,
+		TeamID:      uint(check.UserTeamID.Int64),
 	}
 
 	err = tx.Create(&volume).Error

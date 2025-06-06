@@ -24,6 +24,7 @@ func (h handler) CancelTeamJoinRequest(c *gin.Context) {
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
+
 	if result.RowsAffected == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "запрос на вступление в команду не найден"}) // Если ошибок нет, но ничего не удалилось, то запись не существует
 		return

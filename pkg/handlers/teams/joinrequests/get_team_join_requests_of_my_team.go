@@ -1,7 +1,6 @@
 package joinrequests
 
 import (
-	"database/sql"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -11,19 +10,6 @@ import (
 
 func (h handler) GetTeamJoinRequestsOfMyTeam(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
-
-	var teamID sql.NullInt64
-
-	if err := h.DB.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&teamID).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !teamID.Valid {
-		c.AbortWithStatusJSON(409, gin.H{"error": "вы не состоите в команде перевода"})
-		return
-	}
 
 	var requests []models.TeamJoinRequestDTO
 
@@ -37,8 +23,8 @@ func (h handler) GetTeamJoinRequestsOfMyTeam(c *gin.Context) {
 			LEFT JOIN roles AS r ON tjr.role_id = r.id
 			INNER JOIN users AS c ON c.id = tjr.candidate_id
 		WHERE
-			tjr.team_id = ?`,
-		teamID.Int64,
+			tjr.team_id = (SELECT team_id FROM users WHERE id = ?)`,
+		claims.ID,
 	).Scan(&requests).Error; err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

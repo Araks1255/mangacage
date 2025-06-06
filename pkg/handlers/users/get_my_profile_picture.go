@@ -1,6 +1,7 @@
 package users
 
 import (
+	"errors"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -21,12 +22,12 @@ func (h handler) GetMyProfilePicture(c *gin.Context) {
 
 	err := h.UsersProfilePictures.FindOne(c.Request.Context(), filter).Decode(&result)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			c.AbortWithStatusJSON(404, gin.H{"error": "аватарка не найдена"})
-			return
+		} else {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		}
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 

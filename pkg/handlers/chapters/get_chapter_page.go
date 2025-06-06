@@ -11,7 +11,7 @@ import (
 )
 
 func (h handler) GetChapterPage(c *gin.Context) {
-	desiredChapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	chapterID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "id главы должен быть числом"})
 		return
@@ -23,7 +23,7 @@ func (h handler) GetChapterPage(c *gin.Context) {
 		return
 	}
 
-	filter := bson.M{"chapter_id": desiredChapterID}
+	filter := bson.M{"chapter_id": chapterID}
 
 	projection := bson.M{"pages": bson.M{"$slice": []int{numberOfPage, 1}}}
 

@@ -43,9 +43,16 @@ func (h handler) DeleteChapter(c *gin.Context) {
 		return
 	}
 
-	if result := tx.Exec("DELETE FROM chapters WHERE id = ?", chapterID); result.Error != nil {
+	result := tx.Exec("DELETE FROM chapters WHERE id = ?", chapterID)
+
+	if result.Error != nil {
 		log.Println(result.Error)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.AbortWithStatusJSON(500, gin.H{"error": "не удалось удалить главу"})
 		return
 	}
 
