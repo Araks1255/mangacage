@@ -1,6 +1,7 @@
 package search
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 
@@ -27,23 +28,25 @@ func (h handler) Search(c *gin.Context) {
 		return
 	}
 
+	query = fmt.Sprintf("%%%s%%", query)
+
 	var result any
 
 	switch searchingType {
 	case "titles":
-		result, err = h.SearchTitles(query, int(limit))
+		result, err = SearchTitles(h.DB, query, int(limit))
 
 	case "chapters":
-		result, err = h.SearchChapters(query, int(limit))
+		result, err = SearchChapters(h.DB, query, int(limit))
 
 	case "volumes":
-		result, err = h.SearchVolumes(query, int(limit))
+		result, err = SearchVolumes(h.DB, query, int(limit))
 
 	case "teams":
-		result, err = h.SearchTeams(query, int(limit))
+		result, err = SearchTeams(h.DB, query, int(limit))
 
 	case "authors":
-		result, err = h.SearchAuthors(query, int(limit))
+		result, err = SearchAuthors(h.DB, query, int(limit))
 
 	default:
 		c.AbortWithStatusJSON(400, gin.H{"error": "недопустимая область поиска"})

@@ -56,7 +56,7 @@ func CreateChapterWithDependencies(db *gorm.DB, userID uint) (uint, error) {
 	return chapterID, nil
 }
 
-func CreateTitleTranslatingByUserTeam(db *gorm.DB, userID uint, genres []string) (uint, error) {
+func CreateTitleTranslatingByUserTeam(db *gorm.DB, userID uint, genres, tags []string) (uint, error) {
 	authorID, err := CreateAuthor(db)
 	if err != nil {
 		return 0, err
@@ -71,14 +71,7 @@ func CreateTitleTranslatingByUserTeam(db *gorm.DB, userID uint, genres []string)
 		return 0, err
 	}
 
-	var titleID uint
-
-	if genres != nil {
-		titleID, err = CreateTitle(db, userID, authorID, CreateTitleOptions{TeamID: teamID, Genres: genres})
-	} else {
-		titleID, err = CreateTitle(db, userID, authorID, CreateTitleOptions{TeamID: teamID})
-	}
-
+	titleID, err := CreateTitle(db, userID, authorID, CreateTitleOptions{Genres: genres, Tags: tags, TeamID: teamID})
 	if err != nil {
 		return 0, err
 	}

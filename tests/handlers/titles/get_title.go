@@ -33,7 +33,7 @@ func GetTitleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, []string{"fighting", "action"})
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, []string{"fighting", "action"}, []string{"maids", "japan"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,6 +96,9 @@ func GetTitleSuccess(env testenv.Env) func(*testing.T) {
 		if genres, ok := resp["genres"]; !ok || len(genres.([]any)) != 2 {
 			t.Fatal("возникли проблемы с жанрами")
 		}
+		if tags, ok := resp["tags"]; !ok || len(tags.([]any)) != 2 {
+			t.Fatal("возникли проблемы с тегами")
+		}
 	}
 }
 
@@ -106,7 +109,7 @@ func GetTitleWithNoViewsSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, []string{"fighting", "action"})
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, []string{"fighting", "action"}, []string{"maids"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -137,6 +140,27 @@ func GetTitleWithNoViewsSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp["name"]; !ok {
 			t.Fatal("название не дошло")
 		}
+		if _, ok := resp["englishName"]; !ok {
+			t.Fatal("английское название не дошло")
+		}
+		if _, ok := resp["originalName"]; !ok {
+			t.Fatal("оригинальное название не дошло")
+		}
+		if _, ok := resp["yearOfRelease"]; !ok {
+			t.Fatal("год выпуска не дошел")
+		}
+		if _, ok := resp["ageLimit"]; !ok {
+			t.Fatal("возрастное ограничение не дошло")
+		}
+		if _, ok := resp["type"]; !ok {
+			t.Fatal("тип не дошел")
+		}
+		if _, ok := resp["translatingStatus"]; !ok {
+			t.Fatal("статус перевода не дошёл")
+		}
+		if _, ok := resp["publishingStatus"]; !ok {
+			t.Fatal("статус выпуска не дошёл")
+		}
 		if _, ok := resp["author"]; !ok {
 			t.Fatal("автор не дошел")
 		}
@@ -151,6 +175,9 @@ func GetTitleWithNoViewsSuccess(env testenv.Env) func(*testing.T) {
 		}
 		if genres, ok := resp["genres"]; !ok || len(genres.([]any)) != 2 {
 			t.Fatal("возникли проблемы с жанрами")
+		}
+		if tags, ok := resp["tags"]; !ok || len(tags.([]any)) != 1 || tags.([]any)[0].(string) != "maids" {
+			t.Fatal("возникли проблемы с тегами")
 		}
 	}
 }

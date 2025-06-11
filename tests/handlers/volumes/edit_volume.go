@@ -260,7 +260,7 @@ func EditVolumeWithTheSameNameAsVolumeOnModeration(env testenv.Env) func(t *test
 			t.Fatal(err)
 		}
 
-		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil)
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

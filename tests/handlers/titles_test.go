@@ -42,14 +42,6 @@ func TestGetNewTitles(t *testing.T) {
 	}
 }
 
-func TestGetRecentlyUpdatedTitles(t *testing.T) {
-	scenarios := titles.GetGetRecentlyUpdatedTitlesScenarios(env)
-
-	for name, scenario := range scenarios {
-		t.Run(name, scenario)
-	}
-}
-
 func TestGetTitleCover(t *testing.T) {
 	scenarios := titles.GetGetTitleCoverScenarios(env)
 

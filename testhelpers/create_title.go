@@ -18,6 +18,7 @@ type CreateTitleOptions struct {
 	TeamID      uint
 	ModeratorID uint
 	Genres      []string
+	Tags        []string
 }
 
 func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptions) (uint, error) {
@@ -26,9 +27,14 @@ func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptio
 	}
 
 	title := models.Title{
-		Name:      uuid.New().String(),
-		AuthorID:  authorID,
-		CreatorID: creatorID,
+		Name:          uuid.New().String(),
+		EnglishName:   uuid.New().String(),
+		OriginalName:  uuid.New().String(),
+		AgeLimit:      18,
+		YearOfRelease: 1999,
+		Type:          "manga",
+		AuthorID:      authorID,
+		CreatorID:     creatorID,
 	}
 
 	tx := db.Begin()
@@ -60,6 +66,17 @@ func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptio
 			SELECT ?, genres.id FROM genres
 			JOIN UNNEST(?::TEXT[]) AS genre_name ON genres.name = genre_name`,
 			title.ID, pq.Array(opts[0].Genres),
+		); result.Error != nil {
+			return 0, result.Error
+		}
+	}
+
+	if opts[0].Tags != nil {
+		if result := tx.Exec(
+			`INSERT INTO title_tags (title_id, tag_id)
+			SELECT ?, tags.id FROM tags
+			JOIN UNNEST(?::TEXT[]) AS tag_name ON tags.name = tag_name`,
+			title.ID, pq.Array(opts[0].Tags),
 		); result.Error != nil {
 			return 0, result.Error
 		}

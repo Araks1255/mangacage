@@ -38,7 +38,7 @@ func CreateVolumeSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil)
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -189,7 +189,7 @@ func CreateVolumeInTitleTranslatingByOtherTeam(env testenv.Env) func(*testing.T)
 			t.Fatal(err)
 		}
 
-		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, otherUserID, nil)
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, otherUserID, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -308,7 +308,7 @@ func CreateVolumeWithSameNameAsVolumeOnModeration(env testenv.Env) func(*testing
 			t.Fatal(err)
 		}
 
-		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil)
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -461,7 +461,7 @@ func CreateVolumeWithoutName(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil)
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

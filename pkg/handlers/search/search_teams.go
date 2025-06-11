@@ -1,15 +1,15 @@
 package search
 
 import (
-	"fmt"
-
 	"github.com/Araks1255/mangacage/pkg/common/models"
+
+	"gorm.io/gorm"
 )
 
-func (h handler) SearchTeams(query string, limit int) (teams *[]models.TeamDTO, err error) {
+func SearchTeams(db *gorm.DB, query string, limit int) (teams *[]models.TeamDTO, err error) {
 	var result []models.TeamDTO
 
-	err = h.DB.Raw(
+	err = db.Raw(
 		`SELECT
 			t.id, t.created_at, t.name, t.description,
 			u.user_name AS leader, u.id AS leader_id
@@ -23,7 +23,7 @@ func (h handler) SearchTeams(query string, limit int) (teams *[]models.TeamDTO, 
 		AND
 			lower(t.name) ILIKE lower(?)
 		LIMIT ?`,
-		fmt.Sprintf("%%%s%%", query), limit,
+		query, limit,
 	).Scan(&result).Error
 
 	if err != nil {

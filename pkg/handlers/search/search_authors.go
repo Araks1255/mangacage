@@ -1,15 +1,15 @@
 package search
 
 import (
-	"fmt"
-
 	"github.com/Araks1255/mangacage/pkg/common/models"
+
+	"gorm.io/gorm"
 )
 
-func (h handler) SearchAuthors(query string, limit int) (authors *[]models.AuthorDTO, err error) {
+func SearchAuthors(db *gorm.DB, query string, limit int) (authors *[]models.AuthorDTO, err error) {
 	var result []models.AuthorDTO
 
-	err = h.DB.Raw(
+	err = db.Raw(
 		`SELECT
 			a.id, a.name, a.about, ARRAY_AGG(g.name)::TEXT[] AS genres
 		FROM
@@ -20,7 +20,7 @@ func (h handler) SearchAuthors(query string, limit int) (authors *[]models.Autho
 			lower(a.name) ILIKE lower(?)
 		GROUP BY a.id
 		LIMIT ?`,
-		fmt.Sprintf("%%%s%%", query), limit,
+		query, limit,
 	).Scan(&result).Error
 
 	if err != nil {

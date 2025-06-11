@@ -92,7 +92,12 @@ The following external libraries and frameworks are included in or used by the P
    7. **JWT (github.com/dgrijalva/jwt-go)**  
       – **Repository:** github.com/dgrijalva/jwt-go  
       – **License:** MIT License  
-      – **Link to full text:** https://github.com/dgrijalva/jwt-go/blob/master/LICENSE  
+      – **Link to full text:** https://github.com/dgrijalva/jwt-go/blob/master/LICENSE
+
+   8. **Go Text (golang.org/x/text/unicode/norm)**
+      – **Repository:** https://go.googlesource.com/text  
+      – **License:** BSD 3-Clause License  
+      – **Link to full text:** https://go.googlesource.com/text/+/refs/heads/master/LICENSE 
 
 **Note:** If any of these dependencies include or reference further third-party code, you must comply with those sub-licenses as well.
 

@@ -55,7 +55,7 @@ func (h handler) TranslateTitle(c *gin.Context) {
 		return
 	}
 
-	result := tx.Exec("UPDATE titles SET team_id = ? WHERE id = ?", check.UserTeamID, titleID)
+	result := tx.Exec("UPDATE titles SET team_id = ?, translating_status = ongoing WHERE id = ?", check.UserTeamID, titleID)
 
 	if result.Error != nil {
 		log.Println(result.Error)

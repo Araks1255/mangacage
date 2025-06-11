@@ -26,7 +26,7 @@ func GetNewTitlesSuccess(env testenv.Env) func(*testing.T) {
 		}
 
 		for i := 0; i < 2; i++ {
-			if _, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, []string{"fighting"}); err != nil {
+			if _, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil, nil); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -62,21 +62,6 @@ func GetNewTitlesSuccess(env testenv.Env) func(*testing.T) {
 		}
 		if _, ok := resp[0]["name"]; !ok {
 			t.Fatal("название не дошло")
-		}
-		if _, ok := resp[0]["author"]; !ok {
-			t.Fatal("автор не дошел")
-		}
-		if _, ok := resp[0]["authorId"]; !ok {
-			t.Fatal("id автора не дошел")
-		}
-		if _, ok := resp[0]["team"]; !ok {
-			t.Fatal("команда не дошла")
-		}
-		if _, ok := resp[0]["teamId"]; !ok {
-			t.Fatal("id команды не дошел")
-		}
-		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) == 0 || genres.([]any)[0].(string) != "fighting" {
-			t.Fatal("возникли проблемы с жанрами")
 		}
 	}
 }

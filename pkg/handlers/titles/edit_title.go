@@ -1,38 +1,44 @@
 package titles
 
 import (
-	"database/sql"
+	"context"
 	"errors"
 	"log"
 	"mime/multipart"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
-	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers/titles"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
-	"github.com/lib/pq"
+	"github.com/gin-gonic/gin/binding"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/gorm/clause"
 )
 
 func (h handler) EditTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	form, err := c.MultipartForm()
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+	var requestBody models.TitleOnModerationDTO
+	c.ShouldBindWith(&requestBody, binding.FormMultipart)
+
+	if requestBody.Cover != nil && requestBody.Cover.Size > 2<<20 {
+		c.AbortWithStatusJSON(400, gin.H{"error": "превышен максимальный размер обложки (2мб)"})
 		return
 	}
 
-	name, description, titleID, authorID, genresIDs, coverFileHeader, err := parseEditTitleParams(form, c.Param)
+	editedTitle, code, err := mapEditTitleParamsToTitleOnModeration(claims.ID, &requestBody, c.Param)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -40,113 +46,87 @@ func (h handler) EditTitle(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var doesTitleExist bool
-
-	if err := tx.Raw(
-		"SELECT EXISTS(SELECT 1 FROM titles WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?))",
-		titleID, claims.ID,
-	).Scan(&doesTitleExist).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !doesTitleExist {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди переводимых вашей командой тайтлов"})
-		return
-	}
-
-	editedTitle := models.TitleOnModeration{
-		ExistingID:  &titleID,
-		CreatorID:   claims.ID,
-		Description: description,
-	}
-
-	if authorID != 0 {
-		editedTitle.AuthorID = &authorID
-	}
-
-	if name != "" {
-		var doesTitleWithTheSameNameExist bool
-
-		if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM titles WHERE lower(name) = lower(?))", form.Value["name"][0]).Scan(&doesTitleWithTheSameNameExist).Error; err != nil {
+	{
+		ok, err := titles.IsUserTeamTranslatingTitle(tx, claims.ID, *editedTitle.ExistingID)
+		if err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		if doesTitleWithTheSameNameExist {
-			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
+		if !ok {
+			c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди тайтлов, переводимых вашей командой"})
 			return
 		}
-
-		editedTitle.Name = sql.NullString{String: name, Valid: true}
 	}
 
-	err = tx.Raw(
-		`INSERT INTO titles_on_moderation (created_at, name, description, author_id, creator_id, existing_id)
-		VALUES (NOW(), ?, ?, ?, ?, ?)
-		ON CONFLICT (existing_id) DO UPDATE
-		SET
-			name = EXCLUDED.name,
-			description = EXCLUDED.description,
-			author_id = EXCLUDED.author_id,
-			creator_id = EXCLUDED.creator_id,
-			updated_at = NOW()
-		RETURNING id`,
-		editedTitle.Name, editedTitle.Description, editedTitle.AuthorID, editedTitle.CreatorID, editedTitle.ExistingID,
-	).Scan(&editedTitle.ID).Error
-
-	if err != nil {
-		if dbErrors.IsForeignKeyViolation(err, constraints.FkTitlesOnModerationAuthor) {
-			c.AbortWithStatusJSON(404, gin.H{"error": "автор не найден"})
-			return
-		}
-
-		if dbErrors.IsUniqueViolation(err, constraints.UniTitlesOnModerationName) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже ожидает модерации"})
-			return
-		}
-
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(genresIDs) != 0 {
-		err = tx.Exec(
-			`INSERT INTO title_on_moderation_genres (title_on_moderation_id, genre_id)
-			SELECT ?, UNNEST(?::BIGINT[])`,
-			editedTitle.ID, pq.Array(form.Value["genresIds"]),
-		).Error
-
-		if err != nil {
-			if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleOnModerationGenresGenre) {
-				c.AbortWithStatusJSON(409, gin.H{"error": "жанры не найдены"})
-			} else {
+	{
+		if editedTitle.Name != nil || editedTitle.EnglishName != nil || editedTitle.OriginalName != nil {
+			exists, err := helpers.CheckEntityWithTheSameNameExistence(tx, "titles", *editedTitle.Name, editedTitle.EnglishName, editedTitle.OriginalName)
+			if err != nil {
 				log.Println(err)
 				c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+				return
 			}
+
+			if exists {
+				c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
+				return
+			}
+		}
+	}
+
+	{
+		onConflictClause := clause.OnConflict{ // Тут то же самое, что было в сыром SQL.
+			Columns:   []clause.Column{{Name: "existing_id"}}, // Конфликт по existing_id
+			UpdateAll: true,                                   // Столбцы обновляются по структуре
+		}
+
+		err = tx.Clauses(onConflictClause).Create(&editedTitle).Error
+
+		if err != nil {
+			code, reason := titles.ParseInsertError(err)
+			if code == 500 {
+				log.Println(err)
+			}
+			c.AbortWithStatusJSON(code, gin.H{"error": reason})
 			return
 		}
 	}
 
-	if coverFileHeader != nil {
-		cover, err := utils.ReadMultipartFile(coverFileHeader, 2<<20)
-		if err != nil {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
+	{
+		if len(requestBody.GenresIDs) != 0 {
+			code, err := titles.InsertTitleOnModerationGenres(tx, editedTitle.ID, requestBody.GenresIDs)
+			if err != nil {
+				if code == 500 {
+					log.Println(err)
+				}
+				c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+				return
+			}
 		}
+	}
 
-		filter := bson.M{"title_on_moderation_id": editedTitle.ID}
-		update := bson.M{"$set": bson.M{"cover": cover}}
-		opts := options.Update().SetUpsert(true)
+	{
+		if len(requestBody.TagsIDs) != 0 {
+			code, err := titles.InsertTitleOnModerationTags(tx, editedTitle.ID, requestBody.TagsIDs)
+			if err != nil {
+				if code == 500 {
+					log.Println(err)
+				}
+				c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+				return
+			}
+		}
+	}
 
-		if _, err := h.TitlesOnModerationCovers.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
+	{
+		if requestBody.Cover != nil {
+			if err := upsertTitleOnModerationCover(c.Request.Context(), h.TitlesOnModerationCovers, requestBody.Cover, editedTitle.ID); err != nil {
+				log.Println(err)
+				c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+				return
+			}
 		}
 	}
 
@@ -159,45 +139,41 @@ func (h handler) EditTitle(c *gin.Context) {
 	}
 }
 
-func parseEditTitleParams(form *multipart.Form, paramFn func(string) string) (name, description string, titleID, authorID uint, genresIDs []uint, coverFileHeader *multipart.FileHeader, err error) {
-	titleIDuint64, err := strconv.ParseUint(paramFn("id"), 10, 64)
+func mapEditTitleParamsToTitleOnModeration(userID uint, body *models.TitleOnModerationDTO, paramFn func(string) string) (res *models.TitleOnModeration, code int, err error) {
+	titleID, err := strconv.ParseUint(paramFn("id"), 10, 64)
 	if err != nil {
-		return "", "", 0, 0, nil, nil, errors.New("указан невалидный id тайтла")
+		return nil, 400, errors.New("указан невалидный id тайтла")
 	}
 
-	if len(form.Value["name"]) == 0 && len(form.Value["description"]) == 0 && len(form.Value["genresIds"]) == 0 && len(form.File["cover"]) == 0 && len(form.Value["authorId"]) == 0 {
-		return "", "", 0, 0, nil, nil, errors.New("запрос должен содержать как минимум 1 изменяемый параметр")
+	ok, err := utils.HasAnyNonEmptyFields(body)
+	if err != nil {
+		return nil, 500, err
 	}
 
-	if len(form.Value["name"]) != 0 {
-		name = form.Value["name"][0]
+	if !ok {
+		return nil, 400, errors.New("запрос должен содержать как минимум 1 изменяемый параметр")
 	}
 
-	if len(form.Value["description"]) != 0 {
-		description = form.Value["description"][0]
+	titleIDuint := uint(titleID)
+
+	titleOnModeration := body.ToTitleOnModeration(userID, &titleIDuint)
+
+	return &titleOnModeration, 0, nil
+}
+
+func upsertTitleOnModerationCover(ctx context.Context, collection *mongo.Collection, coverFileHeader *multipart.FileHeader, titleOnModerationID uint) error {
+	cover, err := utils.ReadMultipartFile(coverFileHeader, 2<<20)
+	if err != nil {
+		return err
 	}
 
-	if len(form.Value["authorId"]) != 0 {
-		authorIDuint64, err := strconv.ParseUint(form.Value["authorId"][0], 10, 64)
-		if err != nil {
-			return "", "", 0, 0, nil, nil, errors.New("указан невалидный id автора")
-		}
-		authorID = uint(authorIDuint64)
+	filter := bson.M{"title_on_moderation_id": titleOnModerationID}
+	update := bson.M{"$set": bson.M{"cover": cover}}
+	opts := options.Update().SetUpsert(true)
+
+	if _, err := collection.UpdateOne(ctx, filter, update, opts); err != nil {
+		return err
 	}
 
-	if len(form.Value["genresIds"]) != 0 {
-		genresIDs, err = utils.ParseUintSlice(form.Value["genresIds"])
-		if err != nil {
-			return "", "", 0, 0, nil, nil, errors.New("указаны невалидные id жанров")
-		}
-	}
-
-	if len(form.File["cover"]) != 0 {
-		coverFileHeader = form.File["cover"][0]
-		if coverFileHeader.Size > 2<<20 {
-			return "", "", 0, 0, nil, nil, errors.New("превышен максимальный размер обложки (2мб)")
-		}
-	}
-
-	return name, description, uint(titleIDuint64), authorID, genresIDs, coverFileHeader, nil
+	return nil
 }

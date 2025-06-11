@@ -109,7 +109,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 	err = tx.Create(&newChapter).Error
 
 	if err != nil {
-		if dbErrors.IsUniqueViolation(err, constraints.UniChapterVolume) {
+		if dbErrors.IsUniqueViolation(err, constraints.UniqChapterVolume) {
 			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе"})
 		} else {
 			log.Println(err)

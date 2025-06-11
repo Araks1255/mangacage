@@ -81,26 +81,29 @@ func GetMostPopularTitlesSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["id"]; !ok {
 			t.Fatal("id не дошел")
 		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
-		}
 		if _, ok := resp[0]["name"]; !ok {
-			t.Fatal("название тайтла не дошло")
+			t.Fatal("название не дошло")
 		}
-		if _, ok := resp[0]["author"]; !ok {
-			t.Fatal("автор не дошел")
+		if _, ok := resp[0]["englishName"]; !ok {
+			t.Fatal("английское название не дошло")
 		}
-		if _, ok := resp[0]["authorId"]; !ok {
-			t.Fatal("id автора не дошел")
+		if _, ok := resp[0]["originalName"]; !ok {
+			t.Fatal("оригинальное название не дошло")
 		}
-		if _, ok := resp[0]["team"]; !ok {
-			t.Fatal("команда не дошла")
+		if _, ok := resp[0]["yearOfRelease"]; !ok {
+			t.Fatal("год выпуска не дошел")
 		}
-		if _, ok := resp[0]["teamId"]; !ok {
-			t.Fatal("id команды не дошел")
+		if _, ok := resp[0]["ageLimit"]; !ok {
+			t.Fatal("возрастное ограничение не дошло")
 		}
-		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) == 0 || genres.([]any)[0].(string) != "fighting" {
-			t.Fatal("возникли проблемы с жанрами")
+		if _, ok := resp[0]["type"]; !ok {
+			t.Fatal("тип не дошел")
+		}
+		if _, ok := resp[0]["translatingStatus"]; !ok {
+			t.Fatal("статус перевода не дошёл")
+		}
+		if _, ok := resp[0]["publishingStatus"]; !ok {
+			t.Fatal("статус выпуска не дошёл")
 		}
 		if views, ok := resp[0]["views"]; !ok || views.(float64) != 1 {
 			t.Fatal("возникли проблемы с просмотрами")

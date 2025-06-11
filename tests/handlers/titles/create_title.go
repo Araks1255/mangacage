@@ -3,6 +3,7 @@ package titles
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"mime/multipart"
 	"net/http/httptest"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
 	"github.com/Araks1255/mangacage/testhelpers/moderation"
+	titlesHelpers "github.com/Araks1255/mangacage/testhelpers/titles"
 	"github.com/Araks1255/mangacage/tests/testenv"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,6 +33,8 @@ func GetCreateTitleScenarios(env testenv.Env) map[string]func(*testing.T) {
 		"invalid genres ids":                   CreateTitleWithInvalidGenres(env),
 		"wrong author id":                      CreateTitleWithWrongAuthorAuthor(env),
 		"wrong genres ids":                     CreateTitleWithWrongGenres(env),
+		"wrong publishing status":              CreateTitleWithWrongPublishingStatus(env),
+		"wrong type":                           CreateTitleWithWrongType(env),
 		"the same name as title":               CreateTitleWithTheSameNameAsTitle(env),
 		"the same name as title on moderation": CreateTitleWithTheSameNameAsTitleOnModerationOnModeration(env),
 	}
@@ -50,44 +54,33 @@ func CreateTitleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		var genresIDs []string
-		env.DB.Raw("SELECT id FROM genres LIMIT 2").Scan(&genresIDs)
-		if len(genresIDs) == 0 {
-			t.Fatal("не удалось получить жанры")
-		}
-
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("name", uuid.New().String()); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("description", "desc"); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < len(genresIDs); i++ {
-			if err := writer.WriteField("genresIds", genresIDs[i]); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		part, err := writer.CreateFormFile("cover", "file")
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := os.ReadFile("./test_data/title_cover.png")
+
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := part.Write(data); err != nil {
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		writer.Close()
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
@@ -95,8 +88,8 @@ func CreateTitleSuccess(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/titles", h.CreateTitle)
 
-		req := httptest.NewRequest("POST", "/titles", &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -147,38 +140,32 @@ func CreateTitleWithoutName(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		var genresIDs []string
-		env.DB.Raw("SELECT id FROM genres LIMIT 2").Scan(&genresIDs)
-		if len(genresIDs) == 0 {
-			t.Fatal("не удалось получить жанры")
-		}
-
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < len(genresIDs); i++ {
-			if err := writer.WriteField("genreId", genresIDs[i]); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		part, err := writer.CreateFormFile("cover", "file")
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := os.ReadFile("./test_data/title_cover.png")
+
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := part.Write(data); err != nil {
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		writer.Close()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			nil, nil, nil, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
@@ -186,8 +173,8 @@ func CreateTitleWithoutName(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/titles", h.CreateTitle)
 
-		req := httptest.NewRequest("POST", "/titles", &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -214,38 +201,33 @@ func CreateTitleWithoutAuthor(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		var genresIDs []string
-		env.DB.Raw("SELECT id FROM genres LIMIT 2").Scan(&genresIDs)
-		if len(genresIDs) == 0 {
-			t.Fatal("не удалось получить жанры")
-		}
-
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("name", uuid.New().String()); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < len(genresIDs); i++ {
-			if err := writer.WriteField("genreId", genresIDs[i]); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		part, err := writer.CreateFormFile("cover", "file")
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := os.ReadFile("./test_data/title_cover.png")
+
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := part.Write(data); err != nil {
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		writer.Close()
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, nil, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
@@ -253,8 +235,8 @@ func CreateTitleWithoutAuthor(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/titles", h.CreateTitle)
 
-		req := httptest.NewRequest("POST", "/titles", &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -286,29 +268,28 @@ func CreateTitleWithoutGenres(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("name", uuid.New().String()); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
-			t.Fatal(err)
-		}
-
-		part, err := writer.CreateFormFile("cover", "file")
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := os.ReadFile("./test_data/title_cover.png")
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := part.Write(data); err != nil {
+
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, tagsIDs, cover,
+		)
+		if err != nil {
 			t.Fatal(err)
 		}
-
-		writer.Close()
 
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
@@ -316,8 +297,8 @@ func CreateTitleWithoutGenres(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/titles", h.CreateTitle)
 
-		req := httptest.NewRequest("POST", "/titles", &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -349,29 +330,28 @@ func CreateTitleWithoutCover(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		var genresIDs []string
-		env.DB.Raw("SELECT id FROM genres LIMIT 2").Scan(&genresIDs)
-		if len(genresIDs) == 0 {
-			t.Fatal("не удалось получить жанры")
-		}
-
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("name", uuid.New().String()); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		for i := 0; i < len(genresIDs); i++ {
-			if err := writer.WriteField("genreId", genresIDs[i]); err != nil {
-				t.Fatal(err)
-			}
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
 		}
 
-		writer.Close()
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, nil,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
@@ -379,8 +359,8 @@ func CreateTitleWithoutCover(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/titles", h.CreateTitle)
 
-		req := httptest.NewRequest("POST", "/titles", &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -412,41 +392,30 @@ func CreateTitleWithTooLargeCover(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		var genresIDs []string
-		env.DB.Raw("SELECT id FROM genres LIMIT 2").Scan(&genresIDs)
-		if len(genresIDs) == 0 {
-			t.Fatal("не удалось получить жанры")
-		}
-
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("name", uuid.New().String()); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("description", "desc"); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < len(genresIDs); i++ {
-			if err := writer.WriteField("genresIds", genresIDs[i]); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		part, err := writer.CreateFormFile("cover", "file")
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := make([]byte, 3<<20, 3<<20)
-		if _, err := part.Write(data); err != nil {
+
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		writer.Close()
+		cover := make([]byte, 3<<20, 3<<20)
+
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
@@ -454,8 +423,8 @@ func CreateTitleWithTooLargeCover(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/titles", h.CreateTitle)
 
-		req := httptest.NewRequest("POST", "/titles", &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -482,12 +451,19 @@ func CreateTitleWithInvalidAuthorId(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		invalidAuthorID := "U_U"
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		var genresIDs []string
-		env.DB.Raw("SELECT id FROM genres LIMIT 2").Scan(&genresIDs)
-		if len(genresIDs) == 0 {
-			t.Fatal("не удалось получить жанры")
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
+			t.Fatal(err)
 		}
 
 		var body bytes.Buffer
@@ -496,15 +472,43 @@ func CreateTitleWithInvalidAuthorId(env testenv.Env) func(*testing.T) {
 		if err := writer.WriteField("name", uuid.New().String()); err != nil {
 			t.Fatal(err)
 		}
-		if err := writer.WriteField("authorId", invalidAuthorID); err != nil {
+
+		if err := writer.WriteField("englishName", uuid.New().String()); err != nil {
 			t.Fatal(err)
 		}
-		if err := writer.WriteField("description", "desc"); err != nil {
+
+		if err := writer.WriteField("originalName", uuid.New().String()); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writer.WriteField("ageLimit", "18"); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writer.WriteField("type", "manga"); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writer.WriteField("publishingStatus", "ongoing"); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writer.WriteField("yearOfRelease", "1999"); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writer.WriteField("authorId", "R_R"); err != nil {
 			t.Fatal(err)
 		}
 
 		for i := 0; i < len(genresIDs); i++ {
-			if err := writer.WriteField("genresIds", genresIDs[i]); err != nil {
+			if err := writer.WriteField("genresIds", fmt.Sprintf("%d", genresIDs[i])); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		for i := 0; i < len(tagsIDs); i++ {
+			if err := writer.WriteField("tagsIds", fmt.Sprintf("%d", tagsIDs[i])); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -513,11 +517,7 @@ func CreateTitleWithInvalidAuthorId(env testenv.Env) func(*testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := os.ReadFile("./test_data/title_cover.png")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := part.Write(data); err != nil {
+		if _, err := part.Write(cover); err != nil {
 			t.Fatal(err)
 		}
 
@@ -564,16 +564,48 @@ func CreateTitleWithInvalidGenres(env testenv.Env) func(*testing.T) {
 
 		invalidGenresIDs := []string{"<_>", ">_<"}
 
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		var body bytes.Buffer
 		writer := multipart.NewWriter(&body)
 
 		if err := writer.WriteField("name", uuid.New().String()); err != nil {
 			t.Fatal(err)
 		}
-		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
+
+		if err := writer.WriteField("englishName", uuid.New().String()); err != nil {
 			t.Fatal(err)
 		}
-		if err := writer.WriteField("description", "desc"); err != nil {
+
+		if err := writer.WriteField("originalName", uuid.New().String()); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writer.WriteField("ageLimit", "18"); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writer.WriteField("type", "manga"); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writer.WriteField("publishingStatus", "ongoing"); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writer.WriteField("yearOfRelease", "1999"); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
 			t.Fatal(err)
 		}
 
@@ -583,15 +615,17 @@ func CreateTitleWithInvalidGenres(env testenv.Env) func(*testing.T) {
 			}
 		}
 
+		for i := 0; i < len(tagsIDs); i++ {
+			if err := writer.WriteField("tagsIds", fmt.Sprintf("%d", tagsIDs[i])); err != nil {
+				t.Fatal(err)
+			}
+		}
+
 		part, err := writer.CreateFormFile("cover", "file")
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := os.ReadFile("./test_data/title_cover.png")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := part.Write(data); err != nil {
+		if _, err := part.Write(cover); err != nil {
 			t.Fatal(err)
 		}
 
@@ -631,46 +665,35 @@ func CreateTitleWithWrongAuthorAuthor(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		authorID := 9223372036854775807
+		authorID := uint(9223372036854775807)
 
-		var genresIDs []string
-		env.DB.Raw("SELECT id FROM genres LIMIT 2").Scan(&genresIDs)
-		if len(genresIDs) == 0 {
-			t.Fatal("не удалось получить жанры")
-		}
-
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("name", uuid.New().String()); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("description", "desc"); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < len(genresIDs); i++ {
-			if err := writer.WriteField("genresIds", genresIDs[i]); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		part, err := writer.CreateFormFile("cover", "file")
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := os.ReadFile("./test_data/title_cover.png")
+
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := part.Write(data); err != nil {
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		writer.Close()
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
@@ -678,8 +701,8 @@ func CreateTitleWithWrongAuthorAuthor(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/titles", h.CreateTitle)
 
-		req := httptest.NewRequest("POST", "/titles", &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -711,40 +734,30 @@ func CreateTitleWithWrongGenres(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		genresIDs := []string{"9223372036854775806", "9223372036854775805"}
+		genresIDs := []uint{9223372036854775807, 9223372036854775806}
 
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("name", uuid.New().String()); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("description", "desc"); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < len(genresIDs); i++ {
-			if err := writer.WriteField("genresIds", genresIDs[i]); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		part, err := writer.CreateFormFile("cover", "file")
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := os.ReadFile("./test_data/title_cover.png")
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := part.Write(data); err != nil {
+
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
 			t.Fatal(err)
 		}
-
-		writer.Close()
 
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
@@ -752,8 +765,8 @@ func CreateTitleWithWrongGenres(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/titles", h.CreateTitle)
 
-		req := httptest.NewRequest("POST", "/titles", &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -785,58 +798,43 @@ func CreateTitleWithTheSameNameAsTitle(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		var genresIDs []string
-		env.DB.Raw("SELECT id FROM genres LIMIT 2").Scan(&genresIDs)
-		if len(genresIDs) == 0 {
-			t.Fatal("не удалось получить жанры")
-		}
-
-		titleID, err := testhelpers.CreateTitle(env.DB, userID, authorID)
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		var titleName string
-		if err := env.DB.Raw("SELECT name FROM titles WHERE id = ?", titleID).Scan(&titleName).Error; err != nil {
-			t.Fatal(err)
-		}
-
-		if titleName == "" {
-			t.Fatal("не удалось получить название тайтла")
-		}
-
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("name", titleName); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("description", "desc"); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < len(genresIDs); i++ {
-			if err := writer.WriteField("genresIds", genresIDs[i]); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		part, err := writer.CreateFormFile("cover", "file")
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := os.ReadFile("./test_data/title_cover.png")
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := part.Write(data); err != nil {
+
+		existingTitleID, err := testhelpers.CreateTitleWithDependencies(env.DB, userID)
+		if err != nil {
 			t.Fatal(err)
 		}
 
-		writer.Close()
+		var name string
+		if err := env.DB.Raw("SELECT name FROM titles WHERE id = ?", existingTitleID).Scan(&name).Error; err != nil {
+			t.Fatal(err)
+		}
+		log.Println(name, "<===")
+
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
@@ -844,8 +842,8 @@ func CreateTitleWithTheSameNameAsTitle(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/titles", h.CreateTitle)
 
-		req := httptest.NewRequest("POST", "/titles", &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -877,10 +875,19 @@ func CreateTitleWithTheSameNameAsTitleOnModerationOnModeration(env testenv.Env) 
 			t.Fatal(err)
 		}
 
-		var genresIDs []string
-		env.DB.Raw("SELECT id FROM genres LIMIT 2").Scan(&genresIDs)
-		if len(genresIDs) == 0 {
-			t.Fatal("не удалось получить жанры")
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
+			t.Fatal(err)
 		}
 
 		titleOnModerationID, err := moderation.CreateTitleOnModeration(env.DB, userID)
@@ -888,47 +895,22 @@ func CreateTitleWithTheSameNameAsTitleOnModerationOnModeration(env testenv.Env) 
 			t.Fatal(err)
 		}
 
-		var titleOnModerationName string
-		if err := env.DB.Raw("SELECT name FROM titles_on_moderation WHERE id = ?", titleOnModerationID).Scan(&titleOnModerationName).Error; err != nil {
+		var name string
+		if err := env.DB.Raw("SELECT name FROM titles_on_moderation WHERE id = ?", titleOnModerationID).Scan(&name).Error; err != nil {
 			t.Fatal(err)
 		}
 
-		if titleOnModerationName == "" {
-			t.Fatal("не удалось получить название тайтла на модерации")
-		}
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
 
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("name", titleOnModerationName); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("authorId", fmt.Sprintf("%d", authorID)); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("description", "desc"); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < len(genresIDs); i++ {
-			if err := writer.WriteField("genresIds", genresIDs[i]); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		part, err := writer.CreateFormFile("cover", "file")
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+		)
 		if err != nil {
 			t.Fatal(err)
 		}
-		data, err := os.ReadFile("./test_data/title_cover.png")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := part.Write(data); err != nil {
-			t.Fatal(err)
-		}
-
-		writer.Close()
 
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
 
@@ -936,8 +918,142 @@ func CreateTitleWithTheSameNameAsTitleOnModerationOnModeration(env testenv.Env) 
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/titles", h.CreateTitle)
 
-		req := httptest.NewRequest("POST", "/titles", &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
+
+		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.AddCookie(cookie)
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != 409 {
+			t.Fatal(w.Body.String())
+		}
+	}
+}
+
+func CreateTitleWithWrongPublishingStatus(env testenv.Env) func(*testing.T) {
+	return func(t *testing.T) {
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+
+		userID, err := testhelpers.CreateUser(env.DB)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		authorID, err := testhelpers.CreateAuthor(env.DB)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "._."
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+
+		r := gin.New()
+		r.Use(middlewares.Auth(env.SecretKey))
+		r.POST("/titles", h.CreateTitle)
+
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
+
+		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.AddCookie(cookie)
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != 409 {
+			t.Fatal(w.Body.String())
+		}
+	}
+}
+
+func CreateTitleWithWrongType(env testenv.Env) func(*testing.T) {
+	return func(t *testing.T) {
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+
+		userID, err := testhelpers.CreateUser(env.DB)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		authorID, err := testhelpers.CreateAuthor(env.DB)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "._."
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+
+		r := gin.New()
+		r.Use(middlewares.Auth(env.SecretKey))
+		r.POST("/titles", h.CreateTitle)
+
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {

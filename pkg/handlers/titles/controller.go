@@ -39,7 +39,6 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 	{
 		titles.GET("/:id/cover", h.GetTitleCover)
 		titles.GET("/most-popular", h.GetMostPopularTitles)
-		titles.GET("/recently-updated", h.GetRecentlyUpdatedTitles)
 		titles.GET("/new", h.GetNewTitles)
 		titles.GET("/:id", h.GetTitle)
 

@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_titles_on_moderation_original_name
+ON titles_on_moderation (original_name)

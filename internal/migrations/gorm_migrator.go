@@ -2,7 +2,6 @@ package migrations
 
 import (
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,31 +12,55 @@ import (
 )
 
 func GormMigrate(db *gorm.DB) error {
-	result := db.Exec(
+	db.Exec(
 		`CREATE TABLE users (
     		id BIGSERIAL PRIMARY KEY,
    			user_name TEXT,
     		team_id BIGINT
 		)`,
 	)
-	if result.Error != nil {
-		log.Println(result.Error)
-	}
 
-	if result = db.Exec(
+	db.Exec(
 		`CREATE TABLE teams (
     		id BIGSERIAL PRIMARY KEY,
     		name TEXT,
     		creator_id BIGINT,
     		moderator_id BIGINT
 		)`,
-	); result.Error != nil {
-		log.Println(result.Error)
+	)
+
+	sqlTypesDir := "./internal/migrations/sql/types"
+	pathsToScriptsWithTypes := make([]string, 0, 3)
+
+	filepath.WalkDir(sqlTypesDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			panic(err)
+		}
+
+		if !d.IsDir() {
+			if !strings.HasSuffix(d.Name(), ".sql") {
+				panic("в каталоге с sql миграциями не sql файл")
+			}
+
+			pathsToScriptsWithTypes = append(pathsToScriptsWithTypes, path)
+		}
+
+		return nil
+	})
+
+	for i := 0; i < len(pathsToScriptsWithTypes); i++ {
+		scriptWithTypeBytes, err := os.ReadFile(pathsToScriptsWithTypes[i])
+		if err != nil {
+			panic(err)
+		}
+
+		db.Exec(string(scriptWithTypeBytes))
 	}
 
 	err := db.AutoMigrate(
 		&models.Role{},
 		&models.Genre{},
+		&models.Tag{},
 	)
 	if err != nil {
 		return err
@@ -78,11 +101,15 @@ func GormMigrate(db *gorm.DB) error {
 	}
 
 	sqlDir := "./internal/migrations/sql"
-	pathsToScripts := make([]string, 0, 7)
+	pathsToScripts := make([]string, 0, 20)
 
 	filepath.WalkDir(sqlDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			panic(err)
+		}
+
+		if d.IsDir() && d.Name() == "types" {
+			return fs.SkipDir
 		}
 
 		if !d.IsDir() {

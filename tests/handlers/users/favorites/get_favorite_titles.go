@@ -29,7 +29,7 @@ func GetFavoriteTitlesSuccess(env testenv.Env) func(*testing.T) {
 		}
 
 		for i := 0; i < 3; i++ {
-			titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, []string{"fighting", "action"})
+			titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, []string{"action"}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -92,7 +92,7 @@ func GetFavoriteTitlesSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal("id команды не дошёл")
 		}
 
-		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) != 2 {
+		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) != 1 {
 			t.Fatal("возникли проблемы с жанрами")
 		}
 	}

@@ -35,6 +35,9 @@ func Seed(db *gorm.DB, mongoDB *mongo.Database, mode string) error {
 		if err = seedGenres(tx); err != nil {
 			return err
 		}
+		if err = seedTags(tx); err != nil {
+			return err
+		}
 		if err = seedUsersAndTeams(ctx, tx, usersProfilePictures, teamsCovers); err != nil {
 			return err
 		}

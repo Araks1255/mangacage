@@ -1,15 +1,15 @@
 package search
 
 import (
-	"fmt"
-
 	"github.com/Araks1255/mangacage/pkg/common/models"
+
+	"gorm.io/gorm"
 )
 
-func (h handler) SearchVolumes(query string, limit int) (volumes *[]models.VolumeDTO, err error) {
+func SearchVolumes(db *gorm.DB, query string, limit int) (volumes *[]models.VolumeDTO, err error) {
 	var result []models.VolumeDTO
 
-	err = h.DB.Raw(
+	err = db.Raw(
 		`SELECT
 			v.id, v.created_at, v.name, v.description,
 			t.name AS title, t.id AS title_id
@@ -19,7 +19,7 @@ func (h handler) SearchVolumes(query string, limit int) (volumes *[]models.Volum
 		WHERE
 			lower(v.name) ILIKE lower(?)
 		LIMIT ?`,
-		fmt.Sprintf("%%%s%%", query), limit,
+		query, limit,
 	).Scan(&result).Error
 
 	if err != nil {

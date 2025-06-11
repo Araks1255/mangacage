@@ -78,7 +78,7 @@ func (h handler) CreateVolume(c *gin.Context) {
 	err = tx.Create(&volume).Error
 
 	if err != nil {
-		if dbErrors.IsUniqueViolation(err, constraints.UniVolumeTitle) {
+		if dbErrors.IsUniqueViolation(err, constraints.UniqVolumeTitle) {
 			c.AbortWithStatusJSON(409, gin.H{"error": "том с таким названием уже ожидает модерации в этом тайтле"})
 		} else {
 			log.Println(err)

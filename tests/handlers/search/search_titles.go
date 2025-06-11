@@ -19,7 +19,7 @@ func SearchTitles(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, []string{"fighting"})
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, []string{"fighting"}, []string{"maids"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,31 +52,31 @@ func SearchTitles(env testenv.Env) func(*testing.T) {
 		}
 
 		if _, ok := resp[0]["id"]; !ok {
-			t.Fatal("не был получен id")
+			t.Fatal("id не дошел")
 		}
 		if _, ok := resp[0]["name"]; !ok {
-			t.Fatal("не было получено название")
+			t.Fatal("название не дошло")
 		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("не было получено время создания")
+		if _, ok := resp[0]["englishName"]; !ok {
+			t.Fatal("английское название не дошло")
 		}
-		if _, ok := resp[0]["id"]; !ok {
-			t.Fatal("не был получен id тайтла")
+		if _, ok := resp[0]["originalName"]; !ok {
+			t.Fatal("оригинальное название не дошло")
 		}
-		if _, ok := resp[0]["author"]; !ok {
-			t.Fatal("не был получен автор")
+		if _, ok := resp[0]["yearOfRelease"]; !ok {
+			t.Fatal("год выпуска не дошел")
 		}
-		if _, ok := resp[0]["authorId"]; !ok {
-			t.Fatal("не был получен id автора")
+		if _, ok := resp[0]["ageLimit"]; !ok {
+			t.Fatal("возрастное ограничение не дошло")
 		}
-		if _, ok := resp[0]["team"]; !ok {
-			t.Fatal("не была получена команда")
+		if _, ok := resp[0]["type"]; !ok {
+			t.Fatal("тип не дошел")
 		}
-		if _, ok := resp[0]["teamId"]; !ok {
-			t.Fatal("не был получен id команды")
+		if _, ok := resp[0]["translatingStatus"]; !ok {
+			t.Fatal("статус перевода не дошёл")
 		}
-		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) == 0 {
-			t.Fatal("не были получены жанры")
+		if _, ok := resp[0]["publishingStatus"]; !ok {
+			t.Fatal("статус выпуска не дошёл")
 		}
 	}
 }

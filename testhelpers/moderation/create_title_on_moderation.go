@@ -2,7 +2,6 @@ package moderation
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
@@ -26,9 +25,13 @@ func CreateTitleOnModeration(db *gorm.DB, userID uint, opts ...CreateTitleOnMode
 		return 0, errors.New("объектов опций не может быть больше одного")
 	}
 
+	name := uuid.New().String()
+
 	title := models.TitleOnModeration{
-		Name:      sql.NullString{String: uuid.New().String(), Valid: true},
-		CreatorID: userID,
+		Name:         &name,
+		EnglishName:  &name,
+		OriginalName: &name,
+		CreatorID:    userID,
 	}
 
 	if len(opts) != 0 {

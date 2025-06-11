@@ -117,7 +117,7 @@ func (h handler) EditChapter(c *gin.Context) {
 	).Error
 
 	if err != nil {
-		if dbErrors.IsUniqueViolation(err, constraints.UniChapterVolume) {
+		if dbErrors.IsUniqueViolation(err, constraints.UniqChapterVolume) {
 			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе"})
 			return
 		}

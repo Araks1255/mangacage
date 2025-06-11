@@ -1,15 +1,15 @@
 package search
 
 import (
-	"fmt"
-
 	"github.com/Araks1255/mangacage/pkg/common/models"
+
+	"gorm.io/gorm"
 )
 
-func (h handler) SearchChapters(query string, limit int) (chapters *[]models.ChapterDTO, err error) {
+func SearchChapters(db *gorm.DB, query string, limit int) (chapters *[]models.ChapterDTO, err error) {
 	var result []models.ChapterDTO
 
-	err = h.DB.Raw(
+	err = db.Raw(
 		`SELECT
 			c.id, c.created_at, c.name, c.description, c.number_of_pages,
 			v.name AS volume, v.id AS volume_id, t.name AS title, t.id AS title_id
@@ -20,7 +20,7 @@ func (h handler) SearchChapters(query string, limit int) (chapters *[]models.Cha
 		WHERE
 			lower(c.name) ILIKE lower(?)
 		LIMIT ?`,
-		fmt.Sprintf("%%%s%%", query), limit,
+		query, limit,
 	).Scan(&result).Error
 
 	if err != nil {
