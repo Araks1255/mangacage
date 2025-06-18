@@ -52,7 +52,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 			titlesForTeamLeaders.Use(middlewares.RequireRoles(db, []string{"team_leader"}))
 			{
 				titlesForTeamLeaders.PATCH("/translate", h.TranslateTitle)
-				titlesForTeamLeaders.PATCH("/quit-translating", h.QuitTranslatingTitle)
+				titlesForTeamLeaders.DELETE("/quit-translating", h.QuitTranslatingTitle)
 				titlesForTeamLeaders.DELETE("/", h.DeleteTitle)
 			}
 
@@ -60,6 +60,16 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 			titlesForExTeamLeaders.Use(middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}))
 			{
 				titlesForExTeamLeaders.POST("/edited", h.EditTitle)
+			}
+
+			translateRequests := titlesAuth.Group("/translate-requests")
+			{
+				translateRequests.GET("/", h.GetTitleTranslateRequests)
+				translateRequests.DELETE(
+					"/:id",
+					middlewares.RequireRoles(db, []string{"team_leader"}),
+					h.CancelTitleTranslateRequest,
+				)
 			}
 		}
 	}

@@ -39,11 +39,11 @@ func RegisterRoutes(db *gorm.DB, notificationsClient pb.NotificationsClient, sec
 			volumesAuth := volumes.Group("/")
 			volumesAuth.Use(middlewares.Auth(secretKey))
 			{
-				volumesAuth.DELETE(
-					"/:id",
-					middlewares.RequireRoles(db, []string{"team_leader"}),
-					h.DeleteVolume,
-				)
+				// volumesAuth.DELETE(
+				// 	"/:id",
+				// 	middlewares.RequireRoles(db, []string{"team_leader"}),
+				// 	h.DeleteVolume,
+				// )
 
 				volumesAuth.POST(
 					"/:id/edited",

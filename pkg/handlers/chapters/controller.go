@@ -47,11 +47,11 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 			chaptersAuth := chapters.Group("/")
 			chaptersAuth.Use(middlewares.Auth(secretKey))
 			{
-				chaptersAuth.DELETE(
-					"/",
-					middlewares.RequireRoles(db, []string{"team_leader"}),
-					h.DeleteChapter,
-				)
+				// chaptersAuth.DELETE(
+				// 	"/",
+				// 	middlewares.RequireRoles(db, []string{"team_leader"}),
+				// 	h.DeleteChapter,
+				// )
 
 				chaptersAuth.POST( // Тут идёт создание отредактированной главы (прямо отдельная сущность в отдельной таблице базы данных), поэтому post а не put
 					"/",

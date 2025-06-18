@@ -50,7 +50,12 @@ func (h handler) EditVolume(c *gin.Context) {
 
 	if err := tx.Raw(
 		`SELECT
-			(SELECT id FROM titles WHERE id = (SELECT title_id FROM volumes WHERE id = ?) AND team_id = (SELECT team_id FROM users WHERE id = ?)) AS title_id,
+			(
+				SELECT tt.title_id FROM title_teams AS tt
+				INNER JOIN volumes AS v ON v.title_id = tt.title_id
+				INNER JOIN users AS u ON u.team_id = tt.team_id
+				WHERE v.id = ? AND u.id = ?
+			) AS title_id,
 			EXISTS(SELECT 1 FROM volumes WHERE title_id = (SELECT title_id FROM volumes WHERE id = ?) AND lower(name) = lower(?)) AS does_volume_with_the_same_name_exist`,
 		volumeID, claims.ID, volumeID, requestBody.Name,
 	).Scan(&check).Error; err != nil {

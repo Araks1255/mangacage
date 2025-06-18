@@ -47,11 +47,12 @@ func (h handler) EditChapter(c *gin.Context) {
 	var doesChapterExist bool
 	if err := tx.Raw(
 		`SELECT EXISTS (
-			SELECT 1
-			FROM chapters AS c
-			INNER JOIN volumes AS v ON v.id = c.volume_id
-			INNER JOIN titles AS t ON t.id = v.title_id
-			WHERE c.id = ? AND t.team_id = (SELECT team_id FROM users WHERE id = ?)
+			SELECT 1 FROM titles AS t
+			INNER JOIN title_teams AS tt ON tt.title_id = t.id
+			INNER JOIN volumes AS v ON v.title_id = t.id
+			INNER JOIN chapters AS c ON c.volume_id = v.id
+			INNER JOIN users AS u ON u.team_id = tt.team_id
+			WHERE c.id = ? AND u.id = ?
 		)`,
 		chapterID, claims.ID,
 	).Scan(&doesChapterExist).Error; err != nil {

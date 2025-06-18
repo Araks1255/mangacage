@@ -68,17 +68,18 @@ func (h handler) CreateChapter(c *gin.Context) {
 	defer tx.Rollback()
 
 	var check struct {
-		UserTeamID       sql.NullInt64
+		UserTeamID       *uint
 		DoesChapterExist bool
 	}
 
 	if err = tx.Raw(
 		`SELECT
 			(
-				SELECT u.team_id FROM users AS u
-				INNER JOIN titles AS t ON u.team_id = t.team_id
-				INNER JOIN volumes AS v ON v.title_id = t.id
-				WHERE v.id = ? AND u.id = ?
+				SELECT team_id FROM title_teams WHERE title_id = (
+					SELECT title_id FROM volumes WHERE id = ?
+				) AND team_id = (
+					SELECT team_id FROM users WHERE id = ?
+				)
 			) AS user_team_id,
 			EXISTS(SELECT 1 FROM chapters WHERE lower(name) = lower(?) AND volume_id = ?) AS does_chapter_exist`,
 		volumeID, claims.ID, name, volumeID,
@@ -88,8 +89,8 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	if !check.UserTeamID.Valid {
-		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден среди томов тайтлов, переводимых вашей командой"}) // Тут просто Valid как флаг используется. Если команда не переводит тайтл, которому принадлежит том, вернётся NULL (просто дальше user.team_id понадобится, и лишний запрос для него делать не хотелось бы)
+	if check.UserTeamID == nil {
+		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден среди томов тайтлов, переводимых вашей командой"})
 		return
 	}
 	if check.DoesChapterExist {
@@ -103,7 +104,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 		NumberOfPages: len(pages),
 		VolumeID:      uint(volumeID),
 		CreatorID:     claims.ID,
-		TeamID:        uint(check.UserTeamID.Int64),
+		TeamID:        *check.UserTeamID,
 	}
 
 	err = tx.Create(&newChapter).Error

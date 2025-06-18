@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,40 +18,18 @@ func (h handler) QuitTranslatingTitle(c *gin.Context) {
 		return
 	}
 
-	tx := h.DB.Begin()
-	defer utils.RollbackOnPanic(tx)
-	defer tx.Rollback()
-
-	var doesTitleExist bool
-
-	if err := tx.Raw(
-		"SELECT EXISTS(SELECT 1 FROM titles WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?))",
-		titleID, claims.ID,
-	).Scan(&doesTitleExist).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !doesTitleExist {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди переводимых вашей командой тайтлов"})
-		return
-	}
-
-	result := tx.Exec("UPDATE titles SET team_id = NULL WHERE id = ?", titleID)
+	result := h.DB.Exec("DELETE FROM title_teams WHERE title_id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)", titleID, claims.ID)
 
 	if result.Error != nil {
-		log.Println(result.Error)
+		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
 	if result.RowsAffected == 0 {
-		c.AbortWithStatusJSON(500, gin.H{"error": "произошла ошибка при изменении тайтла"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди переводимых вашей командой"})
 		return
 	}
-
-	tx.Commit()
 
 	c.JSON(200, gin.H{"success": "ваша команда больше не переводит этот тайтл"})
 }

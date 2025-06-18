@@ -1,12 +1,14 @@
 package titles
 
 import (
-	"database/sql"
+	"errors"
 	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers/titles"
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,9 +16,12 @@ import (
 func (h handler) TranslateTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	titleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	titleID, isTitleTranslating, code, err := parseTranslateTitleParams(h.DB, claims.ID, c.Param)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "id тайтла должен быть числом"})
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -24,51 +29,79 @@ func (h handler) TranslateTitle(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var check struct {
-		DoesTitleExist     bool
-		UserTeamID         sql.NullInt64
-		IsTitleTranslating bool
-	}
+	if !isTitleTranslating {
+		code, err := translateTitle(tx, titleID, claims.ID)
 
-	if err := tx.Raw(
-		`SELECT
-			EXISTS(SELECT 1 FROM titles WHERE id = ?) AS does_title_exist,
-			(SELECT team_id FROM users WHERE id = ?) AS user_team_id,
-			EXISTS(SELECT 1 FROM titles WHERE id = ? AND team_id IS NOT NULL) AS is_title_translating`,
-		titleID, claims.ID, titleID,
-	).Scan(&check).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
+		if err != nil {
+			if code == 500 {
+				log.Println(err)
+			}
+			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+			return
+		}
 
-	if !check.DoesTitleExist {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден"})
-		return
-	}
-	if !check.UserTeamID.Valid {
-		c.AbortWithStatusJSON(409, gin.H{"error": "вы не состоите в команде перевода"})
-		return
-	}
-	if check.IsTitleTranslating {
-		c.AbortWithStatusJSON(409, gin.H{"error": "тайтл уже переводится другой командой"})
-		return
-	}
+		c.JSON(201, gin.H{"success": "теперь ваша команда переводит этот тайтл"})
+	} else {
+		var requestBody struct {
+			Message *string `json:"message"`
+		}
 
-	result := tx.Exec("UPDATE titles SET team_id = ?, translating_status = ongoing WHERE id = ?", check.UserTeamID, titleID)
+		c.ShouldBindJSON(&requestBody) // Тело запроса опциональное
 
-	if result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-		return
-	}
+		err := tx.Exec(
+			`INSERT INTO title_translate_requests (title_id, team_id, created_at, message)
+			VALUES (?, (SELECT team_id FROM users WHERE id = ?), NOW(), ?)`,
+			titleID, claims.ID, requestBody.Message,
+		).Error
 
-	if result.RowsAffected == 0 {
-		c.AbortWithStatusJSON(500, gin.H{"error": "не удалось взять тайтл на перевод"})
-		return
+		if err != nil {
+			code, err := titles.ParseTitleTranslateRequestInsertError(err)
+			if code == 500 {
+				log.Println(err)
+			}
+			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(201, gin.H{"success": "заявка на перевод тайтла успешно отправлена на модерацию"})
+
+		// Уведомление
 	}
 
 	tx.Commit()
+}
 
-	c.JSON(200, gin.H{"success": "теперь ваша команда переводит этот тайтл"})
+func parseTranslateTitleParams(db *gorm.DB, userID uint, paramFn func(string) string) (titleID uint, isTitleTranslating bool, code int, err error) {
+	titleIDuint64, err := strconv.ParseUint(paramFn("id"), 10, 64)
+	if err != nil {
+		return 0, false, 400, errors.New("указан невалидный id тайтла")
+	}
+
+	err = db.Raw(
+		"SELECT EXISTS(SELECT 1 FROM title_teams WHERE title_id = ? AND team_id != (SELECT team_id FROM users WHERE id = ?))",
+		titleIDuint64, userID,
+	).Scan(&isTitleTranslating).Error
+	if err != nil {
+		return 0, false, 500, err
+	}
+
+	return uint(titleIDuint64), isTitleTranslating, 0, nil
+}
+
+func translateTitle(db *gorm.DB, titleID, userID uint) (code int, err error) {
+	err = db.Exec("INSERT INTO title_teams (title_id, team_id) VALUES (?, (SELECT team_id FROM users WHERE id = ?))", titleID, userID).Error
+	if err != nil {
+		return titles.ParseTitleTeamInsertError(err)
+	}
+
+	result := db.Exec("UPDATE titles SET translating_status = 'ongoing' WHERE id = ?", titleID)
+	if result.Error != nil {
+		return 500, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return 500, errors.New("не удалось обновить статус перевода тайтла")
+	}
+
+	return 0, nil
 }

@@ -58,7 +58,12 @@ func TestGetTitle(t *testing.T) {
 	}
 }
 
-func TestQuitTranslatingTitle(t *testing.T) { // Эта логика скорее всего будет изменена, поэтому тестов на неё нет
+func TestQuitTranslatingTitle(t *testing.T) {
+	scenarios := titles.GetQuitTranslatingTitleScenarios(env)
+
+	for name, scenario := range scenarios {
+		t.Run(name, scenario)
+	}
 }
 
 func TestSubscribeToTitle(t *testing.T) {
@@ -69,5 +74,26 @@ func TestSubscribeToTitle(t *testing.T) {
 	}
 }
 
-func TestTranslateTitle(t *testing.T) { // Аналогично quit translating title
+func TestTranslateTitle(t *testing.T) {
+	scenarios := titles.GetTranslateTitleScenarios(env)
+
+	for name, scenario := range scenarios {
+		t.Run(name, scenario)
+	}
+}
+
+func TestCancelTitleTranslateRequest(t *testing.T) {
+	scenarios := titles.GetCancelTitleTranslateRequestScenarios(env)
+
+	for name, scenario := range scenarios {
+		t.Run(name, scenario)
+	}
+}
+
+func TestGetTitleTranslateRequests(t *testing.T) {
+	scenarios := titles.GetGetTitleTranslateRequests(env)
+
+	for name, scenario := range scenarios {
+		t.Run(name, scenario)
+	}
 }

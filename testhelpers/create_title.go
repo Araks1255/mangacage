@@ -49,15 +49,19 @@ func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptio
 		return title.ID, nil
 	}
 
-	if opts[0].TeamID != 0 {
-		title.TeamID = &opts[0].TeamID
-	}
 	if opts[0].ModeratorID != 0 {
 		title.ModeratorID = &opts[0].ModeratorID
 	}
 
 	if result := tx.Create(&title); result.Error != nil {
 		return 0, result.Error
+	}
+
+	if opts[0].TeamID != 0 {
+		err := tx.Exec("INSERT INTO title_teams(title_id, team_id) VALUES (?, ?)", title.ID, opts[0].TeamID).Error
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	if opts[0].Genres != nil {

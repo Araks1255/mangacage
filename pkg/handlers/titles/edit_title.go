@@ -85,11 +85,11 @@ func (h handler) EditTitle(c *gin.Context) {
 		err = tx.Clauses(onConflictClause).Create(&editedTitle).Error
 
 		if err != nil {
-			code, reason := titles.ParseInsertError(err)
+			code, err := titles.ParseTitleOnModerationInsertError(err)
 			if code == 500 {
 				log.Println(err)
 			}
-			c.AbortWithStatusJSON(code, gin.H{"error": reason})
+			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 			return
 		}
 	}

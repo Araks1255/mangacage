@@ -2,10 +2,10 @@ package middlewares
 
 import (
 	"log"
-	"slices"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -13,33 +13,24 @@ func RequireRoles(db *gorm.DB, roles []string) gin.HandlerFunc { // Я вооб�
 	return func(c *gin.Context) {
 		claims := c.MustGet("claims").(*auth.Claims)
 
-		var userRoles []string
+		var allowed bool
 
-		if err := db.Raw(
-			`SELECT
-				r.name
-			FROM
-				roles AS r
-				INNER JOIN user_roles AS ur ON ur.role_id = r.id
-			WHERE
-				ur.user_id = ?`,
-			claims.ID,
-		).Scan(&userRoles).Error; err != nil {
+		err := db.Raw(
+			`SELECT EXISTS(
+				SELECT 1 FROM user_roles AS ur
+				INNER JOIN roles AS r ON r.id = ur.role_id
+				WHERE ur.user_id = ?
+				AND r.name = ANY(?::TEXT[])
+			)`, claims.ID, pq.Array(roles),
+		).Scan(&allowed).Error
+
+		if err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		var accessAllowed bool
-
-		for i := 0; i < len(roles); i++ {
-			if slices.Contains(userRoles, roles[i]) {
-				accessAllowed = true
-				break
-			}
-		}
-
-		if !accessAllowed {
+		if !allowed {
 			c.AbortWithStatusJSON(403, gin.H{"error": "у вас недостаточно прав для совершения этого действия"})
 			return
 		}

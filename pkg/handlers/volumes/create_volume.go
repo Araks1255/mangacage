@@ -39,17 +39,13 @@ func (h handler) CreateVolume(c *gin.Context) {
 	defer tx.Rollback()
 
 	var check struct {
-		UserTeamID                     sql.NullInt64
+		UserTeamID                     *uint
 		DoesVolumeWithTheSameNameExist bool
 	}
 
 	if err := tx.Raw(
 		`SELECT
-			(
-				SELECT u.team_id FROM users AS u
-				INNER JOIN titles AS t ON t.team_id = u.team_id
-				WHERE t.id = ? AND u.id = ?
-			) AS user_team_id,
+			(SELECT team_id FROM title_teams WHERE title_id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)) AS user_team_id,
 			EXISTS(SELECT 1 FROM volumes WHERE lower(name) = lower(?)) AS does_volume_with_the_same_name_exist`,
 		titleID, claims.ID, requestBody.Name,
 	).Scan(&check).Error; err != nil {
@@ -58,7 +54,7 @@ func (h handler) CreateVolume(c *gin.Context) {
 		return
 	}
 
-	if !check.UserTeamID.Valid {
+	if check.UserTeamID == nil {
 		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди переводимых вашей командой"}) // Тут Valid как флаг, не найден тайтл - users.team_id будет NULL
 		return
 	}
@@ -72,7 +68,7 @@ func (h handler) CreateVolume(c *gin.Context) {
 		Description: requestBody.Description,
 		TitleID:     uint(titleID),
 		CreatorID:   claims.ID,
-		TeamID:      uint(check.UserTeamID.Int64),
+		TeamID:      *check.UserTeamID,
 	}
 
 	err = tx.Create(&volume).Error

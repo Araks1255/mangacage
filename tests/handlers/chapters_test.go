@@ -14,13 +14,13 @@ func TestCreateChapter(t *testing.T) {
 	}
 }
 
-func TestDeleteChapter(t *testing.T) {
-	scenarios := chapters.GetDeleteChapterScenarios(env)
+// func TestDeleteChapter(t *testing.T) {
+// 	scenarios := chapters.GetDeleteChapterScenarios(env)
 
-	for name, scenario := range scenarios {
-		t.Run(name, scenario)
-	}
-}
+// 	for name, scenario := range scenarios {
+// 		t.Run(name, scenario)
+// 	}
+// }
 
 func TestEditChapter(t *testing.T) {
 	scenarios := chapters.GetEditChapterScenarios(env)

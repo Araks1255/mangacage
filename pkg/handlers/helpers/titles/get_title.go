@@ -10,12 +10,10 @@ func GetTitleWithDependencies(db *gorm.DB) *gorm.DB {
 	return db.Table("titles AS t").Select(
 		`t.*,
 		a.name AS author, a.id AS author_id,
-		MAX(teams.name) AS team, MAX(teams.id) AS team_id,
 		ARRAY_AGG(DISTINCT g.name)::TEXT[] AS genres,
 		ARRAY_AGG(DISTINCT tags.name)::TEXT[] AS tags`,
 	).
 		Joins("INNER JOIN authors AS a ON t.author_id = a.id").
-		Joins("LEFT JOIN teams ON t.team_id = teams.id").
 		Joins("INNER JOIN title_genres AS tg ON tg.title_id = t.id").
 		Joins("INNER JOIN genres AS g ON tg.genre_id = g.id").
 		Joins("INNER JOIN title_tags AS tt ON t.id = tt.title_id").

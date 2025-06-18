@@ -33,13 +33,11 @@ type Title struct {
 	AuthorID uint
 	Author   Author `gorm:"foreignKey:AuthorID;references:id;constraint:OnDelete:SET NULL"`
 
-	TeamID *uint
-	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
-
 	Views uint `gorm:"default:0;not null"`
 
 	Genres []Genre `gorm:"many2many:title_genres;constraint:OnDelete:CASCADE"`
 	Tags   []Tag   `gorm:"many2many:title_tags;constraint:OnDelete:CASCADE"`
+	Teams  []Team  `gorm:"many2many:title_teams;constraint:OnDelete:CASCADE"`
 }
 
 type TitleOnModeration struct {

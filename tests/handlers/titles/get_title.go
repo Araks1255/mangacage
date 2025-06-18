@@ -84,12 +84,6 @@ func GetTitleSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp["authorId"]; !ok {
 			t.Fatal("id автора не дошел")
 		}
-		if _, ok := resp["team"]; !ok {
-			t.Fatal("команда не дошла")
-		}
-		if _, ok := resp["teamId"]; !ok {
-			t.Fatal("id команды не дошел")
-		}
 		if views, ok := resp["views"]; !ok || views.(float64) != 1 {
 			t.Fatal("возникли проблемы с просмотрами")
 		}
@@ -166,12 +160,6 @@ func GetTitleWithNoViewsSuccess(env testenv.Env) func(*testing.T) {
 		}
 		if _, ok := resp["authorId"]; !ok {
 			t.Fatal("id автора не дошел")
-		}
-		if _, ok := resp["team"]; !ok {
-			t.Fatal("команда не дошла")
-		}
-		if _, ok := resp["teamId"]; !ok {
-			t.Fatal("id команды не дошел")
 		}
 		if genres, ok := resp["genres"]; !ok || len(genres.([]any)) != 2 {
 			t.Fatal("возникли проблемы с жанрами")

@@ -85,12 +85,6 @@ func GetFavoriteTitlesSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["authorId"]; !ok {
 			t.Fatal("id автора не дошёл")
 		}
-		if _, ok := resp[0]["team"]; !ok {
-			t.Fatal("команда не дошла")
-		}
-		if _, ok := resp[0]["teamId"]; !ok {
-			t.Fatal("id команды не дошёл")
-		}
 
 		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) != 1 {
 			t.Fatal("возникли проблемы с жанрами")
