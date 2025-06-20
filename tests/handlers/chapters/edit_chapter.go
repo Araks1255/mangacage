@@ -33,7 +33,7 @@ func GetEditChapterScenarios(env testenv.Env) map[string]func(t *testing.T) {
 
 func EditChapterSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersOnModerationPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 		if err != nil {
@@ -84,7 +84,7 @@ func EditChapterSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersOnModerationPages, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersPages)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -112,7 +112,7 @@ func EditChapterSuccess(env testenv.Env) func(*testing.T) {
 
 func EditChapterByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -136,7 +136,7 @@ func EditChapterByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -181,7 +181,7 @@ func EditChapterByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*test
 			t.Fatal(err)
 		}
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -230,7 +230,7 @@ func EditChapterWithWrongVolumeId(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -306,7 +306,7 @@ func EditChapterByAddingTheSameNameAsChapterOnModeration(env testenv.Env) func(*
 			t.Fatal(err)
 		}
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -400,7 +400,7 @@ func EditChapterByAddingTheSameNameAsChapter(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -435,7 +435,7 @@ func EditChapterWithInvalidChapterId(env testenv.Env) func(*testing.T) {
 
 		invalidChapterID := "^_^"
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -479,7 +479,7 @@ func EditChapterWithoutEditableParameters(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -512,7 +512,7 @@ func EditChapterWithWrongContentType(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))

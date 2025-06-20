@@ -27,23 +27,7 @@ func (h handler) GetMyChapterOnModerationPage(c *gin.Context) {
 		return
 	}
 
-	var doesChapterOnModerationExist bool
-
-	if err := h.DB.Raw(
-		"SELECT EXISTS(SELECT 1 FROM chapters_on_moderation WHERE id = ? AND creator_id = ? AND existing_id IS NULL)",
-		chapterOnModerationID, claims.ID,
-	).Scan(&doesChapterOnModerationExist).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !doesChapterOnModerationExist {
-		c.AbortWithStatusJSON(404, gin.H{"error": "глава не найдена среди ваших новых глав на модерации"})
-		return
-	}
-
-	filter := bson.M{"chapter_on_moderation_id": chapterOnModerationID}
+	filter := bson.M{"chapter_on_moderation_id": chapterOnModerationID, "creator_id": claims.ID}
 	projection := bson.M{"pages": bson.M{"$slice": []int{numberOfPage, 1}}}
 
 	var result struct {

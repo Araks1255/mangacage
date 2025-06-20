@@ -8,6 +8,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers/titles"
@@ -87,7 +88,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 		}
 	}
 
-	if err := insertTitleOnModerationCover(c.Request.Context(), h.TitlesOnModerationCovers, newTitle.ID, requestBody.Cover); err != nil {
+	if err := insertTitleOnModerationCover(c.Request.Context(), h.TitlesCovers, newTitle.ID, claims.ID, requestBody.Cover); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -102,20 +103,19 @@ func (h handler) CreateTitle(c *gin.Context) {
 	}
 }
 
-func insertTitleOnModerationCover(ctx context.Context, collection *mongo.Collection, titleOnModerationID uint, coverFileHeader *multipart.FileHeader) (err error) {
-	var document struct {
-		TitleOnModerationID uint   `bson:"title_on_moderation_id"`
-		Cover               []byte `bson:"cover"`
-	}
-
-	document.TitleOnModerationID = titleOnModerationID
-	document.Cover, err = utils.ReadMultipartFile(coverFileHeader, 2<<20)
-
+func insertTitleOnModerationCover(ctx context.Context, collection *mongo.Collection, titleOnModerationID, userID uint, coverFileHeader *multipart.FileHeader) (err error) {
+	cover, err := utils.ReadMultipartFile(coverFileHeader, 2<<20)
 	if err != nil {
 		return err
 	}
 
-	if _, err = collection.InsertOne(ctx, document); err != nil {
+	titleCover := mongoModels.TitleOnModerationCover{
+		TitleOnModerationID: titleOnModerationID,
+		CreatorID:           userID,
+		Cover:               cover,
+	}
+
+	if _, err = collection.InsertOne(ctx, titleCover); err != nil {
 		return err
 	}
 

@@ -13,15 +13,11 @@ import (
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 )
-
-type ChapterPages struct {
-	ChapterOnModerationID uint     `bson:"chapter_on_moderation_id"`
-	Pages                 [][]byte `bson:"pages"`
-}
 
 func (h handler) CreateChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
@@ -119,12 +115,13 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	chapterPages := ChapterPages{
+	chapterPages := mongo.ChapterOnModerationPages{
 		ChapterOnModerationID: newChapter.ID,
+		CreatorID:             claims.ID,
 		Pages:                 pages,
 	}
 
-	if _, err := h.ChaptersOnModerationPages.InsertOne(c.Request.Context(), chapterPages); err != nil {
+	if _, err := h.ChaptersPages.InsertOne(c.Request.Context(), chapterPages); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return

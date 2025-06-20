@@ -125,12 +125,13 @@ type TitleOnModerationDTO struct {
 	Author   *string `json:"author,omitempty" form:"-"`
 	AuthorID *uint   `json:"authorId,omitempty" form:"authorId" binding:"required"`
 
-	GenresIDs []uint          `json:"-" form:"genresIds" binding:"required"`
-	Genres    *pq.StringArray `json:"genres,omitempty" form:"-" gorm:"type:TEXT[]"`
+	GenresIDs []uint         `json:"-" form:"genresIds" binding:"required"`
+	Genres    pq.StringArray `json:"genres,omitempty" form:"-" gorm:"type:TEXT[]"`
 
-	TagsIDs []uint `json:"-" form:"tagsIds" binding:"required"`
+	TagsIDs []uint         `json:"-" form:"tagsIds" binding:"required"`
+	Tags    pq.StringArray `json:"tags,omitempty" form:"-" gorm:"type:TEXT[]"`
 
-	Cover *multipart.FileHeader `json:"-" form:"cover" binding:"required"` // Ограничение выставить
+	Cover *multipart.FileHeader `json:"-" form:"cover" binding:"required" gorm:"-"` // Ограничение выставить
 
 	Existing   *string `json:"existing,omitempty" form:"-"`
 	ExistingID *uint   `json:"existingId,omitempty" form:"-"`

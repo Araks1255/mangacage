@@ -42,7 +42,7 @@ func GetCreateTitleScenarios(env testenv.Env) map[string]func(*testing.T) {
 
 func CreateTitleSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -82,7 +82,7 @@ func CreateTitleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -109,7 +109,7 @@ func CreateTitleSuccess(env testenv.Env) func(*testing.T) {
 
 func CreateTitleUnauthorized(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -128,7 +128,7 @@ func CreateTitleUnauthorized(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithoutName(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -167,7 +167,7 @@ func CreateTitleWithoutName(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -194,7 +194,7 @@ func CreateTitleWithoutName(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithoutAuthor(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -229,7 +229,7 @@ func CreateTitleWithoutAuthor(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -256,7 +256,7 @@ func CreateTitleWithoutAuthor(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithoutGenres(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -291,7 +291,7 @@ func CreateTitleWithoutGenres(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -318,7 +318,7 @@ func CreateTitleWithoutGenres(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithoutCover(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -353,7 +353,7 @@ func CreateTitleWithoutCover(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -380,7 +380,7 @@ func CreateTitleWithoutCover(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithTooLargeCover(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -417,7 +417,7 @@ func CreateTitleWithTooLargeCover(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -444,7 +444,7 @@ func CreateTitleWithTooLargeCover(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithInvalidAuthorId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -523,7 +523,7 @@ func CreateTitleWithInvalidAuthorId(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -550,7 +550,7 @@ func CreateTitleWithInvalidAuthorId(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithInvalidGenres(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -631,7 +631,7 @@ func CreateTitleWithInvalidGenres(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -658,7 +658,7 @@ func CreateTitleWithInvalidGenres(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithWrongAuthorAuthor(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -695,7 +695,7 @@ func CreateTitleWithWrongAuthorAuthor(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -722,7 +722,7 @@ func CreateTitleWithWrongAuthorAuthor(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithWrongGenres(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -759,7 +759,7 @@ func CreateTitleWithWrongGenres(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -786,7 +786,7 @@ func CreateTitleWithWrongGenres(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithTheSameNameAsTitle(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -836,7 +836,7 @@ func CreateTitleWithTheSameNameAsTitle(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -863,7 +863,7 @@ func CreateTitleWithTheSameNameAsTitle(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithTheSameNameAsTitleOnModerationOnModeration(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -912,7 +912,7 @@ func CreateTitleWithTheSameNameAsTitleOnModerationOnModeration(env testenv.Env) 
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -939,7 +939,7 @@ func CreateTitleWithTheSameNameAsTitleOnModerationOnModeration(env testenv.Env) 
 
 func CreateTitleWithWrongPublishingStatus(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -979,7 +979,7 @@ func CreateTitleWithWrongPublishingStatus(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -1006,7 +1006,7 @@ func CreateTitleWithWrongPublishingStatus(env testenv.Env) func(*testing.T) {
 
 func CreateTitleWithWrongType(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -1046,7 +1046,7 @@ func CreateTitleWithWrongType(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

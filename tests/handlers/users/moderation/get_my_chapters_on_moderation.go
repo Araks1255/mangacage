@@ -28,7 +28,7 @@ func GetGetMyChaptersOnModerationScenarios(env testenv.Env) map[string]func(*tes
 
 func GetMyChaptersOnModerationSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -106,7 +106,7 @@ func GetMyChaptersOnModerationSuccess(env testenv.Env) func(*testing.T) {
 
 func GetMyNewChaptersOnModerationSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -183,7 +183,7 @@ func GetMyNewChaptersOnModerationSuccess(env testenv.Env) func(*testing.T) {
 
 func GetMyEditedChaptersOnModerationSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {

@@ -42,7 +42,7 @@ func GetEditTitleScenarios(env testenv.Env) map[string]func(*testing.T) {
 
 func EditTitleSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 		if err != nil {
@@ -84,7 +84,7 @@ func EditTitleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -112,7 +112,7 @@ func EditTitleSuccess(env testenv.Env) func(*testing.T) {
 
 func EditTitleTwiceSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 		if err != nil {
@@ -142,7 +142,7 @@ func EditTitleTwiceSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить жанры")
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -203,7 +203,7 @@ func EditTitleTwiceSuccess(env testenv.Env) func(*testing.T) {
 
 func EditTitleByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -227,7 +227,7 @@ func EditTitleByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -270,7 +270,7 @@ func EditTitleWithoutEditableParams(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -312,7 +312,7 @@ func EditTitleWithInvalidTitleId(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -347,7 +347,7 @@ func EditTitleWithInvalidAuthorId(env testenv.Env) func(*testing.T) {
 
 		invalidAuthorID := "O_o"
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -395,7 +395,7 @@ func EditTitleWithInvalidGenresIds(env testenv.Env) func(*testing.T) {
 
 		invalidGenresIDs := []string{"c_c", "'-'"}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -444,7 +444,7 @@ func EditTitleWithTooLargeCover(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -486,7 +486,7 @@ func EditTitleWithTooLargeCover(env testenv.Env) func(*testing.T) {
 
 func EditTitleByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 		if err != nil {
@@ -498,7 +498,7 @@ func EditTitleByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*testin
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, titlesOnModerationCovers)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -555,7 +555,7 @@ func EditTitleByAddingTheSameNameAsTitle(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -616,7 +616,7 @@ func EditTitleByAddingTheSameNameAsTitleOnModeration(env testenv.Env) func(*test
 			t.Fatal("не удалось получить id тайтла на модерации")
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -660,7 +660,7 @@ func EditTitleWithWrongTitleId(env testenv.Env) func(*testing.T) {
 
 		titleID := 9223372036854775807
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -709,7 +709,7 @@ func EditTitleWithWrongAuthorId(env testenv.Env) func(*testing.T) {
 
 		authorID := 9223372036854775807
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -764,7 +764,7 @@ func EditTitleWithWrongGenresIds(env testenv.Env) func(*testing.T) {
 
 		genresIDs := []uint{9223372036854775807, 9223372036854775806}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -813,7 +813,7 @@ func EditTitleWithWrongType(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -860,7 +860,7 @@ func EditTitleWithWrongPublishingStatus(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))

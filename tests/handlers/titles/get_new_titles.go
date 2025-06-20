@@ -31,7 +31,7 @@ func GetNewTitlesSuccess(env testenv.Env) func(*testing.T) {
 			}
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/titles/new", h.GetNewTitles)
@@ -68,7 +68,7 @@ func GetNewTitlesSuccess(env testenv.Env) func(*testing.T) {
 
 func GetNewTitlesWithInvalidLimit(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/titles/new", h.GetNewTitles)

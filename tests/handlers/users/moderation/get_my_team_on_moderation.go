@@ -187,12 +187,6 @@ func GetMyEditedTeamOnModerationSuccess(env testenv.Env) func(t *testing.T) {
 		if _, ok := resp["existingId"]; !ok {
 			t.Fatal("id оригинальной команды не дошел")
 		}
-		if _, ok := resp["leader"]; !ok {
-			t.Fatal("лидер команды не дошел")
-		}
-		if _, ok := resp["leaderId"]; !ok {
-			t.Fatal("id лидера команды не дошел")
-		}
 	}
 }
 

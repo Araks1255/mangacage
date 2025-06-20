@@ -28,7 +28,7 @@ func GetGetMyTitleOnModerationCoverScenarios(env testenv.Env) map[string]func(*t
 
 func GetMyTitleOnModerationCoverSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -97,6 +97,8 @@ func GetMyTitleOnModerationCoverUnauthorized(env testenv.Env) func(*testing.T) {
 
 func GetOthersTitleOnModerationCover(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
+		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
+
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
 			t.Fatal(err)
@@ -112,7 +114,7 @@ func GetOthersTitleOnModerationCover(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := moderation.NewHandler(env.DB, nil, nil, nil, nil)
+		h := moderation.NewHandler(env.DB, titlesCovers, nil, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -139,7 +141,7 @@ func GetOthersTitleOnModerationCover(env testenv.Env) func(*testing.T) {
 
 func GetMyTitleOnModerationCoverWithoutCover(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -178,6 +180,8 @@ func GetMyTitleOnModerationCoverWithoutCover(env testenv.Env) func(*testing.T) {
 
 func GetMyTitleOnModerationCoverWithWrongId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
+		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
+
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
 			t.Fatal(err)
@@ -185,7 +189,7 @@ func GetMyTitleOnModerationCoverWithWrongId(env testenv.Env) func(*testing.T) {
 
 		titleOnModerationID := 9223372036854775807
 
-		h := moderation.NewHandler(env.DB, nil, nil, nil, nil)
+		h := moderation.NewHandler(env.DB, titlesCovers, nil, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

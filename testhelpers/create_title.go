@@ -6,6 +6,7 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -91,13 +92,11 @@ func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptio
 			return 0, errors.New("Передана обложка, но не передана коллекция")
 		}
 
-		var titleCover struct {
-			TitleID uint   `bson:"title_id"`
-			Cover   []byte `bson:"cover"`
+		titleCover := mongoModels.TitleCover{
+			TitleID:   title.ID,
+			CreatorID: creatorID,
+			Cover:     opts[0].Cover,
 		}
-
-		titleCover.TitleID = title.ID
-		titleCover.Cover = opts[0].Cover
 
 		if _, err := opts[0].Collection.InsertOne(context.Background(), titleCover); err != nil {
 			return 0, err

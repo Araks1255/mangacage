@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func GormMigrate(db *gorm.DB) error {
+func gormMigrate(db *gorm.DB) error {
 	db.Exec(
 		`CREATE TABLE users (
     		id BIGSERIAL PRIMARY KEY,

@@ -24,7 +24,7 @@ func GetCancelAppealForProfileChangesScenarios(env testenv.Env) map[string]func(
 
 func CancelAppealForProfileChangesSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		usersProfilePictures := env.MongoDB.Collection(mongodb.UsersOnModerationProfilePicturesCollection)
+		usersProfilePictures := env.MongoDB.Collection(mongodb.UsersProfilePicturesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {

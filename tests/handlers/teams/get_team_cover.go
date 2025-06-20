@@ -40,7 +40,7 @@ func GetTeamCoverSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := teams.NewHandler(env.DB, nil, teamsCovers)
+		h := teams.NewHandler(env.DB, teamsCovers)
 
 		r := gin.New()
 		r.GET("/teams/:id/cover", h.GetTeamCover)
@@ -67,7 +67,7 @@ func GetTeamCoverWithWrongTeamId(env testenv.Env) func(*testing.T) {
 
 		teamID := 9223372036854775807
 
-		h := teams.NewHandler(env.DB, nil, teamsCovers)
+		h := teams.NewHandler(env.DB, teamsCovers)
 
 		r := gin.New()
 		r.GET("/teams/:id/cover", h.GetTeamCover)
@@ -90,7 +90,7 @@ func GetTeamCoverWithInvalidTeamId(env testenv.Env) func(*testing.T) {
 
 		invalidTeamID := "8)"
 
-		h := teams.NewHandler(env.DB, nil, teamsCovers)
+		h := teams.NewHandler(env.DB, teamsCovers)
 
 		r := gin.New()
 		r.GET("/teams/:id/cover", h.GetTeamCover)

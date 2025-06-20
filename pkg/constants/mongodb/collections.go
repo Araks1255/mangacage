@@ -1,15 +1,11 @@
 package mongodb
 
 const (
-	TitlesCoversCollection             = "titles_covers"
-	TitlesOnModerationCoversCollection = "titles_on_moderation_covers"
+	TitlesCoversCollection = "titles_covers"
 
-	ChaptersPagesCollection             = "chapters_pages"
-	ChaptersOnModerationPagesCollection = "chapters_on_moderation_pages"
+	ChaptersPagesCollection = "chapters_pages"
 
-	TeamsCoversCollection             = "teams_covers"
-	TeamsOnModerationCoversCollection = "teams_on_moderation_covers"
+	TeamsCoversCollection = "teams_covers"
 
-	UsersProfilePicturesCollection             = "users_profile_pictures"
-	UsersOnModerationProfilePicturesCollection = "users_on_moderation_profile_pictures"
+	UsersProfilePicturesCollection = "users_profile_pictures"
 )

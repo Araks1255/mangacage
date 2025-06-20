@@ -10,21 +10,18 @@ import (
 )
 
 type handler struct {
-	DB                               *gorm.DB
-	UsersOnModerationProfilePictures *mongo.Collection
-	UsersProfilePictures             *mongo.Collection
-	NotificationsClient              pb.NotificationsClient
+	DB                   *gorm.DB
+	UsersProfilePictures *mongo.Collection
+	NotificationsClient  pb.NotificationsClient
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, secretKey string, r *gin.Engine) {
-	usersOnModerationProfilePictures := client.Database("mangacage").Collection(mongodb.UsersOnModerationProfilePicturesCollection)
 	usersProfilePictures := client.Database("mangacage").Collection(mongodb.UsersProfilePicturesCollection)
 
 	h := handler{
-		DB:                               db,
-		UsersOnModerationProfilePictures: usersOnModerationProfilePictures,
-		UsersProfilePictures:             usersProfilePictures,
-		NotificationsClient:              notificationsClient,
+		DB:                   db,
+		UsersProfilePictures: usersProfilePictures,
+		NotificationsClient:  notificationsClient,
 	}
 
 	me := r.Group("/api/users/me")
@@ -36,11 +33,10 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 	}
 }
 
-func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, usersProfilePictures, usersOnModerationProfilePictures *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, usersProfilePictures *mongo.Collection) handler {
 	return handler{
-		DB:                               db,
-		NotificationsClient:              notificationsClient,
-		UsersProfilePictures:             usersProfilePictures,
-		UsersOnModerationProfilePictures: usersOnModerationProfilePictures,
+		DB:                   db,
+		NotificationsClient:  notificationsClient,
+		UsersProfilePictures: usersProfilePictures,
 	}
 }

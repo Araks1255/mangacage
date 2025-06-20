@@ -32,7 +32,7 @@ func GetChapterSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/chapters/:id", h.GetChapter)
@@ -81,7 +81,7 @@ func GetChapterWithWrongId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		chapterID := 9223372036854775807
 
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/chapters/:id", h.GetChapter)
@@ -103,7 +103,7 @@ func GetChapterWithInvalidId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		chapterID := "^-^"
 
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/chapters/:id", h.GetChapter)

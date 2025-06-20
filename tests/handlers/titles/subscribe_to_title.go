@@ -34,7 +34,7 @@ func SubscribeToTitleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -61,7 +61,7 @@ func SubscribeToTitleSuccess(env testenv.Env) func(*testing.T) {
 
 func SubscribeToTitleUnauthorized(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -89,7 +89,7 @@ func SubscribeToTitleTwice(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -133,7 +133,7 @@ func SubscribeToTitleWithWrongId(env testenv.Env) func(*testing.T) {
 
 		titleID := 9223372036854775807
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -167,7 +167,7 @@ func SubscribeToTitleWithInvalidId(env testenv.Env) func(*testing.T) {
 
 		invalidTitleID := "@_@"
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

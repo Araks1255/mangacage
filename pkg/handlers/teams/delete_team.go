@@ -39,7 +39,7 @@ func (h handler) DeleteTeam(c *gin.Context) {
 	}
 
 	if check.TeamID == nil {
-		c.AbortWithStatusJSON(409, gin.H{"error": "ваша команда не найдена"}) // По бизнес логике такого быть не может, так-как до этого в middleware идёт проверка ролей пользователя: team_leader и ex_team_leader, и юзер без них до этого момента не дойдет, а если такие роли есть, то команды не быть не может. Но мало ли
+		c.AbortWithStatusJSON(409, gin.H{"error": "ваша команда не найдена"}) // По бизнес логике такого быть не может, так Fкак до этого в middleware идёт проверка ролей пользователя: team_leader и ex_team_leader, и юзер без них до этого момента не дойдет, а если такие роли есть, то команды не быть не может. Но мало ли
 		return
 	}
 
@@ -74,7 +74,7 @@ func (h handler) DeleteTeam(c *gin.Context) {
 	if check.TeamOnModerationID != nil {
 		filter = bson.M{"team_on_moderation_id": *check.TeamOnModerationID}
 
-		if _, err = h.TeamsOnModerationCovers.DeleteOne(c.Request.Context(), filter); err != nil {
+		if _, err = h.TeamsCovers.DeleteOne(c.Request.Context(), filter); err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return

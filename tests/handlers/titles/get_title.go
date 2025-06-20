@@ -52,7 +52,7 @@ func GetTitleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/titles/:id", h.GetTitle)
@@ -108,7 +108,7 @@ func GetTitleWithNoViewsSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/titles/:id", h.GetTitle)
@@ -172,7 +172,7 @@ func GetTitleWithNoViewsSuccess(env testenv.Env) func(*testing.T) {
 
 func GetTitleWithWrongId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		titleID := 9223372036854775807
 
@@ -193,7 +193,7 @@ func GetTitleWithWrongId(env testenv.Env) func(*testing.T) {
 
 func GetTitleWithInvalidId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		invalidTitleID := "Y_Y"
 

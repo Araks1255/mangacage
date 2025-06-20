@@ -35,7 +35,7 @@ func GetMyProfileSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := users.NewHandler(env.DB, nil, nil, nil)
+		h := users.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -85,7 +85,7 @@ func GetMyProfileSuccess(env testenv.Env) func(*testing.T) {
 
 func GetMyProfileUnauthorized(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := users.NewHandler(env.DB, nil, nil, nil)
+		h := users.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

@@ -34,7 +34,7 @@ func GetMyProfilePictureSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := users.NewHandler(env.DB, env.NotificationsClient, usersProfilePictures, nil)
+		h := users.NewHandler(env.DB, env.NotificationsClient, usersProfilePictures)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -71,7 +71,7 @@ func GetMyProfilePictureWithoutProfilePicture(env testenv.Env) func(*testing.T) 
 			t.Fatal(err)
 		}
 
-		h := users.NewHandler(env.DB, env.NotificationsClient, usersProfilePictures, nil)
+		h := users.NewHandler(env.DB, env.NotificationsClient, usersProfilePictures)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"mime/multipart"
 	"time"
 
 	"gorm.io/gorm"
@@ -68,7 +69,21 @@ type ChapterDTO struct {
 }
 
 type ChapterOnModerationDTO struct {
-	ChapterDTO
-	Existing   *string `json:"existing,omitempty"`
-	ExistingID *uint   `json:"existingId,omitempty"`
+	ID        uint       `json:"id"`
+	CreatedAt *time.Time `json:"createdAt,omitempty"`
+
+	Name          string  `json:"name" form:"name" binding:"required"`
+	Description   *string `json:"description,omitempty" form:"name"`
+	NumberOfPages *int    `json:"numberOfPages,omitempty" form:"-"`
+
+	Volume   *string `json:"volume,omitempty" form:"-"`
+	VolumeID *uint   `json:"volumeId,omitempty" form:"volumeId"`
+
+	Title   *string `json:"title,omitempty" form:"-"`
+	TitleID *uint   `json:"titleId,omitempty" form:"-"`
+
+	Existing   *string `json:"existing,omitempty" form:"-"`
+	ExistingID *uint   `json:"existingId,omitempty" form:"existingId"`
+
+	Pages []*multipart.FileHeader `json:"-" form:"pages" binding:"required"`
 }

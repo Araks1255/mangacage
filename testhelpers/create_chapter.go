@@ -6,6 +6,7 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
@@ -55,13 +56,11 @@ func CreateChapter(db *gorm.DB, volumeID, teamID, creatorID uint, opts ...Create
 		return 0, errors.New("Переданы страницы, но не передана коллекция")
 	}
 
-	var chapterPages struct {
-		ChapterID uint     `bson:"chapter_id"`
-		Pages     [][]byte `bson:"pages"`
+	chapterPages := mongoModels.ChapterPages{
+		ChapterID: chapter.ID,
+		CreatorID: creatorID,
+		Pages:     opts[0].Pages,
 	}
-
-	chapterPages.ChapterID = chapter.ID
-	chapterPages.Pages = opts[0].Pages
 
 	if _, err := opts[0].Collection.InsertOne(context.Background(), chapterPages); err != nil {
 		return 0, err

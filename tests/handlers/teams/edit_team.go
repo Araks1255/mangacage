@@ -31,7 +31,7 @@ func GetEditTeamScenarios(env testenv.Env) map[string]func(*testing.T) {
 
 func EditTeamSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
+		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 		if err != nil {
@@ -71,7 +71,7 @@ func EditTeamSuccess(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, teamsOnModerationCovers, nil)
+		h := teams.NewHandler(env.DB, teamsCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -98,7 +98,7 @@ func EditTeamSuccess(env testenv.Env) func(*testing.T) {
 
 func EditTeamByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -122,7 +122,7 @@ func EditTeamByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -162,7 +162,7 @@ func EditTeamWithNoEditableParameters(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -209,7 +209,7 @@ func EditTeamWithTooLargeCover(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -275,7 +275,7 @@ func EditTeamByAddingTheSameNameAsTeam(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -356,7 +356,7 @@ func EditTeamByAddingTheSameNameAsTeamOnModeration(env testenv.Env) func(*testin
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))

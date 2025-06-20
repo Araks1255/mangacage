@@ -28,14 +28,14 @@ func GetEditProfileScenarios(env testenv.Env) map[string]func(*testing.T) {
 
 func EditProfileSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		usersOnModerationProfilePictures := env.MongoDB.Collection(mongodb.UsersOnModerationProfilePicturesCollection)
+		usersProfilePictures := env.MongoDB.Collection(mongodb.UsersProfilePicturesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		h := users.NewHandler(env.DB, env.NotificationsClient, nil, usersOnModerationProfilePictures)
+		h := users.NewHandler(env.DB, env.NotificationsClient, usersProfilePictures)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -86,7 +86,7 @@ func EditProfileSuccess(env testenv.Env) func(*testing.T) {
 
 func EditProfileTwiceSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		usersOnModerationProfilePictures := env.MongoDB.Collection(mongodb.UsersOnModerationProfilePicturesCollection)
+		usersProfilePictures := env.MongoDB.Collection(mongodb.UsersProfilePicturesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -97,7 +97,7 @@ func EditProfileTwiceSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := users.NewHandler(env.DB, env.NotificationsClient, nil, usersOnModerationProfilePictures)
+		h := users.NewHandler(env.DB, env.NotificationsClient, usersProfilePictures)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -148,7 +148,7 @@ func EditProfileTwiceSuccess(env testenv.Env) func(*testing.T) {
 
 func EditProfileUnauthorized(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := users.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := users.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -172,7 +172,7 @@ func EditProfileWithoutEditableParams(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := users.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := users.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -213,7 +213,7 @@ func EditProfileWithTooLargeProfilePicture(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := users.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := users.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -273,7 +273,7 @@ func EditProfileByAddingTheSameNameAsUser(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить имя пользователя")
 		}
 
-		h := users.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := users.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -328,7 +328,7 @@ func EditProfileByAddingTheSameNameAsUserOnModeration(env testenv.Env) func(*tes
 			t.Fatal("не удалось получить имя пользователя")
 		}
 
-		h := users.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := users.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

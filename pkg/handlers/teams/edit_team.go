@@ -108,10 +108,10 @@ func (h handler) EditTeam(c *gin.Context) {
 		}
 
 		filter := bson.M{"team_on_moderation_id": editedTeam.ID}
-		update := bson.M{"$set": bson.M{"cover": cover}}
+		update := bson.M{"$set": bson.M{"cover": cover, "creator_id": claims.ID}}
 		opts := options.Update().SetUpsert(true)
 
-		if _, err := h.TeamsOnModerationCovers.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
+		if _, err := h.TeamsCovers.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return

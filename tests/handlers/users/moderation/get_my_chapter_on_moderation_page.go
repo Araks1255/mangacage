@@ -30,7 +30,7 @@ func GetGetMyChapterOnModerationPageScenarios(env testenv.Env) map[string]func(*
 
 func GetMyChapterOnModerationPageSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -100,6 +100,8 @@ func GetMyChapterOnModerationPageUnauthorized(env testenv.Env) func(*testing.T) 
 
 func GetMyEditedChapterOnModerationPage(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
+
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
 			t.Fatal(err)
@@ -112,7 +114,7 @@ func GetMyEditedChapterOnModerationPage(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := moderation.NewHandler(env.DB, nil, nil, nil, nil)
+		h := moderation.NewHandler(env.DB, nil, chaptersPages, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -139,7 +141,7 @@ func GetMyEditedChapterOnModerationPage(env testenv.Env) func(*testing.T) {
 
 func GetOthersChapterOnModerationPage(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -163,7 +165,7 @@ func GetOthersChapterOnModerationPage(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := moderation.NewHandler(env.DB, nil, nil, nil, nil)
+		h := moderation.NewHandler(env.DB, nil, chaptersPages, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -190,6 +192,8 @@ func GetOthersChapterOnModerationPage(env testenv.Env) func(*testing.T) {
 
 func GetMyChapterOnModerationPageWithWrongId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
+
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
 			t.Fatal(err)
@@ -197,7 +201,7 @@ func GetMyChapterOnModerationPageWithWrongId(env testenv.Env) func(*testing.T) {
 
 		chapterOnModerationID := 9223372036854775807
 
-		h := moderation.NewHandler(env.DB, nil, nil, nil, nil)
+		h := moderation.NewHandler(env.DB, nil, chaptersPages, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -224,7 +228,7 @@ func GetMyChapterOnModerationPageWithWrongId(env testenv.Env) func(*testing.T) {
 
 func GetMyChapterOnModerationPageWithWrongPage(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {

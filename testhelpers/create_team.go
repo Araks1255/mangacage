@@ -6,6 +6,7 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
@@ -56,13 +57,11 @@ func CreateTeam(db *gorm.DB, creatorID uint, opts ...CreateTeamOptions) (uint, e
 		return 0, errors.New("Передана обложка, но не передана коллекция")
 	}
 
-	var teamCover struct {
-		TeamID uint   `bson:"team_id"`
-		Cover  []byte `bson:"cover"`
+	teamCover := mongoModels.TeamCover{
+		TeamID:    team.ID,
+		CreatorID: creatorID,
+		Cover:     opts[0].Cover,
 	}
-
-	teamCover.TeamID = team.ID
-	teamCover.Cover = opts[0].Cover
 
 	if _, err := opts[0].Collection.InsertOne(context.Background(), teamCover); err != nil {
 		return 0, err

@@ -29,6 +29,8 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
+	ctx := context.Background()
+
 	dbUrl := viper.Get("DB_TEST_URL").(string)
 	mongoUrl := viper.Get("MONGO_URL").(string)
 	secretKey := viper.Get("SECRET_KEY").(string)
@@ -42,7 +44,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	defer mongoClient.Disconnect(context.Background())
+	defer mongoClient.Disconnect(ctx)
 
 	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -64,7 +66,7 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 
 	if *migrateFlag {
-		if err = migrations.GormMigrate(db); err != nil {
+		if err = migrations.Migrate(ctx, db, mongoDB); err != nil {
 			panic(err)
 		}
 	}
@@ -88,12 +90,8 @@ func cleanTestDB(db *gorm.DB, mongoDB *mongo.Database) {
 	ctx := context.Background()
 	coll := mongoDB.Collection
 
-	coll(mongodb.ChaptersOnModerationPagesCollection).DeleteMany(ctx, bson.M{})
 	coll(mongodb.ChaptersPagesCollection).DeleteMany(ctx, bson.M{})
 	coll(mongodb.TeamsCoversCollection).DeleteMany(ctx, bson.M{})
-	coll(mongodb.TeamsOnModerationCoversCollection).DeleteMany(ctx, bson.M{})
 	coll(mongodb.TitlesCoversCollection).DeleteMany(ctx, bson.M{})
-	coll(mongodb.TitlesOnModerationCoversCollection).DeleteMany(ctx, bson.M{})
-	coll(mongodb.UsersOnModerationProfilePicturesCollection).DeleteMany(ctx, bson.M{})
 	coll(mongodb.UsersProfilePicturesCollection).DeleteMany(ctx, bson.M{})
 }

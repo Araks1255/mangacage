@@ -24,7 +24,6 @@ func GetDeleteTeamScenarios(env testenv.Env) map[string]func(*testing.T) {
 func DeleteTeamSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
-		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
 
 		leaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 		if err != nil {
@@ -51,12 +50,12 @@ func DeleteTeamSuccess(env testenv.Env) func(*testing.T) {
 		}
 
 		if _, err := moderation.CreateTeamOnModeration(
-			env.DB, leaderID, moderation.CreateTeamOnModerationOptions{ExistingID: teamID, Cover: cover, Collection: teamsOnModerationCovers},
+			env.DB, leaderID, moderation.CreateTeamOnModerationOptions{ExistingID: teamID, Cover: cover, Collection: teamsCovers},
 		); err != nil {
 			t.Fatal(err)
 		}
 
-		h := teams.NewHandler(env.DB, teamsOnModerationCovers, teamsCovers)
+		h := teams.NewHandler(env.DB, teamsCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -82,7 +81,7 @@ func DeleteTeamSuccess(env testenv.Env) func(*testing.T) {
 
 func DeleteTeamByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -106,7 +105,7 @@ func DeleteTeamByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))

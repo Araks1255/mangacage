@@ -44,7 +44,7 @@ func GetVolumeChaptersSuccess(env testenv.Env) func(*testing.T) {
 			}
 		}
 
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/volume/:id/chapters", h.GetVolumeChapters)
@@ -83,7 +83,7 @@ func GetVolumeChaptersSuccess(env testenv.Env) func(*testing.T) {
 func GetVolumeChaptersWithInvalidVolumeId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		volumeID := "`~`"
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/volume/:id/chapters", h.GetVolumeChapters)
@@ -103,7 +103,7 @@ func GetVolumeChaptersWithInvalidVolumeId(env testenv.Env) func(*testing.T) {
 
 func GetVolumeChaptersWithInvalidLimit(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/volume/:id/chapters", h.GetVolumeChapters)
@@ -124,7 +124,7 @@ func GetVolumeChaptersWithWrongVolumeId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		volumeID := 9223372036854775807
 
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/volume/:id/chapters", h.GetVolumeChapters)

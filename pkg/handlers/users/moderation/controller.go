@@ -17,10 +17,10 @@ type handler struct {
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.Engine) {
-	titlesOnModerationCovers := client.Database("mangacage").Collection(mongodb.TitlesOnModerationCoversCollection)
-	chaptersOnModerationPages := client.Database("mangacage").Collection(mongodb.ChaptersOnModerationPagesCollection)
-	usersOnModerationProfilePictures := client.Database("mangacage").Collection(mongodb.UsersOnModerationProfilePicturesCollection)
-	teamsOnModerationCovers := client.Database("mangacage").Collection(mongodb.TeamsOnModerationCoversCollection)
+	titlesOnModerationCovers := client.Database("mangacage").Collection(mongodb.TitlesCoversCollection)
+	chaptersOnModerationPages := client.Database("mangacage").Collection(mongodb.ChaptersPagesCollection)
+	usersOnModerationProfilePictures := client.Database("mangacage").Collection(mongodb.UsersProfilePicturesCollection)
+	teamsOnModerationCovers := client.Database("mangacage").Collection(mongodb.TeamsCoversCollection)
 
 	h := handler{
 		DB:              db,
@@ -66,12 +66,12 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.
 	}
 }
 
-func NewHandler(db *gorm.DB, titlesOnModerationCovers, chaptersOnModerationPages, usersOnModerationProfilePictures, teamsOnModerationCovers *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, titlesCovers, chaptersPages, usersPictures, teamsCovers *mongo.Collection) handler {
 	return handler{
 		DB:              db,
-		TitlesCovers:    titlesOnModerationCovers,
-		ChaptersPages:   chaptersOnModerationPages,
-		ProfilePictures: usersOnModerationProfilePictures,
-		TeamsCovers:     teamsOnModerationCovers,
+		TitlesCovers:    titlesCovers,
+		ChaptersPages:   chaptersPages,
+		ProfilePictures: usersPictures,
+		TeamsCovers:     teamsCovers,
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -19,28 +20,9 @@ func (h handler) GetMyTitleOnModerationCover(c *gin.Context) {
 		return
 	}
 
-	var doesTitleOnModerationExist bool
+	var result mongoModels.TitleOnModerationCover
 
-	if err := h.DB.Raw(
-		"SELECT EXISTS(SELECT 1 FROM titles_on_moderation WHERE id = ? AND creator_id = ?)",
-		titleOnModerationID, claims.ID,
-	).Scan(&doesTitleOnModerationExist).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !doesTitleOnModerationExist {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди ваших тайтлов на модерации"})
-		return
-	}
-
-	var result struct {
-		TitleOnModerationID uint   `bson:"title_on_moderation"`
-		Cover               []byte `bson:"cover"`
-	}
-
-	filter := bson.M{"title_on_moderation_id": titleOnModerationID}
+	filter := bson.M{"title_on_moderation_id": titleOnModerationID, "creator_id": claims.ID}
 
 	if err := h.TitlesCovers.FindOne(c.Request.Context(), filter).Decode(&result); err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -49,11 +31,6 @@ func (h handler) GetMyTitleOnModerationCover(c *gin.Context) {
 		}
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(result.Cover) == 0 {
-		c.AbortWithStatusJSON(500, gin.H{"error": "произошла ошибка при получении обложки тайтла на модерации"})
 		return
 	}
 

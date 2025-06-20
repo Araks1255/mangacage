@@ -25,7 +25,7 @@ func GetCancelAppealForTeamModerationScenarios(env testenv.Env) map[string]func(
 
 func CancelAppealForNewTeamModerationSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		teamsCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
+		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -71,7 +71,7 @@ func CancelAppealForNewTeamModerationSuccess(env testenv.Env) func(*testing.T) {
 
 func CancelAppealForEditedTeamModerationSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		teamsCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
+		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -122,7 +122,7 @@ func CancelAppealForEditedTeamModerationSuccess(env testenv.Env) func(*testing.T
 
 func CancelOthersAppealForTeamModeration(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		teamsCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
+		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {

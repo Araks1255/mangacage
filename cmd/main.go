@@ -30,16 +30,17 @@ func main() {
 	viper.SetConfigFile("./pkg/common/envs/.env")
 	viper.ReadInConfig()
 
+	ctx := context.Background()
+
 	secretKey := viper.Get("SECRET_KEY").(string)
 	dbUrl := viper.Get("DB_URL").(string)
 	mongoUrl := viper.Get("MONGO_URL").(string)
 
 	mongoClient, err := db.MongoInit(mongoUrl)
 	if err != nil {
-		mongoClient.Disconnect(context.TODO())
 		panic(err)
 	}
-	defer mongoClient.Disconnect(context.TODO())
+	defer mongoClient.Disconnect(ctx)
 
 	db, err := db.Init(dbUrl)
 	if err != nil {
@@ -60,7 +61,7 @@ func main() {
 	flag.Parse()
 
 	if *migrateFlag {
-		if err := migrations.GormMigrate(db); err != nil {
+		if err := migrations.Migrate(ctx, db, mongoClient.Database("mangacage")); err != nil {
 			panic(err)
 		}
 	}

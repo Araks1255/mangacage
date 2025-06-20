@@ -45,7 +45,7 @@ func GetTitleCoverSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, titlesCovers, nil)
+		h := titles.NewHandler(env.DB, nil, titlesCovers)
 
 		r := gin.New()
 		r.GET("/titles/:id/cover", h.GetTitleCover)
@@ -70,7 +70,7 @@ func GetTitleCoverWithWrongId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
-		h := titles.NewHandler(env.DB, nil, titlesCovers, nil)
+		h := titles.NewHandler(env.DB, nil, titlesCovers)
 
 		titleID := 9223372036854775807
 
@@ -91,7 +91,7 @@ func GetTitleCoverWithWrongId(env testenv.Env) func(*testing.T) {
 
 func GetTitleCoverWithInvalidId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		invalidTitleID := "::_::"
 

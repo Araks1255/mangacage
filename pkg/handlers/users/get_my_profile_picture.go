@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -15,10 +16,7 @@ func (h handler) GetMyProfilePicture(c *gin.Context) {
 
 	filter := bson.M{"user_id": claims.ID}
 
-	var result struct {
-		UserID         uint   `bson:"user_id"`
-		ProfilePicture []byte `bson:"profile_picture"`
-	}
+	var result mongoModels.UserProfilePicture
 
 	err := h.UsersProfilePictures.FindOne(c.Request.Context(), filter).Decode(&result)
 	if err != nil {

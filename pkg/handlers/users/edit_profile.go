@@ -94,7 +94,7 @@ func (h handler) EditProfile(c *gin.Context) {
 		update := bson.M{"$set": bson.M{"profile_picture": profilePicture}}
 		opts := options.Update().SetUpsert(true)
 
-		if _, err = h.UsersOnModerationProfilePictures.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
+		if _, err = h.UsersProfilePictures.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return

@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
@@ -44,13 +45,11 @@ func CreateTeamOnModeration(db *gorm.DB, userID uint, opts ...CreateTeamOnModera
 			return 0, errors.New("передана обложка, но не передана коллекция")
 		}
 
-		var teamCover struct {
-			TeamOnModerationID uint   `bson:"team_on_moderation_id"`
-			Cover              []byte `bson:"cover"`
+		teamCover := mongoModels.TeamOnModerationCover{
+			TeamOnModerationID: team.ID,
+			CreatorID:          userID,
+			Cover:              opts[0].Cover,
 		}
-
-		teamCover.TeamOnModerationID = team.ID
-		teamCover.Cover = opts[0].Cover
 
 		if _, err := opts[0].Collection.InsertOne(context.Background(), teamCover); err != nil {
 			return 0, err

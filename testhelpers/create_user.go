@@ -6,6 +6,7 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -63,13 +64,11 @@ func CreateUser(db *gorm.DB, opts ...CreateUserOptions) (uint, error) {
 			return 0, errors.New("передана аватарка, но не передана коллекция для вставки")
 		}
 
-		var userProfilePicture struct {
-			UserID         uint   `bson:"user_id"`
-			ProfilePicture []byte `bson:"profile_picture"`
+		userProfilePicture := mongoModels.UserProfilePicture{
+			UserID: user.ID,
+			CreatorID: user.ID,
+			ProfilePicture: opts[0].ProfilePicture,
 		}
-
-		userProfilePicture.UserID = user.ID
-		userProfilePicture.ProfilePicture = opts[0].ProfilePicture
 
 		if _, err := opts[0].Collection.InsertOne(context.Background(), userProfilePicture); err != nil {
 			return 0, err

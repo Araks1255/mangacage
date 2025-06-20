@@ -25,7 +25,7 @@ func GetCancelAppealForTitleModerationScenarios(env testenv.Env) map[string]func
 
 func CancelAppealForNewTitleModerationSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -71,7 +71,7 @@ func CancelAppealForNewTitleModerationSuccess(env testenv.Env) func(*testing.T) 
 
 func CancelAppealForEditedTitleModerationSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -123,7 +123,7 @@ func CancelAppealForEditedTitleModerationSuccess(env testenv.Env) func(*testing.
 
 func CancelOthersAppealForTitleModeration(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		titlesCovers := env.MongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
+		titlesCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {

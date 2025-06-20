@@ -55,7 +55,7 @@ func GetMostPopularTitlesSuccess(env testenv.Env) func(*testing.T) {
 			}
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/titles/most-popular", h.GetMostPopularTitles)
@@ -113,7 +113,7 @@ func GetMostPopularTitlesSuccess(env testenv.Env) func(*testing.T) {
 
 func GetMostPopularTitlesWithInvalidLimit(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/titles/most-popular", h.GetMostPopularTitles)

@@ -43,7 +43,7 @@ func QuitTranslatingTitleSuccess(env testenv.Env) func(*testing.T) {
 			}
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -80,7 +80,7 @@ func QuitTranslatingTitleByTheOnlyOneTeamSuccess(env testenv.Env) func(*testing.
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -126,7 +126,7 @@ func QuitTranslatingTitleThatIsNotTranslating(env testenv.Env) func(*testing.T) 
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil, nil)
+		h := titles.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))

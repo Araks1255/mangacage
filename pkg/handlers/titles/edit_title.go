@@ -122,7 +122,7 @@ func (h handler) EditTitle(c *gin.Context) {
 
 	{
 		if requestBody.Cover != nil {
-			if err := upsertTitleOnModerationCover(c.Request.Context(), h.TitlesOnModerationCovers, requestBody.Cover, editedTitle.ID); err != nil {
+			if err := upsertTitleOnModerationCover(c.Request.Context(), h.TitlesCovers, requestBody.Cover, editedTitle.ID, claims.ID); err != nil {
 				log.Println(err)
 				c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 				return
@@ -161,14 +161,14 @@ func mapEditTitleParamsToTitleOnModeration(userID uint, body *models.TitleOnMode
 	return &titleOnModeration, 0, nil
 }
 
-func upsertTitleOnModerationCover(ctx context.Context, collection *mongo.Collection, coverFileHeader *multipart.FileHeader, titleOnModerationID uint) error {
+func upsertTitleOnModerationCover(ctx context.Context, collection *mongo.Collection, coverFileHeader *multipart.FileHeader, titleOnModerationID, userID uint) error {
 	cover, err := utils.ReadMultipartFile(coverFileHeader, 2<<20)
 	if err != nil {
 		return err
 	}
 
 	filter := bson.M{"title_on_moderation_id": titleOnModerationID}
-	update := bson.M{"$set": bson.M{"cover": cover}}
+	update := bson.M{"$set": bson.M{"cover": cover, "creator_id": userID}}
 	opts := options.Update().SetUpsert(true)
 
 	if _, err := collection.UpdateOne(ctx, filter, update, opts); err != nil {

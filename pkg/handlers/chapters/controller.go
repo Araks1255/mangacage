@@ -9,21 +9,18 @@ import (
 )
 
 type handler struct {
-	DB                        *gorm.DB
-	ChaptersOnModerationPages *mongo.Collection
-	ChaptersPages             *mongo.Collection
-	NotificationsClient       pb.NotificationsClient
+	DB                  *gorm.DB
+	ChaptersPages       *mongo.Collection
+	NotificationsClient pb.NotificationsClient
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, secretKey string, r *gin.Engine) {
-	chaptersOnModerationPagesCollection := client.Database("mangacage").Collection("chapters_on_moderation_pages")
 	chapterPagesCollection := client.Database("mangacage").Collection("chapters_pages")
 
 	h := handler{
-		DB:                        db,
-		ChaptersOnModerationPages: chaptersOnModerationPagesCollection,
-		ChaptersPages:             chapterPagesCollection,
-		NotificationsClient:       notificationsClient,
+		DB:                  db,
+		ChaptersPages:       chapterPagesCollection,
+		NotificationsClient: notificationsClient,
 	}
 
 	api := r.Group("/api")
@@ -63,11 +60,10 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 	}
 }
 
-func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, chaptersOnModerationPages, chaptersPages *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, chaptersPages *mongo.Collection) handler {
 	return handler{
-		DB:                        db,
-		ChaptersOnModerationPages: chaptersOnModerationPages,
-		ChaptersPages:             chaptersPages,
-		NotificationsClient:       notificationsClient,
+		DB:                  db,
+		ChaptersPages:       chaptersPages,
+		NotificationsClient: notificationsClient,
 	}
 }

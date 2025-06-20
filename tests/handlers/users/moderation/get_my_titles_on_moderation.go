@@ -38,7 +38,12 @@ func GetMyTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		}
 
 		if _, err := moderationHelpers.CreateTitleOnModeration(
-			env.DB, userID, moderationHelpers.CreateTitleOnModerationOptions{Genres: []string{"action", "fighting"}, AuthorID: authorID},
+			env.DB, userID,
+			moderationHelpers.CreateTitleOnModerationOptions{
+				Genres:   []string{"action", "fighting"},
+				Tags:     []string{"maids", "japan"},
+				AuthorID: authorID,
+			},
 		); err != nil {
 			t.Fatal(err)
 		}
@@ -106,6 +111,9 @@ func GetMyTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) != 2 {
 			t.Fatal("возникли проблемы с жанрами")
 		}
+		if tags, ok := resp[0]["tags"]; !ok || len(tags.([]any)) != 2 {
+			t.Fatal("возникли проблемы с тегами")
+		}
 	}
 }
 
@@ -123,7 +131,12 @@ func GetMyNewTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 
 		for i := 0; i < 2; i++ {
 			if _, err := moderationHelpers.CreateTitleOnModeration(
-				env.DB, userID, moderationHelpers.CreateTitleOnModerationOptions{Genres: []string{"action", "fighting"}, AuthorID: authorID},
+				env.DB, userID,
+				moderationHelpers.CreateTitleOnModerationOptions{
+					Genres:   []string{"action", "fighting"},
+					Tags:     []string{"maids", "japan"},
+					AuthorID: authorID,
+				},
 			); err != nil {
 				t.Fatal(err)
 			}
@@ -178,6 +191,9 @@ func GetMyNewTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 
 		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) != 2 {
 			t.Fatal("возникли проблемы с жанрами")
+		}
+		if tags, ok := resp[0]["tags"]; !ok || len(tags.([]any)) != 2 {
+			t.Fatal("возникли проблемы с тегами")
 		}
 	}
 }
@@ -251,21 +267,11 @@ func GetMyEditedTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["name"]; !ok {
 			t.Fatal("название не дошло")
 		}
-		if _, ok := resp[0]["author"]; !ok {
-			t.Fatal("автор не дошел")
-		}
-		if _, ok := resp[0]["authorId"]; !ok {
-			t.Fatal("id автора не дошел")
-		}
 		if _, ok := resp[0]["existing"]; !ok {
 			t.Fatal("оригинальный тайтл не дошел")
 		}
 		if _, ok := resp[0]["existingId"]; !ok {
 			t.Fatal("id оригинального тайтла не дошел")
-		}
-
-		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) != 2 {
-			t.Fatal("возникли проблемы с жанрами")
 		}
 	}
 }

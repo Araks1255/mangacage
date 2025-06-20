@@ -8,6 +8,7 @@ import (
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/gin-gonic/gin"
@@ -98,20 +99,20 @@ func (h handler) CreateTeam(c *gin.Context) {
 		return
 	}
 
-	var teamCover struct {
-		TeamOnModerationID uint   `bson:"team_on_moderation_id"`
-		Cover              []byte `bson:"cover"`
-	}
-
-	teamCover.TeamOnModerationID = newTeam.ID
-	teamCover.Cover, err = utils.ReadMultipartFile(coverFileHeader, 2<<20)
+	cover, err := utils.ReadMultipartFile(coverFileHeader, 2<<20)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if _, err := h.TeamsOnModerationCovers.InsertOne(c.Request.Context(), teamCover); err != nil {
+	teamCover := mongo.TeamOnModerationCover{
+		TeamOnModerationID: newTeam.ID,
+		CreatorID:          claims.ID,
+		Cover:              cover,
+	}
+
+	if _, err := h.TeamsCovers.InsertOne(c.Request.Context(), teamCover); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return

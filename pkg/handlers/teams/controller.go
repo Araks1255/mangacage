@@ -8,19 +8,16 @@ import (
 )
 
 type handler struct {
-	DB                      *gorm.DB
-	TeamsOnModerationCovers *mongo.Collection
-	TeamsCovers             *mongo.Collection
+	DB          *gorm.DB
+	TeamsCovers *mongo.Collection
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.Engine) {
-	teamsOnModerationCoversCollection := client.Database("mangacage").Collection("teams_on_moderation_covers")
 	teamsCoversCollection := client.Database("mangacage").Collection("teams_covers")
 
 	h := handler{
-		DB:                      db,
-		TeamsOnModerationCovers: teamsOnModerationCoversCollection,
-		TeamsCovers:             teamsCoversCollection,
+		DB:          db,
+		TeamsCovers: teamsCoversCollection,
 	}
 
 	rolesRequired := []string{"team_leader"}
@@ -45,10 +42,9 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.
 	}
 }
 
-func NewHandler(db *gorm.DB, teamsOnModerationCovers, teamsCovers *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, teamsCovers *mongo.Collection) handler {
 	return handler{
-		DB:                      db,
-		TeamsOnModerationCovers: teamsOnModerationCovers,
-		TeamsCovers:             teamsCovers,
+		DB:          db,
+		TeamsCovers: teamsCovers,
 	}
 }

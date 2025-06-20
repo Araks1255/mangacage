@@ -7,6 +7,7 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
@@ -52,13 +53,11 @@ func CreateChapterOnModeration(db *gorm.DB, volumeID, teamID, userID uint, opts 
 			return 0, errors.New("переданы страницы, но не передана коллекция")
 		}
 
-		var chapterPages struct {
-			ChapterOnModerationID uint     `bson:"chapter_on_moderation_id"`
-			Pages                 [][]byte `bson:"pages"`
+		chapterPages := mongoModels.ChapterOnModerationPages{
+			ChapterOnModerationID: chapter.ID,
+			CreatorID:             userID,
+			Pages:                 opts[0].Pages,
 		}
-
-		chapterPages.ChapterOnModerationID = chapter.ID
-		chapterPages.Pages = opts[0].Pages
 
 		if _, err := opts[0].Collection.InsertOne(context.Background(), chapterPages); err != nil {
 			return 0, err

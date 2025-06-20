@@ -52,7 +52,7 @@ func GetChapterPageSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := chapters.NewHandler(env.DB, nil, nil, chaptersPages)
+		h := chapters.NewHandler(env.DB, nil, chaptersPages)
 
 		r := gin.New()
 		r.GET("/chapters/:id/page/:page", h.GetChapterPage)
@@ -80,7 +80,7 @@ func GetChapterPageWithWrongId(env testenv.Env) func(*testing.T) {
 
 		wrongChapterID := 9223372036854775807
 
-		h := chapters.NewHandler(env.DB, nil, nil, chaptersPages)
+		h := chapters.NewHandler(env.DB, nil, chaptersPages)
 
 		r := gin.New()
 		r.GET("/chapters/:id/page/:page", h.GetChapterPage)
@@ -100,7 +100,7 @@ func GetChapterPageWithWrongId(env testenv.Env) func(*testing.T) {
 
 func GetChapterPageWithInvalidId(env testenv.Env) func(t *testing.T) {
 	return func(t *testing.T) {
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		invalidChapterID := "o_O"
 
@@ -122,7 +122,7 @@ func GetChapterPageWithInvalidId(env testenv.Env) func(t *testing.T) {
 
 func GetChapterPageWithWrongPage(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		page := 9223372036854775807
 
@@ -144,7 +144,7 @@ func GetChapterPageWithWrongPage(env testenv.Env) func(*testing.T) {
 
 func GetChapterPageWithInvalidPage(env testenv.Env) func(t *testing.T) {
 	return func(t *testing.T) {
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		invalidPage := ":-)"
 

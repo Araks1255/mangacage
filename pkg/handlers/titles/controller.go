@@ -11,10 +11,9 @@ import (
 )
 
 type handler struct {
-	DB                       *gorm.DB
-	TitlesCovers             *mongo.Collection
-	TitlesOnModerationCovers *mongo.Collection
-	NotificationsClient      pb.NotificationsClient
+	DB                  *gorm.DB
+	TitlesCovers        *mongo.Collection
+	NotificationsClient pb.NotificationsClient
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, r *gin.Engine) {
@@ -26,13 +25,11 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 	mongoDB := client.Database("mangacage")
 
 	titlesCoversCollection := mongoDB.Collection(mongodb.TitlesCoversCollection)
-	titlesOnModerationCovers := mongoDB.Collection(mongodb.TitlesOnModerationCoversCollection)
 
 	h := handler{
-		DB:                       db,
-		TitlesCovers:             titlesCoversCollection,
-		TitlesOnModerationCovers: titlesOnModerationCovers,
-		NotificationsClient:      notificationsClient,
+		DB:                  db,
+		TitlesCovers:        titlesCoversCollection,
+		NotificationsClient: notificationsClient,
 	}
 
 	titles := r.Group("/api/titles")
@@ -53,7 +50,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 			{
 				titlesForTeamLeaders.PATCH("/translate", h.TranslateTitle)
 				titlesForTeamLeaders.DELETE("/quit-translating", h.QuitTranslatingTitle)
-				titlesForTeamLeaders.DELETE("/", h.DeleteTitle)
+				// titlesForTeamLeaders.DELETE("/", h.DeleteTitle)
 			}
 
 			titlesForExTeamLeaders := titlesAuth.Group("/:id")
@@ -75,11 +72,10 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 	}
 }
 
-func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, titlesCovers, titlesOnModerationCovers *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, titlesCovers *mongo.Collection) handler {
 	return handler{
-		DB:                       db,
-		TitlesCovers:             titlesCovers,
-		TitlesOnModerationCovers: titlesOnModerationCovers,
-		NotificationsClient:      notificationsClient,
+		DB:                  db,
+		TitlesCovers:        titlesCovers,
+		NotificationsClient: notificationsClient,
 	}
 }

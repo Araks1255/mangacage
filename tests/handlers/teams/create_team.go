@@ -33,7 +33,7 @@ func GetCreateTeamScenarios(env testenv.Env) map[string]func(*testing.T) {
 
 func CreateTeamSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
+		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -64,7 +64,7 @@ func CreateTeamSuccess(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, teamsOnModerationCovers, nil)
+		h := teams.NewHandler(env.DB, teamsOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -91,7 +91,7 @@ func CreateTeamSuccess(env testenv.Env) func(*testing.T) {
 
 func CreateTeamUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -148,7 +148,7 @@ func CreateChapterByUserThatAlreadyInTeam(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -208,7 +208,7 @@ func CreateTeamByUserThatAlredyHasTeamOnModeration(env testenv.Env) func(*testin
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -280,7 +280,7 @@ func CreateTeamWithTheSameNameAsTeamOnModeration(env testenv.Env) func(*testing.
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -347,7 +347,7 @@ func CreateTeamWithTheSameNameAsTeam(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil, nil)
+		h := teams.NewHandler(env.DB, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -374,7 +374,7 @@ func CreateTeamWithTheSameNameAsTeam(env testenv.Env) func(*testing.T) {
 
 func CreateTeamWithoutName(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
+		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -402,7 +402,7 @@ func CreateTeamWithoutName(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, teamsOnModerationCovers, nil)
+		h := teams.NewHandler(env.DB, teamsOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -429,7 +429,7 @@ func CreateTeamWithoutName(env testenv.Env) func(*testing.T) {
 
 func CreateTeamWithoutCover(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
+		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -448,7 +448,7 @@ func CreateTeamWithoutCover(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, teamsOnModerationCovers, nil)
+		h := teams.NewHandler(env.DB, teamsOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -475,7 +475,7 @@ func CreateTeamWithoutCover(env testenv.Env) func(*testing.T) {
 
 func CreateTeamWithTooLargeCover(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsOnModerationCoversCollection)
+		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -503,7 +503,7 @@ func CreateTeamWithTooLargeCover(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, teamsOnModerationCovers, nil)
+		h := teams.NewHandler(env.DB, teamsOnModerationCovers)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -51,15 +52,16 @@ func CreateUserOnModeration(db *gorm.DB, opts ...CreateUserOnModerationOptions) 
 			return 0, errors.New("передана аватарка, но не передана коллекция")
 		}
 
-		var userProfilePicture struct {
-			UserOnModerationID uint   `bson:"user_on_moderation_id"`
-			ProfilePicture     []byte `bson:"profile_picture"`
+		userOnModerationProfilePicture := mongoModels.UserOnModerationProfilePicture{
+			UserOnModerationID: user.ID,
+			ProfilePicture: opts[0].ProfilePicture,
 		}
 
-		userProfilePicture.UserOnModerationID = user.ID
-		userProfilePicture.ProfilePicture = opts[0].ProfilePicture
+		if user.ExistingID != nil {
+			userOnModerationProfilePicture.CreatorID = *user.ExistingID
+		}
 
-		if _, err := opts[0].Collection.InsertOne(context.Background(), userProfilePicture); err != nil {
+		if _, err := opts[0].Collection.InsertOne(context.Background(), userOnModerationProfilePicture); err != nil {
 			return 0, err
 		}
 	}

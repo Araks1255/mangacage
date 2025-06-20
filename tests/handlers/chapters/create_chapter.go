@@ -35,7 +35,7 @@ func GetCreateChapterScenarios(env testenv.Env) map[string]func(t *testing.T) {
 
 func CreateChapterSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersOnModerationPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 		if err != nil {
@@ -71,7 +71,7 @@ func CreateChapterSuccess(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersOnModerationPages, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersPages)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -99,7 +99,7 @@ func CreateChapterSuccess(env testenv.Env) func(*testing.T) {
 
 func CreateChapterByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -131,7 +131,7 @@ func CreateChapterByNonTeamLeader(env testenv.Env) func(*testing.T) {
 		writer := multipart.NewWriter(bytes.NewBuffer([]byte{}))
 		writer.Close()
 
-		h := chapters.NewHandler(env.DB, nil, nil, nil)
+		h := chapters.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -193,7 +193,7 @@ func CreateChapterByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*te
 
 		writer.Close()
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -221,7 +221,7 @@ func CreateChapterByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*te
 
 func CreateChapterWithTheSameNameAsChapterOnModeration(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersOnModerationPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 		if err != nil {
@@ -259,7 +259,7 @@ func CreateChapterWithTheSameNameAsChapterOnModeration(env testenv.Env) func(*te
 
 		body2 := body
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersOnModerationPages, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersPages)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -298,9 +298,9 @@ func CreateChapterWithTheSameNameAsChapterOnModeration(env testenv.Env) func(*te
 
 func CreateChapterWithTheSameNameAsChapter(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersOnModerationPages := env.MongoDB.Collection(mongodb.ChaptersOnModerationPagesCollection)
+		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersOnModerationPages, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersPages)
 
 		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
 		if err != nil {
@@ -423,7 +423,7 @@ func CreateChapterWithWrongVolumeID(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -461,7 +461,7 @@ func CreateChapterWithInvalidVolumeID(env testenv.Env) func(*testing.T) {
 		writer := multipart.NewWriter(bytes.NewBuffer([]byte{}))
 		writer.Close()
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -496,7 +496,7 @@ func CreateChapterWithWrongContentType(env testenv.Env) func(*testing.T) {
 
 		volumeID := 1
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -552,7 +552,7 @@ func CreateChapterWithoutName(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
@@ -599,7 +599,7 @@ func CreateChapterWithoutPages(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))

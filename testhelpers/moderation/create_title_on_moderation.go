@@ -6,6 +6,7 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -16,6 +17,7 @@ type CreateTitleOnModerationOptions struct {
 	ExistingID uint
 	AuthorID   uint
 	Genres     []string
+	Tags       []string
 	Cover      []byte
 	Collection *mongo.Collection
 }
@@ -69,18 +71,28 @@ func CreateTitleOnModeration(db *gorm.DB, userID uint, opts ...CreateTitleOnMode
 
 	}
 
+	if opts[0].Tags != nil {
+		if err := tx.Exec(
+			`INSERT INTO title_on_moderation_tags (title_on_moderation_id, tag_id)
+			SELECT ?, tags.id
+			FROM tags
+			JOIN UNNEST(?::TEXT[]) AS tag_name ON tags.name = tag_name`,
+			title.ID, pq.Array(opts[0].Tags),
+		).Error; err != nil {
+			return 0, err
+		}
+	}
+
 	if opts[0].Cover != nil {
 		if opts[0].Collection == nil {
 			return 0, errors.New("передана обложка, но не передана коллекция")
 		}
 
-		var titleCover struct {
-			TitleOnModerationID uint   `bson:"title_on_moderation_id"`
-			Cover               []byte `bson:"cover"`
+		titleCover := mongoModels.TitleOnModerationCover{
+			TitleOnModerationID: title.ID,
+			CreatorID:           userID,
+			Cover:               opts[0].Cover,
 		}
-
-		titleCover.TitleOnModerationID = title.ID
-		titleCover.Cover = opts[0].Cover
 
 		if _, err := opts[0].Collection.InsertOne(context.Background(), titleCover); err != nil {
 			return 0, err
