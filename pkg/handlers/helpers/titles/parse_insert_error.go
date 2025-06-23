@@ -21,7 +21,7 @@ func ParseTitleOnModerationInsertError(err error) (code int, formatedErr error) 
 		return 409, errors.New("тайтл с таким оригинальным названием уже ожидает модерации")
 	}
 
-	if dbErrors.IsUniqueViolation(err, constraints.UniTitlesOnModerationName) {
+	if dbErrors.IsUniqueViolation(err, constraints.UniqTitlesOnModerationName) {
 		return 409, errors.New("тайтл с таким названием уже ожидает модерации")
 	}
 

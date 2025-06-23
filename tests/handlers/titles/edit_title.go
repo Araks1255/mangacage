@@ -78,7 +78,7 @@ func EditTitleSuccess(env testenv.Env) func(*testing.T) {
 		description := "newDescription"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, nil, nil, nil, nil, &description, &authorID, genresIDs, tagsIDs, cover,
+			&name, &name, &name, nil, nil, nil, nil, &description, &authorID, nil, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -264,7 +264,7 @@ func EditTitleWithoutEditableParams(env testenv.Env) func(*testing.T) {
 		}
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -306,7 +306,7 @@ func EditTitleWithInvalidTitleId(env testenv.Env) func(*testing.T) {
 		invalidTitleID := "o_o"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		)
 		if err != nil {
 			t.Fatal(err)

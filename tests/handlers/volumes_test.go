@@ -22,16 +22,16 @@ func TestEditVolume(t *testing.T) {
 	}
 }
 
-func TestGetTitleVolumes(t *testing.T) {
-	scenarios := volumes.GetGetTitleVolumesScenarios(env)
+func TestGetVolume(t *testing.T) {
+	scenarios := volumes.GetGetVolumeScenarios(env)
 
 	for name, scenario := range scenarios {
 		t.Run(name, scenario)
 	}
 }
 
-func TestGetVolume(t *testing.T) {
-	scenarios := volumes.GetGetVolumeScenarios(env)
+func TestGetVolumes(t *testing.T) {
+	scenarios := volumes.GetGetVolumesScenarios(env)
 
 	for name, scenario := range scenarios {
 		t.Run(name, scenario)

@@ -89,6 +89,9 @@ func gormMigrate(db *gorm.DB) error {
 		&models.ChapterOnModeration{},
 		&models.UserOnModeration{},
 		&models.TeamOnModeration{},
+		&models.GenreOnModeration{},
+		&models.TagOnModeration{},
+		&models.AuthorOnModeration{},
 	); err != nil {
 		return err
 	}

@@ -19,8 +19,7 @@ func (h handler) GetVolume(c *gin.Context) {
 
 	if err := h.DB.Raw(
 		`SELECT
-			v.id, v.created_at, v.name, v.description,
-			t.name AS title, t.id AS title_id
+			v.*, t.name AS title
 		FROM
 			volumes AS v
 			INNER JOIN titles AS t ON t.id = v.title_id

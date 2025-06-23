@@ -10,9 +10,11 @@ import (
 
 type Chapter struct {
 	gorm.Model
+
 	Name          string
 	Description   string
 	NumberOfPages int
+	Views         uint
 
 	VolumeID uint    `gorm:"not null"`
 	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id" json:"-"`
@@ -29,6 +31,7 @@ type Chapter struct {
 
 type ChapterOnModeration struct {
 	gorm.Model
+
 	Name          sql.NullString
 	Description   string
 	NumberOfPages int
@@ -60,12 +63,16 @@ type ChapterDTO struct {
 	Name          string  `json:"name"`
 	Description   *string `json:"description,omitempty"`
 	NumberOfPages *int    `json:"numberOfPages,omitempty"`
+	Views         *uint   `json:"views,omitempty"`
 
 	Volume   *string `json:"volume,omitempty"`
 	VolumeID *uint   `json:"volumeId,omitempty"`
 
 	Title   *string `json:"title,omitempty"`
 	TitleID *uint   `json:"titleId,omitempty"`
+
+	Team   *string `json:"team,omitempty"`
+	TeamID *uint   `json:"teamId,omitempty"`
 }
 
 type ChapterOnModerationDTO struct {
@@ -85,5 +92,5 @@ type ChapterOnModerationDTO struct {
 	Existing   *string `json:"existing,omitempty" form:"-"`
 	ExistingID *uint   `json:"existingId,omitempty" form:"existingId"`
 
-	Pages []*multipart.FileHeader `json:"-" form:"pages" binding:"required"`
+	Pages []*multipart.FileHeader `json:"-" form:"pages" binding:"required" gorm:"-"`
 }

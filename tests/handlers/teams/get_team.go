@@ -66,12 +66,6 @@ func GetTeamSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp["createdAt"]; !ok {
 			t.Fatal("в ответе нет времени создания")
 		}
-		if _, ok := resp["leader"]; !ok {
-			t.Fatal("в ответе нет имени лидера")
-		}
-		if _, ok := resp["leaderId"]; !ok {
-			t.Fatal("в ответе нет id лидера")
-		}
 	}
 }
 

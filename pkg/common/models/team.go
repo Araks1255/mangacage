@@ -41,13 +41,10 @@ type TeamDTO struct {
 
 	Name        *string `json:"name"`
 	Description *string `json:"description,omitempty"`
-
-	Leader   *string `json:"leader,omitempty"`
-	LeaderID *uint   `json:"leaderId,omitempty"`
 }
 
 type TeamOnModerationDTO struct {
 	TeamDTO
-	Existing string `json:"existing,omitempty"`
-	ExistingID uint `json:"existingId,omitempty"`
+	Existing   string `json:"existing,omitempty"`
+	ExistingID uint   `json:"existingId,omitempty"`
 }

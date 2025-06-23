@@ -85,7 +85,7 @@ func GetTitleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal("id автора не дошел")
 		}
 		if views, ok := resp["views"]; !ok || views.(float64) != 1 {
-			t.Fatal("возникли проблемы с просмотрами")
+			t.Fatal("возникли проблемы с просмотрами", views)
 		}
 		if genres, ok := resp["genres"]; !ok || len(genres.([]any)) != 2 {
 			t.Fatal("возникли проблемы с жанрами")

@@ -19,12 +19,15 @@ func (h handler) GetChapter(c *gin.Context) {
 
 	if err := h.DB.Raw(
 		`SELECT 
-			c.id, c.created_at, c.name, c.description, c.number_of_pages,
-			v.name AS volume, v.id AS volume_id, t.name AS title, t.id AS title_id
+			c.*,
+			v.name AS volume, v.id AS volume_id,
+			t.name AS title, t.id AS title_id,
+			teams.name AS team
 		FROM
 			chapters AS c
 			INNER JOIN volumes AS v ON v.id = c.volume_id
 			INNER JOIN titles AS t ON t.id = v.title_id
+			INNER JOIN teams ON teams.id = c.team_id
 		WHERE
 			c.id = ?`,
 		chapterID,

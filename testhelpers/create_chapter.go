@@ -15,6 +15,7 @@ import (
 type CreateChapterOptions struct {
 	Pages       [][]byte
 	Collection  *mongo.Collection
+	Views       uint
 	ModeratorID uint
 }
 
@@ -36,6 +37,9 @@ func CreateChapter(db *gorm.DB, volumeID, teamID, creatorID uint, opts ...Create
 		}
 		if len(opts[0].Pages) != 0 {
 			chapter.NumberOfPages = len(opts[0].Pages)
+		}
+		if opts[0].Views != 0 {
+			chapter.Views = opts[0].Views
 		}
 	}
 

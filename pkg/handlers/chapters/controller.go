@@ -25,21 +25,18 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 
 	api := r.Group("/api")
 	{
-		volumes := api.Group("/volumes/:id")
-		{
-			volumes.GET("/chapters", h.GetVolumeChapters)
-			volumes.POST(
-				"/chapters",
-				middlewares.Auth(secretKey),
-				middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}),
-				h.CreateChapter,
-			)
-		}
+		api.POST(
+			"/volumes/:id/chapters",
+			middlewares.Auth(secretKey),
+			middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}),
+			h.CreateChapter,
+		)
 
-		chapters := api.Group("/chapters/:id")
+		chapters := api.Group("/chapters")
 		{
-			chapters.GET("/", h.GetChapter)
-			chapters.GET("/page/:page", h.GetChapterPage)
+			chapters.GET("/:id", h.GetChapter)
+			chapters.GET("/", middlewares.AuthOptional(secretKey), h.GetChapters)
+			chapters.GET("/:id/page/:page", h.GetChapterPage)
 
 			chaptersAuth := chapters.Group("/")
 			chaptersAuth.Use(middlewares.Auth(secretKey))

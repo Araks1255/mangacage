@@ -14,15 +14,16 @@ type User struct {
 	Password      string
 	AboutYourself string
 	TgUserID      int64
+	Visible       bool `gorm:"not null;default:false"`
 
 	TeamID *uint
 	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
 
 	Roles                    []Role              `gorm:"many2many:user_roles;constraint:OnDelete:CASCADE"`
 	TitlesUserIsSubscribedTo []Title             `gorm:"many2many:user_titles_subscribed_to;constraint:OnDelete:CASCADE"`
-	ViewedChapters           []UserViewedChapter `gorm:"foreignKey:UserID"` // Это нужно по идее только для Preload. Я оставил для явности
+	ViewedChapters           []UserViewedChapter `gorm:"foreignKey:UserID"`
 
-	FavoriteTitles   []Title   `gorm:"many2many:user_favorite_titles;constraint:OnDelete:CASCADE"` // Тут как-нибудь вынесу всё в отдельные структуры и сделаю составной индекс уникальности на user_id и object_id  (чтобы на уровне бд нельзя было иметь две подписки на один объект)
+	FavoriteTitles   []Title   `gorm:"many2many:user_favorite_titles;constraint:OnDelete:CASCADE"`
 	FavoriteChapters []Chapter `gorm:"many2many:user_favorite_chapters;constraint:OnDelete:CASCADE"`
 	FavoriteGenres   []Genre   `gorm:"many2many:user_favorite_genres;constraint:OnDelete:CASCADE"`
 }

@@ -19,21 +19,18 @@ func RegisterRoutes(db *gorm.DB, secretKey string, r *gin.Engine) {
 		favoriteTitles := favorites.Group("/titles")
 		{
 			favoriteTitles.POST("/:id", h.AddTitleToFavorites)
-			favoriteTitles.GET("/", h.GetFavoriteTitles)
 			favoriteTitles.DELETE("/:id", h.DeleteTitleFromFavorites)
 		}
 
 		favoriteChapters := favorites.Group("/chapters")
 		{
 			favoriteChapters.POST("/:id", h.AddChapterToFavorites)
-			favoriteChapters.GET("/", h.GetFavoriteChapters)
 			favoriteChapters.DELETE("/:id", h.DeleteChapterFromFavorites)
 		}
 
 		favoriteGenres := favorites.Group("/genres")
 		{
 			favoriteGenres.POST("/:id", h.AddGenreToFavorites)
-			favoriteGenres.GET("/", h.GetFavoriteGenres)
 			favoriteGenres.DELETE("/:id", h.DeleteGenreFromFavorites)
 		}
 	}

@@ -33,18 +33,26 @@ func TestGetMyProfilePicture(t *testing.T) {
 	}
 }
 
-// Favorites
-
-func TestAddTitleToFavorites(t *testing.T) {
-	scenarios := favorites.GetAddTitleToFavoritesScenarios(env)
+func TestGetUser(t *testing.T) {
+	scenarios := users.GetGetUserScenarios(env)
 
 	for name, scenario := range scenarios {
 		t.Run(name, scenario)
 	}
 }
 
-func TestGetFavoriteTitles(t *testing.T) {
-	scenarios := favorites.GetGetFavoriteTitlesScenarios(env)
+func TestGetUsers(t *testing.T) {
+	scenarios := users.GetGetUsersScenarios(env)
+
+	for name, scenario := range scenarios {
+		t.Run(name, scenario)
+	}
+}
+
+// Favorites
+
+func TestAddTitleToFavorites(t *testing.T) {
+	scenarios := favorites.GetAddTitleToFavoritesScenarios(env)
 
 	for name, scenario := range scenarios {
 		t.Run(name, scenario)
@@ -67,14 +75,6 @@ func TestAddGenreToFavorites(t *testing.T) {
 	}
 }
 
-func TestGetFavoriteGenres(t *testing.T) {
-	scenarios := favorites.GetGetFavoriteGenresScenarios(env)
-
-	for name, scenario := range scenarios {
-		t.Run(name, scenario)
-	}
-}
-
 func TestDeleteGenreFromFavorites(t *testing.T) {
 	scenarios := favorites.GetDeleteGenreFromFavoritesScenarios(env)
 
@@ -85,14 +85,6 @@ func TestDeleteGenreFromFavorites(t *testing.T) {
 
 func TestAddChapterToFavorites(t *testing.T) {
 	scenarios := favorites.GetAddChapterToFavoritesScenarios(env)
-
-	for name, scenario := range scenarios {
-		t.Run(name, scenario)
-	}
-}
-
-func TestGetFavoriteChapters(t *testing.T) {
-	scenarios := favorites.GetGetFavoriteChaptersScenarios(env)
 
 	for name, scenario := range scenarios {
 		t.Run(name, scenario)
@@ -167,6 +159,30 @@ func TestGetMyVolumesOnModeration(t *testing.T) {
 
 func TestGetMyChaptersOnModeration(t *testing.T) {
 	scenarios := moderation.GetGetMyChaptersOnModerationScenarios(env)
+
+	for name, scenario := range scenarios {
+		t.Run(name, scenario)
+	}
+}
+
+func TestGetMyGenresOnModeration(t *testing.T) {
+	scenarios := moderation.GetGetMyGenresOnModerationScenarios(env)
+
+	for name, scenario := range scenarios {
+		t.Run(name, scenario)
+	}
+}
+
+func TestGetMyTagsOnModeration(t *testing.T) {
+	scenarios := moderation.GetGetMyTagsOnModerationScenarios(env)
+
+	for name, scenario := range scenarios {
+		t.Run(name, scenario)
+	}
+}
+
+func TestGetMyAuthorsOnModeration(t *testing.T) {
+	scenarios := moderation.GetGetMyAuthorsOnModerationScenarios(env)
 
 	for name, scenario := range scenarios {
 		t.Run(name, scenario)

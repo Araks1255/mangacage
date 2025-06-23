@@ -8,7 +8,7 @@ import (
 
 func FillTitleRequestBody(
 	name, englishName, originalName, ageLimit, titleType, publishingStatus, yearOfRelease, description *string,
-	authorID *uint,
+	authorID, authorOnModerationID *uint,
 	genresIDs []uint, tagsIDs []uint, cover []byte,
 ) (
 	res *bytes.Buffer,
@@ -62,6 +62,12 @@ func FillTitleRequestBody(
 
 	if authorID != nil {
 		if err := writer.WriteField("authorId", fmt.Sprintf("%d", *authorID)); err != nil {
+			return nil, "", err
+		}
+	}
+
+	if authorOnModerationID != nil {
+		if err := writer.WriteField("authorOnModerationId", fmt.Sprintf("%d", *authorOnModerationID)); err != nil {
 			return nil, "", err
 		}
 	}

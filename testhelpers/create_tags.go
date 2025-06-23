@@ -9,7 +9,7 @@ import (
 func CreateTags(db *gorm.DB, quantity int) ([]uint, error) {
 	var res []uint
 
-	names := make([]string, quantity, quantity)
+	names := make([]string, quantity)
 
 	for i := 0; i < len(names); i++ {
 		names[i] = uuid.New().String()

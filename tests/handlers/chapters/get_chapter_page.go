@@ -41,7 +41,7 @@ func GetChapterPageSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		pages := make([][]byte, 1, 1)
+		pages := make([][]byte, 1)
 		pages[0], err = os.ReadFile("./test_data/chapter_page.png")
 		if err != nil {
 			t.Fatal(err)

@@ -65,6 +65,36 @@ func CancelAppealForTeamModeration(env testenv.Env) func(*testing.T) {
 	}
 }
 
+func CancelAppealForGenreModeration(env testenv.Env) func(*testing.T) {
+	return func(t *testing.T) {
+		scenarios := GetCancelAppealForGenreModerationScenarios(env)
+
+		for name, scenario := range scenarios {
+			t.Run(name, scenario)
+		}
+	}
+}
+
+func CancelAppealForTagModeration(env testenv.Env) func(*testing.T) {
+	return func(t *testing.T) {
+		scenarios := GetCancelAppealForTagModerationScenarios(env)
+
+		for name, scenario := range scenarios {
+			t.Run(name, scenario)
+		}
+	}
+}
+
+func CancelAppealForAuthorModeration(env testenv.Env) func(*testing.T) {
+	return func(t *testing.T) {
+		scenarios := GetCancelAppealForAuthorModerationScenarios(env)
+
+		for name, scenario := range scenarios {
+			t.Run(name, scenario)
+		}
+	}
+}
+
 func CancelAppealForModerationWithWrongEntity(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		userID, err := testhelpers.CreateUser(env.DB)

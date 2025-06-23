@@ -18,12 +18,12 @@ func CheckEntityWithTheSameNameExistence(db *gorm.DB, entity, name string, engli
 	}
 
 	switch entity {
-	case "titles", "volumes", "chapters":
+	case "titles", "volumes", "chapters", "authors":
 		query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE lower(name) = lower(?) OR lower(english_name) = lower(?) OR original_name = ?)", entity)
 
 		err = db.Raw(query, name, dereferencedEnglishName, dereferencedOriginalName).Scan(&existence).Error
 
-	case "teams", "users":
+	case "teams", "users", "genres", "tags":
 		query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE lower(name) = lower(?))", entity)
 
 		err = db.Raw(query, name).Scan(&existence).Error

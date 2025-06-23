@@ -12,14 +12,14 @@ import (
 type Title struct {
 	gorm.Model
 
-	Name         string `gorm:"unique"`
-	EnglishName  string `gorm:"unique"`
-	OriginalName string `gorm:"unique"`
+	Name         string `gorm:"not null"`
+	EnglishName  string `gorm:"not null"`
+	OriginalName string `gorm:"not null"`
 
 	Description   *string
 	AgeLimit      int    `gorm:"not null"`
 	YearOfRelease int    `gorm:"not null"`
-	Type          string `gorm:"type:title_type"`
+	Type          string `gorm:"type:title_type;not null"`
 
 	TranslatingStatus string `gorm:"type:title_translating_status;default:'free'"`
 	PublishingStatus  string `gorm:"type:title_publishing_status;default:'unknown'"`
@@ -43,9 +43,9 @@ type Title struct {
 type TitleOnModeration struct {
 	gorm.Model
 
-	Name         *string `gorm:"unique"`
-	EnglishName  *string `gorm:"unique"`
-	OriginalName *string `gorm:"unique"`
+	Name         *string
+	EnglishName  *string
+	OriginalName *string
 
 	Description   *string
 	AgeLimit      *int
@@ -66,6 +66,9 @@ type TitleOnModeration struct {
 
 	AuthorID *uint
 	Author   *Author `gorm:"foreignKey:AuthorID;references:id;constraint:OnDelete:SET NULL"`
+
+	AuthorOnModerationID *uint
+	AuthorOnModeration   *AuthorOnModeration `gorm:"foreignKey:AuthorOnModerationID;references:id;constraint:OnDelete:CASCADE"`
 
 	TeamID *uint
 	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
@@ -123,7 +126,10 @@ type TitleOnModerationDTO struct {
 	PublishingStatus  *string `json:"publishingStatus,omitempty" form:"publishingStatus" binding:"required"`
 
 	Author   *string `json:"author,omitempty" form:"-"`
-	AuthorID *uint   `json:"authorId,omitempty" form:"authorId" binding:"required"`
+	AuthorID *uint   `json:"authorId,omitempty" form:"authorId" binding:"required_without=AuthorOnModerationID"`
+
+	AuthorOnModeration   *string `json:"authorOnModeration" form:"-"`
+	AuthorOnModerationID *uint   `json:"authorOnModerationId,omitempty" form:"authorOnModerationId" binding:"required_without=AuthorID"`
 
 	GenresIDs []uint         `json:"-" form:"genresIds" binding:"required"`
 	Genres    pq.StringArray `json:"genres,omitempty" form:"-" gorm:"type:TEXT[]"`
@@ -161,6 +167,7 @@ func (t TitleOnModerationDTO) ToTitleOnModeration(creatorID uint, existingID *ui
 	res.PublishingStatus = t.PublishingStatus
 
 	res.AuthorID = t.AuthorID
+	res.AuthorOnModerationID = t.AuthorOnModerationID
 
 	return res
 }

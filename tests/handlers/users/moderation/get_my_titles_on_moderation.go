@@ -55,7 +55,9 @@ func GetMyTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 
 		if _, err := moderationHelpers.CreateTitleOnModeration(
 			env.DB, userID, moderationHelpers.CreateTitleOnModerationOptions{
-				ExistingID: existingTitleID, Genres: []string{"action", "fighting"}, AuthorID: authorID,
+				ExistingID: existingTitleID, AuthorID: authorID,
+				Genres: []string{"action", "fighting"},
+				Tags:   []string{"maids", "japan"},
 			},
 		); err != nil {
 			t.Fatal(err)
@@ -123,6 +125,8 @@ func GetMyNewTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		t.Log(userID, "<===")
 
 		authorID, err := testhelpers.CreateAuthor(env.DB)
 		if err != nil {

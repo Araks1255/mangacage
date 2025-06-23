@@ -17,17 +17,17 @@ type handler struct {
 }
 
 func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.Engine) {
-	titlesOnModerationCovers := client.Database("mangacage").Collection(mongodb.TitlesCoversCollection)
-	chaptersOnModerationPages := client.Database("mangacage").Collection(mongodb.ChaptersPagesCollection)
-	usersOnModerationProfilePictures := client.Database("mangacage").Collection(mongodb.UsersProfilePicturesCollection)
-	teamsOnModerationCovers := client.Database("mangacage").Collection(mongodb.TeamsCoversCollection)
+	titlesCovers := client.Database("mangacage").Collection(mongodb.TitlesCoversCollection)
+	chaptersPages := client.Database("mangacage").Collection(mongodb.ChaptersPagesCollection)
+	usersProfilePictures := client.Database("mangacage").Collection(mongodb.UsersProfilePicturesCollection)
+	teamCovers := client.Database("mangacage").Collection(mongodb.TeamsCoversCollection)
 
 	h := handler{
 		DB:              db,
-		TitlesCovers:    titlesOnModerationCovers,
-		ChaptersPages:   chaptersOnModerationPages,
-		ProfilePictures: usersOnModerationProfilePictures,
-		TeamsCovers:     teamsOnModerationCovers,
+		TitlesCovers:    titlesCovers,
+		ChaptersPages:   chaptersPages,
+		ProfilePictures: usersProfilePictures,
+		TeamsCovers:     teamCovers,
 	}
 
 	moderation := r.Group("/api/users/me/moderation")
@@ -54,15 +54,11 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.
 			chapters.GET("/:id/page/:page", h.GetMyChapterOnModerationPage)
 		}
 
-		volumes := moderation.Group("/volumes")
-		{
-			volumes.GET("/", h.GetMyVolumesOnModeration)
-		}
-
-		teams := moderation.Group("/teams")
-		{
-			teams.GET("/team", h.GetMyTeamOnModeration)
-		}
+		moderation.GET("/volumes", h.GetMyVolumesOnModeration)
+		moderation.GET("/team", h.GetMyTeamOnModeration)
+		moderation.GET("/authors", h.GetMyAuthorsOnModeration)
+		moderation.GET("/genres", h.GetMyGenresOnModeration)
+		moderation.GET("/tags", h.GetMyTagsOnModeration)
 	}
 }
 

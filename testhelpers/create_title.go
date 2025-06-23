@@ -17,6 +17,7 @@ type CreateTitleOptions struct {
 	Cover       []byte
 	Collection  *mongo.Collection
 	TeamID      uint
+	Views       uint
 	ModeratorID uint
 	Genres      []string
 	Tags        []string
@@ -28,14 +29,16 @@ func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptio
 	}
 
 	title := models.Title{
-		Name:          uuid.New().String(),
-		EnglishName:   uuid.New().String(),
-		OriginalName:  uuid.New().String(),
-		AgeLimit:      18,
-		YearOfRelease: 1999,
-		Type:          "manga",
-		AuthorID:      authorID,
-		CreatorID:     creatorID,
+		Name:              uuid.New().String(),
+		EnglishName:       uuid.New().String(),
+		OriginalName:      uuid.New().String(),
+		PublishingStatus:  "ongoing",
+		TranslatingStatus: "ongoing",
+		AgeLimit:          18,
+		YearOfRelease:     1999,
+		Type:              "manga",
+		AuthorID:          authorID,
+		CreatorID:         creatorID,
 	}
 
 	tx := db.Begin()
@@ -52,6 +55,9 @@ func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptio
 
 	if opts[0].ModeratorID != 0 {
 		title.ModeratorID = &opts[0].ModeratorID
+	}
+	if opts[0].Views != 0 {
+		title.Views = opts[0].Views
 	}
 
 	if result := tx.Create(&title); result.Error != nil {

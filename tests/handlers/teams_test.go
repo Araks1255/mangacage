@@ -49,6 +49,14 @@ func TestDeleteTeam(t *testing.T) {
 	}
 }
 
+func TestGetTeams(t *testing.T) {
+	scenarios := teams.GetGetTeamsScenarios(env)
+
+	for name, scenario := range scenarios {
+		t.Run(name, scenario)
+	}
+}
+
 // Join requests
 
 func TestAcceptTeamJoinRequest(t *testing.T) {

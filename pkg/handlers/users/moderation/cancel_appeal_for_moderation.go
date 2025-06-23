@@ -16,6 +16,9 @@ var allowedEntities = map[string]struct{}{
 	"volumes":  {},
 	"chapters": {},
 	"teams":    {},
+	"authors":  {},
+	"genres":   {},
+	"tags":     {},
 }
 
 func (h handler) CancelAppealForModeration(c *gin.Context) {
@@ -43,7 +46,7 @@ func (h handler) CancelAppealForModeration(c *gin.Context) {
 		ExistingID uint
 	}
 
-	query := fmt.Sprintf("DELETE FROM %s_on_moderation WHERE id = ? AND creator_id = ? RETURNING id, existing_id", desiredEntity) // На этом моменте entity уже проверенно, так что её можно подставлять прям так
+	query := fmt.Sprintf("DELETE FROM %s_on_moderation WHERE id = ? AND creator_id = ? RETURNING *", desiredEntity) // На этом моменте entity уже проверенно, так что её можно подставлять прям так
 
 	if err := tx.Raw(query, entityID, claims.ID).Scan(&entity).Error; err != nil {
 		log.Println(err)

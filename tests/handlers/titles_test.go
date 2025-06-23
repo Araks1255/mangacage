@@ -26,16 +26,8 @@ func TestEditTitle(t *testing.T) {
 	}
 }
 
-func TestGetMostPopularTitles(t *testing.T) {
-	scenarios := titles.GetGetMostPopularTitlesScenarios(env)
-
-	for name, scenario := range scenarios {
-		t.Run(name, scenario)
-	}
-}
-
-func TestGetNewTitles(t *testing.T) {
-	scenarios := titles.GetGetNewTitlesScenarios(env)
+func TestGetTitles(t *testing.T) {
+	scenarios := titles.GetGetTitlesScenarios(env)
 
 	for name, scenario := range scenarios {
 		t.Run(name, scenario)

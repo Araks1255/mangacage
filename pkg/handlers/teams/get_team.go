@@ -17,21 +17,7 @@ func (h handler) GetTeam(c *gin.Context) {
 
 	var team models.TeamDTO
 
-	if err = h.DB.Raw(
-		`SELECT
-			t.id, t.created_at, t.name, t.description,
-			u.user_name AS leader, u.id AS leader_id
-		FROM
-			teams AS t
-			INNER JOIN users AS u ON u.team_id = t.id
-			INNER JOIN user_roles AS ur ON ur.user_id = u.id
-			INNER JOIN roles AS r ON r.id = ur.role_id
-		WHERE
-			r.name = 'team_leader'
-		AND
-			t.id = ?`,
-		teamID,
-	).Scan(&team).Error; err != nil {
+	if err = h.DB.Table("teams").Select("*").Where("id = ?", teamID).Scan(&team).Error; err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return

@@ -28,6 +28,11 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
+	if requestBody.AuthorID != nil && requestBody.AuthorOnModerationID != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": "должен быть заполнен только один id автора"})
+		return
+	}
+
 	if requestBody.Cover.Size > 2<<20 {
 		c.AbortWithStatusJSON(400, gin.H{"error": "превышен максимальный размер обложки (2мб)"})
 		return

@@ -61,8 +61,6 @@ func TestMain(m *testing.M) {
 
 	migrateFlag := flag.Bool("migrate", false, "Run migrations with api")
 
-	seedMode := flag.String("seed", "", "Mode of seed")
-
 	flag.Parse()
 
 	if *migrateFlag {
@@ -71,10 +69,8 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	if *seedMode != "" {
-		if err = seeder.Seed(db, mongoDB, *seedMode); err != nil {
-			panic(err)
-		}
+	if err = seeder.Seed(db, mongoDB, "test"); err != nil {
+		panic(err)
 	}
 
 	code := m.Run()
@@ -85,7 +81,7 @@ func TestMain(m *testing.M) {
 }
 
 func cleanTestDB(db *gorm.DB, mongoDB *mongo.Database) {
-	db.Exec("TRUNCATE TABLE authors, chapters, titles, users, teams, volumes RESTART IDENTITY CASCADE")
+	db.Exec("TRUNCATE TABLE authors, chapters, titles, users, teams, volumes, genres, tags RESTART IDENTITY CASCADE")
 
 	ctx := context.Background()
 	coll := mongoDB.Collection

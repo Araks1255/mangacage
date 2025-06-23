@@ -23,6 +23,7 @@ import (
 func GetCreateTitleScenarios(env testenv.Env) map[string]func(*testing.T) {
 	return map[string]func(*testing.T){
 		"success":                              CreateTitleSuccess(env),
+		"with author on moderation success":    CreateTitleWithAuthorOnModerationSuccess(env),
 		"unauthorized":                         CreateTitleUnauthorized(env),
 		"without name":                         CreateTitleWithoutName(env),
 		"without author":                       CreateTitleWithoutAuthor(env),
@@ -37,6 +38,7 @@ func GetCreateTitleScenarios(env testenv.Env) map[string]func(*testing.T) {
 		"wrong type":                           CreateTitleWithWrongType(env),
 		"the same name as title":               CreateTitleWithTheSameNameAsTitle(env),
 		"the same name as title on moderation": CreateTitleWithTheSameNameAsTitleOnModerationOnModeration(env),
+		"with two authors":                     CreateTitleWithTwoAuthors(env),
 	}
 }
 
@@ -76,7 +78,74 @@ func CreateTitleSuccess(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
+
+		r := gin.New()
+		r.Use(middlewares.Auth(env.SecretKey))
+		r.POST("/titles", h.CreateTitle)
+
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
+
+		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.AddCookie(cookie)
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != 201 {
+			t.Fatal(w.Body.String())
+		}
+	}
+}
+
+func CreateTitleWithAuthorOnModerationSuccess(env testenv.Env) func(*testing.T) {
+	return func(t *testing.T) {
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
+
+		userID, err := testhelpers.CreateUser(env.DB)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		authorOnModerationID, err := moderation.CreateAuthorOnModeration(env.DB, userID)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, nil, &authorOnModerationID, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -161,7 +230,7 @@ func CreateTitleWithoutName(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			nil, nil, nil, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+			nil, nil, nil, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -223,7 +292,7 @@ func CreateTitleWithoutAuthor(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, nil, genresIDs, tagsIDs, cover,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, nil, nil, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -285,7 +354,7 @@ func CreateTitleWithoutGenres(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, tagsIDs, cover,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, nil, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -347,7 +416,7 @@ func CreateTitleWithoutCover(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, nil,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, genresIDs, tagsIDs, nil,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -411,7 +480,7 @@ func CreateTitleWithTooLargeCover(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -689,7 +758,7 @@ func CreateTitleWithWrongAuthorAuthor(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -753,7 +822,7 @@ func CreateTitleWithWrongGenres(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -830,7 +899,7 @@ func CreateTitleWithTheSameNameAsTitle(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -906,7 +975,7 @@ func CreateTitleWithTheSameNameAsTitleOnModerationOnModeration(env testenv.Env) 
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -973,7 +1042,7 @@ func CreateTitleWithWrongPublishingStatus(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -1040,7 +1109,7 @@ func CreateTitleWithWrongType(env testenv.Env) func(*testing.T) {
 		yearOfRelease := "1999"
 
 		body, contentType, err := titlesHelpers.FillTitleRequestBody(
-			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, genresIDs, tagsIDs, cover,
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, nil, genresIDs, tagsIDs, cover,
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -1066,6 +1135,78 @@ func CreateTitleWithWrongType(env testenv.Env) func(*testing.T) {
 		r.ServeHTTP(w, req)
 
 		if w.Code != 409 {
+			t.Fatal(w.Body.String())
+		}
+	}
+}
+
+func CreateTitleWithTwoAuthors(env testenv.Env) func(*testing.T) {
+	return func(t *testing.T) {
+		titlesOnModerationCovers := env.MongoDB.Collection(mongodb.TitlesCoversCollection)
+
+		userID, err := testhelpers.CreateUser(env.DB)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		authorID, err := testhelpers.CreateAuthor(env.DB)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		authorOnModerationID, err := moderation.CreateAuthorOnModeration(env.DB, userID)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		genresIDs, err := testhelpers.CreateGenres(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tagsIDs, err := testhelpers.CreateTags(env.DB, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		cover, err := os.ReadFile("./test_data/title_cover.png")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		name := uuid.New().String()
+		ageLimit := "18"
+		titleType := "manga"
+		publishingStatus := "ongoing"
+		yearOfRelease := "1999"
+
+		body, contentType, err := titlesHelpers.FillTitleRequestBody(
+			&name, &name, &name, &ageLimit, &titleType, &publishingStatus, &yearOfRelease, nil, &authorID, &authorOnModerationID, genresIDs, tagsIDs, cover,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesOnModerationCovers)
+
+		r := gin.New()
+		r.Use(middlewares.Auth(env.SecretKey))
+		r.POST("/titles", h.CreateTitle)
+
+		req := httptest.NewRequest("POST", "/titles", body)
+		req.Header.Set("Content-Type", contentType)
+
+		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.AddCookie(cookie)
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != 400 {
 			t.Fatal(w.Body.String())
 		}
 	}

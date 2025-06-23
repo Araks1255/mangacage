@@ -1,7 +1,6 @@
 package moderation
 
 import (
-	"database/sql"
 	"errors"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -18,11 +17,13 @@ func CreateVolumeOnModeration(db *gorm.DB, titleID, teamID, userID uint, opts ..
 		return 0, errors.New("объектов опций не может быть больше одного")
 	}
 
+	name := uuid.New().String()
+
 	volume := models.VolumeOnModeration{
-		Name:      sql.NullString{String: uuid.New().String(), Valid: true},
-		TitleID:   titleID,
+		Name:      &name,
+		TitleID:   &titleID,
 		CreatorID: userID,
-		TeamID:    teamID,
+		TeamID:    &teamID,
 	}
 
 	if len(opts) != 0 && opts[0].ExistingID != 0 {

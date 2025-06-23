@@ -74,6 +74,12 @@ func GetChapterSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp["titleId"]; !ok {
 			t.Fatal("в ответе нет id тайтла")
 		}
+		if _, ok := resp["team"]; !ok {
+			t.Fatal("в ответе нет команды")
+		}
+		if _, ok := resp["teamId"]; !ok {
+			t.Fatal("в ответе нет id команды")
+		}
 	}
 }
 

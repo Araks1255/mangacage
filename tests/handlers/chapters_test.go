@@ -46,8 +46,8 @@ func TestGetChapter(t *testing.T) {
 	}
 }
 
-func TestGetVolumeChapters(t *testing.T) {
-	scenarios := chapters.GetGetVolumeChaptersScenarios(env)
+func TestGetChapters(t *testing.T) {
+	scenarios := chapters.GetGetChaptersScenarios(env)
 
 	for name, scenario := range scenarios {
 		t.Run(name, scenario)

@@ -1,17 +1,18 @@
 package volumes
 
 import (
-	"database/sql"
 	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
-	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm/clause"
 )
 
 func (h handler) EditVolume(c *gin.Context) {
@@ -23,24 +24,23 @@ func (h handler) EditVolume(c *gin.Context) {
 		return
 	}
 
-	var requestBody struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	}
+	var requestBody models.VolumeOnModerationDTO
+	c.ShouldBindJSON(&requestBody)
 
-	if err := c.ShouldBindJSON(&requestBody); err != nil {
+	ok, err := utils.HasAnyNonEmptyFields(&requestBody)
+	if err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if requestBody.Name == "" && requestBody.Description == "" {
-		c.AbortWithStatusJSON(400, gin.H{"error": "необходим хотя-бы один изменяемый параметр"})
+	if !ok {
+		c.AbortWithStatusJSON(400, gin.H{"error": "запрос должен содержать как минимум 1 изменяемый параметр"})
 		return
 	}
 
 	tx := h.DB.Begin()
-	defer utils.RollbackOnPanic(tx)
+	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
 	var check struct {
@@ -74,29 +74,14 @@ func (h handler) EditVolume(c *gin.Context) {
 	}
 
 	volumeIDuint := uint(volumeID)
+	editedVolume := requestBody.ToVolumeOnModeration(claims.ID, &check.TitleID, &volumeIDuint)
 
-	editedVolume := models.VolumeOnModeration{
-		ExistingID:  &volumeIDuint,
-		Description: requestBody.Description,
-		TitleID:     check.TitleID,
-		CreatorID:   claims.ID,
-	}
-	if requestBody.Name != "" {
-		editedVolume.Name = sql.NullString{String: requestBody.Name, Valid: true}
+	onConflictClause := clause.OnConflict{
+		Columns:   []clause.Column{{Name: "existing_id"}},
+		UpdateAll: true,
 	}
 
-	err = tx.Exec(
-		`INSERT INTO volumes_on_moderation (created_at, name, description, existing_id, title_id, creator_id)
-		VALUES (NOW(), ?, ?, ?, ?, ?)
-		ON CONFLICT (existing_id) DO UPDATE
-		SET
-			updated_at = EXCLUDED.created_at,
-			name = EXCLUDED.name,
-			description = EXCLUDED.description,
-			creator_id = EXCLUDED.creator_id
-		RETURNING id`,
-		editedVolume.Name, editedVolume.Description, editedVolume.ExistingID, editedVolume.TitleID, editedVolume.CreatorID,
-	).Error
+	err = tx.Clauses(onConflictClause).Create(&editedVolume).Error
 
 	if err != nil {
 		if dbErrors.IsUniqueViolation(err, constraints.UniqVolumeTitle) {

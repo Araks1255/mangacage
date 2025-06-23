@@ -1,7 +1,6 @@
 package volumes
 
 import (
-	"database/sql"
 	"log"
 	"strconv"
 
@@ -19,14 +18,11 @@ func (h handler) CreateVolume(c *gin.Context) {
 
 	titleID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тайтла"})
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	var requestBody struct {
-		Name        string `json:"name" binding:"required"`
-		Description string `json:"description"`
-	}
+	var requestBody models.VolumeOnModerationDTO
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		log.Println(err)
@@ -55,7 +51,7 @@ func (h handler) CreateVolume(c *gin.Context) {
 	}
 
 	if check.UserTeamID == nil {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди переводимых вашей командой"}) // Тут Valid как флаг, не найден тайтл - users.team_id будет NULL
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди переводимых вашей командой"})
 		return
 	}
 	if check.DoesVolumeWithTheSameNameExist {
@@ -63,13 +59,10 @@ func (h handler) CreateVolume(c *gin.Context) {
 		return
 	}
 
-	volume := models.VolumeOnModeration{
-		Name:        sql.NullString{String: requestBody.Name, Valid: true},
-		Description: requestBody.Description,
-		TitleID:     uint(titleID),
-		CreatorID:   claims.ID,
-		TeamID:      *check.UserTeamID,
-	}
+	titleIDuint := uint(titleID)
+
+	volume := requestBody.ToVolumeOnModeration(claims.ID, &titleIDuint, nil)
+	volume.TeamID = check.UserTeamID
 
 	err = tx.Create(&volume).Error
 

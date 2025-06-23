@@ -8,8 +8,10 @@ import (
 	"github.com/Araks1255/mangacage/internal/seeder"
 	"github.com/Araks1255/mangacage/pkg/common/db"
 	"github.com/Araks1255/mangacage/pkg/handlers/auth"
+	"github.com/Araks1255/mangacage/pkg/handlers/authors"
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
-	"github.com/Araks1255/mangacage/pkg/handlers/search"
+	"github.com/Araks1255/mangacage/pkg/handlers/genres"
+	"github.com/Araks1255/mangacage/pkg/handlers/tags"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams/joinrequests"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams/participants"
@@ -81,11 +83,13 @@ func main() {
 	participants.RegisterRoutes(db, secretKey, router)
 	chapters.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
 	volumes.RegisterRoutes(db, notificationsClient, secretKey, router)
-	search.RegisterRoutes(db, router)
 	users.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
 	views.RegisterRoutes(db, router)
 	favorites.RegisterRoutes(db, secretKey, router)
 	moderation.RegisterRoutes(db, mongoClient, secretKey, router)
+	genres.RegisterRoutes(db, notificationsClient, secretKey, router)
+	tags.RegisterRoutes(db, notificationsClient, secretKey, router)
+	authors.RegisterRoutes(db, notificationsClient, secretKey, router)
 
 	router.Run(":8080")
 }

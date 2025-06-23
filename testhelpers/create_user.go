@@ -16,6 +16,7 @@ import (
 type CreateUserOptions struct {
 	TeamID         uint
 	Roles          []string
+	Visible        bool
 	ProfilePicture []byte
 	Collection     *mongo.Collection
 }
@@ -33,6 +34,13 @@ func CreateUser(db *gorm.DB, opts ...CreateUserOptions) (uint, error) {
 		UserName: uuid.New().String(),
 	}
 
+	if len(opts) != 0 {
+		if opts[0].TeamID != 0 {
+			user.TeamID = &opts[0].TeamID
+		}
+		user.Visible = opts[0].Visible
+	}
+
 	if result := tx.Create(&user); result.Error != nil {
 		return 0, result.Error
 	}
@@ -40,12 +48,6 @@ func CreateUser(db *gorm.DB, opts ...CreateUserOptions) (uint, error) {
 	if len(opts) == 0 {
 		tx.Commit()
 		return user.ID, nil
-	}
-
-	if opts[0].TeamID != 0 {
-		if result := tx.Exec("UPDATE users SET team_id = ? WHERE id = ?", opts[0].TeamID, user.ID); result.Error != nil {
-			return 0, result.Error
-		}
 	}
 
 	if len(opts[0].Roles) != 0 {
@@ -65,8 +67,8 @@ func CreateUser(db *gorm.DB, opts ...CreateUserOptions) (uint, error) {
 		}
 
 		userProfilePicture := mongoModels.UserProfilePicture{
-			UserID: user.ID,
-			CreatorID: user.ID,
+			UserID:         user.ID,
+			CreatorID:      user.ID,
 			ProfilePicture: opts[0].ProfilePicture,
 		}
 

@@ -34,10 +34,9 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 
 	titles := r.Group("/api/titles")
 	{
-		titles.GET("/:id/cover", h.GetTitleCover)
-		titles.GET("/most-popular", h.GetMostPopularTitles)
-		titles.GET("/new", h.GetNewTitles)
 		titles.GET("/:id", h.GetTitle)
+		titles.GET("/", middlewares.AuthOptional(secretKey), h.GetTitles)
+		titles.GET("/:id/cover", h.GetTitleCover)
 
 		titlesAuth := titles.Group("/")
 		titlesAuth.Use(middlewares.Auth(secretKey))
