@@ -34,7 +34,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 
 	titles := r.Group("/api/titles")
 	{
-		titles.GET("/:id", h.GetTitle)
+		titles.GET("/:id", middlewares.AuthOptional(secretKey), h.GetTitle)
 		titles.GET("/", middlewares.AuthOptional(secretKey), h.GetTitles)
 		titles.GET("/:id/cover", h.GetTitleCover)
 
@@ -43,6 +43,12 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 		{
 			titlesAuth.POST("/:id/subscriptions", h.SubscribeToTitle)
 			titlesAuth.POST("/", h.CreateTitle)
+
+			rates := titlesAuth.Group("/:id/rate")
+			{
+				rates.POST("/", h.RateTitle)
+				rates.DELETE("/", h.DeleteTitleRate)
+			}
 
 			titlesForTeamLeaders := titlesAuth.Group("/:id")
 			titlesForTeamLeaders.Use(middlewares.RequireRoles(db, []string{"team_leader"}))

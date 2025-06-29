@@ -1,7 +1,7 @@
 package models
 
 import (
-	"database/sql"
+	"mime/multipart"
 	"time"
 
 	"github.com/lib/pq"
@@ -30,9 +30,9 @@ type User struct {
 
 type UserOnModeration struct {
 	gorm.Model
-	UserName      sql.NullString `gorm:"unique"`
-	Password      string
-	AboutYourself string
+	UserName      *string
+	Password      *string
+	AboutYourself *string
 	TgUserID      int64
 
 	ExistingID *uint `gorm:"unique"`
@@ -57,4 +57,27 @@ type UserDTO struct {
 	TeamID *uint   `json:"teamId,omitempty"`
 
 	Roles *pq.StringArray `json:"roles,omitempty" gorm:"type:TEXT[]"`
+}
+
+type UserOnModerationDTO struct {
+	ID        uint      `json:"id" form:"-"`
+	CreatedAt time.Time `json:"createdAt,omitempty" form:"-"`
+
+	UserName      *string `json:"userName" form:"userName" binding:"required"`
+	Password      *string `json:"password" form:"-" binding:"required"`
+	AboutYourself *string `json:"aboutYourself" form:"aboutYourself"`
+
+	Team   *string `json:"team,omitempty" form:"-"`
+	TeamID *uint   `json:"teamId,omitempty" form:"-"`
+
+	ProfilePicture *multipart.FileHeader `json:"-" form:"profilePicture"`
+}
+
+func (u UserOnModerationDTO) ToUserOnModeration(existingID *uint) UserOnModeration {
+	return UserOnModeration{
+		UserName:      u.UserName,
+		Password:      u.Password,
+		AboutYourself: u.AboutYourself,
+		ExistingID:    existingID,
+	}
 }

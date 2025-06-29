@@ -140,11 +140,3 @@ func TestExcludeParticipant(t *testing.T) {
 		t.Run(name, scenario)
 	}
 }
-
-func TestGetTeamParticipants(t *testing.T) {
-	scenarios := participants.GetGetTeamParticipantsScenarios(env)
-
-	for name, scenario := range scenarios {
-		t.Run(name, scenario)
-	}
-}

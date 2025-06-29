@@ -2,12 +2,11 @@ package moderation
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
-	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
@@ -24,8 +23,9 @@ func CreateUserOnModeration(db *gorm.DB, opts ...CreateUserOnModerationOptions) 
 		return 0, errors.New("объектов опций не может быть больше одного")
 	}
 
+	userName := uuid.New().String()
 	user := models.UserOnModeration{
-		UserName: sql.NullString{String: uuid.New().String(), Valid: true},
+		UserName: &userName,
 	}
 
 	if len(opts) != 0 {
@@ -54,7 +54,7 @@ func CreateUserOnModeration(db *gorm.DB, opts ...CreateUserOnModerationOptions) 
 
 		userOnModerationProfilePicture := mongoModels.UserOnModerationProfilePicture{
 			UserOnModerationID: user.ID,
-			ProfilePicture: opts[0].ProfilePicture,
+			ProfilePicture:     opts[0].ProfilePicture,
 		}
 
 		if user.ExistingID != nil {

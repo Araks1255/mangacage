@@ -35,6 +35,9 @@ type Title struct {
 
 	Views uint `gorm:"default:0;not null"`
 
+	SumOfRates    uint `gorm:"not null"`
+	NumberOfRates uint `gorm:"not null"`
+
 	Genres []Genre `gorm:"many2many:title_genres;constraint:OnDelete:CASCADE"`
 	Tags   []Tag   `gorm:"many2many:title_tags;constraint:OnDelete:CASCADE"`
 	Teams  []Team  `gorm:"many2many:title_teams;constraint:OnDelete:CASCADE"`
@@ -103,7 +106,12 @@ type TitleDTO struct {
 	Team   *string `json:"team,omitempty"`
 	TeamID *uint   `json:"teamId,omitempty"`
 
-	Views *uint `json:"views,omitempty"`
+	Views *uint    `json:"views,omitempty"`
+	Rate  *float64 `json:"rate,omitempty"`
+
+	QuantityOfViewedChapters *int64 `json:"quantityOfViewedChapters,omitempty"`
+	UserRate                 int    `json:"userRate,omitempty"`
+	QuantityOfChapters       *int64 `json:"quantityOfChapters,omitempty"`
 
 	Genres *pq.StringArray `json:"genres,omitempty" gorm:"type:TEXT[]"`
 	Tags   *pq.StringArray `json:"tags,omitempty" gorm:"type:TEXT[]"`

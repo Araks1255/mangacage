@@ -1,4 +1,6 @@
 /pkg/common/envs
+/internal/seeder/seed_entities.go
+/templates
 /html
 /static
 /go.mod

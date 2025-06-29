@@ -20,31 +20,22 @@ func RegisterRoutes(db *gorm.DB, notificationsClient pb.NotificationsClient, sec
 
 	api := r.Group("/api")
 	{
-		titles := api.Group("/titles/:id")
-		{
-			titles.GET("/volumes", h.GetTitleVolumes)
 
-			titles.POST(
-				"/volumes",
-				middlewares.Auth(secretKey),
-				middlewares.RequireRoles(db, []string{"team_leader"}),
-				h.CreateVolume,
-			)
-		}
+		api.POST(
+			"/titles/:id/volumes",
+			middlewares.Auth(secretKey),
+			middlewares.RequireRoles(db, []string{"team_leader"}),
+			h.CreateVolume,
+		)
 
 		volumes := api.Group("/volumes")
 		{
 			volumes.GET("/:id", h.GetVolume)
+			volumes.GET("/", h.GetVolumes)
 
 			volumesAuth := volumes.Group("/")
 			volumesAuth.Use(middlewares.Auth(secretKey))
 			{
-				// volumesAuth.DELETE(
-				// 	"/:id",
-				// 	middlewares.RequireRoles(db, []string{"team_leader"}),
-				// 	h.DeleteVolume,
-				// )
-
 				volumesAuth.POST(
 					"/:id/edited",
 					middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}),

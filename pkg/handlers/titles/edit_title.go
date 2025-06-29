@@ -19,7 +19,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"gorm.io/gorm/clause"
 )
 
 func (h handler) EditTitle(c *gin.Context) {
@@ -46,46 +45,46 @@ func (h handler) EditTitle(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	{
-		ok, err := titles.IsUserTeamTranslatingTitle(tx, claims.ID, *editedTitle.ExistingID)
+	ok, err := titles.IsUserTeamTranslatingTitle(tx, claims.ID, *editedTitle.ExistingID)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !ok {
+		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди тайтлов, переводимых вашей командой"})
+		return
+	}
+
+	if editedTitle.Name != nil || editedTitle.EnglishName != nil || editedTitle.OriginalName != nil {
+		exists, err := helpers.CheckEntityWithTheSameNameExistence(tx, "titles", *editedTitle.Name, editedTitle.EnglishName, editedTitle.OriginalName)
 		if err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		if !ok {
-			c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди тайтлов, переводимых вашей командой"})
+		if exists {
+			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
 			return
 		}
 	}
 
-	{
-		if editedTitle.Name != nil || editedTitle.EnglishName != nil || editedTitle.OriginalName != nil {
-			exists, err := helpers.CheckEntityWithTheSameNameExistence(tx, "titles", *editedTitle.Name, editedTitle.EnglishName, editedTitle.OriginalName)
-			if err != nil {
-				log.Println(err)
-				c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-				return
-			}
+	err = tx.Clauses(helpers.OnConflictClause).Create(&editedTitle).Error
 
-			if exists {
-				c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
-				return
-			}
+	if err != nil {
+		code, err := titles.ParseTitleOnModerationInsertError(err)
+		if code == 500 {
+			log.Println(err)
 		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
 	}
 
-	{
-		onConflictClause := clause.OnConflict{ // Тут то же самое, что было в сыром SQL.
-			Columns:   []clause.Column{{Name: "existing_id"}}, // Конфликт по existing_id
-			UpdateAll: true,                                   // Столбцы обновляются по структуре
-		}
-
-		err = tx.Clauses(onConflictClause).Create(&editedTitle).Error
-
+	if len(requestBody.GenresIDs) != 0 {
+		code, err := titles.InsertTitleOnModerationGenres(tx, editedTitle.ID, requestBody.GenresIDs)
 		if err != nil {
-			code, err := titles.ParseTitleOnModerationInsertError(err)
 			if code == 500 {
 				log.Println(err)
 			}
@@ -94,39 +93,22 @@ func (h handler) EditTitle(c *gin.Context) {
 		}
 	}
 
-	{
-		if len(requestBody.GenresIDs) != 0 {
-			code, err := titles.InsertTitleOnModerationGenres(tx, editedTitle.ID, requestBody.GenresIDs)
-			if err != nil {
-				if code == 500 {
-					log.Println(err)
-				}
-				c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
-				return
-			}
-		}
-	}
-
-	{
-		if len(requestBody.TagsIDs) != 0 {
-			code, err := titles.InsertTitleOnModerationTags(tx, editedTitle.ID, requestBody.TagsIDs)
-			if err != nil {
-				if code == 500 {
-					log.Println(err)
-				}
-				c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
-				return
-			}
-		}
-	}
-
-	{
-		if requestBody.Cover != nil {
-			if err := upsertTitleOnModerationCover(c.Request.Context(), h.TitlesCovers, requestBody.Cover, editedTitle.ID, claims.ID); err != nil {
+	if len(requestBody.TagsIDs) != 0 {
+		code, err := titles.InsertTitleOnModerationTags(tx, editedTitle.ID, requestBody.TagsIDs)
+		if err != nil {
+			if code == 500 {
 				log.Println(err)
-				c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-				return
 			}
+			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	if requestBody.Cover != nil {
+		if err := upsertTitleOnModerationCover(c.Request.Context(), h.TitlesCovers, requestBody.Cover, editedTitle.ID, claims.ID); err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+			return
 		}
 	}
 

@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"database/sql"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth/utils"
@@ -9,6 +8,7 @@ import (
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	pb "github.com/Araks1255/mangacage_protos"
 
 	"github.com/gin-gonic/gin"
@@ -20,11 +20,7 @@ func (h handler) Signup(c *gin.Context) {
 		return
 	}
 
-	var requestBody struct {
-		UserName      string `json:"userName" binding:"required,min=2,max=20"`
-		Password      string `json:"password" binding:"required,min=8"`
-		AboutYourself string `json:"aboutYourself"`
-	}
+	var requestBody models.UserOnModerationDTO
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		log.Println(err)
@@ -32,40 +28,36 @@ func (h handler) Signup(c *gin.Context) {
 		return
 	}
 
-	user := models.UserOnModeration{
-		UserName:      sql.NullString{String: requestBody.UserName, Valid: true},
-		AboutYourself: requestBody.AboutYourself,
-	}
-
-	var errHash error
-	user.Password, errHash = utils.GenerateHashPassword(requestBody.Password)
-	if errHash != nil {
-		log.Println(errHash)
-		c.AbortWithStatusJSON(500, gin.H{"error": errHash.Error()})
-		return
-	}
-
-	tx := h.DB.Begin()
-	defer dbUtils.RollbackOnPanic(tx)
-	defer tx.Rollback()
-
-	var doesUserExist bool
-
-	if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM users WHERE lower(user_name) = lower(?))", requestBody.UserName).Error; err != nil { // Тут по-прежнему ручной SELECT, потому-что через индексы ограничение уникальности по двум таблицам не сделаешь (напрямую как минимум)
+	exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "users", *requestBody.UserName, nil, nil)
+	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if doesUserExist {
+	if exists {
 		c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже существует"})
 		return
 	}
 
-	err := h.DB.Create(&user).Error
+	hash, err := utils.GenerateHashPassword(*requestBody.Password)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	requestBody.Password = &hash
+
+	user := requestBody.ToUserOnModeration(nil)
+
+	tx := h.DB.Begin()
+	defer dbUtils.RollbackOnPanic(tx)
+	defer tx.Rollback()
+
+	err = h.DB.Create(&user).Error
 
 	if err != nil {
-		if dbErrors.IsUniqueViolation(err, constraints.UniUsersOnModerationUsername) { // Такие проверки всё же гораздо быстрее чем ручной SELECT перед вставкой. Ну, расчёт на то, что на другую бд мигрировать проект не будет и автосгенерированные названия ограничений не поменяются
+		if dbErrors.IsUniqueViolation(err, constraints.UniqUserOnModerationUserName) { // Такие проверки всё же гораздо быстрее чем ручной SELECT перед вставкой. Ну, расчёт на то, что на другую бд мигрировать проект не будет и автосгенерированные названия ограничений не поменяются
 			c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже ожидает модерации"})
 		} else {
 			log.Println(err)

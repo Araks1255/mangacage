@@ -8,31 +8,29 @@ import (
 )
 
 func Seed(db *gorm.DB, mongoDB *mongo.Database, mode string) error {
-	tx := db.Begin()
-	defer tx.Rollback()
-
 	switch mode {
 	case "test":
-		if err := seedRoles(tx); err != nil {
+		if err := seedRoles(db); err != nil {
 			return err
 		}
-		if err := seedGenres(tx); err != nil {
+		if err := seedGenres(db); err != nil {
 			return err
 		}
-		if err := seedTags(tx); err != nil {
+		if err := seedTags(db); err != nil {
+			return err
+		}
+		if err := seedEntities(db, mongoDB); err != nil {
 			return err
 		}
 
 	case "prod":
-		if err := seedRoles(tx); err != nil {
+		if err := seedRoles(db); err != nil {
 			return err
 		}
 
 	default:
 		return errors.New("Неккоректный тип сида")
 	}
-
-	tx.Commit()
 
 	return nil
 }

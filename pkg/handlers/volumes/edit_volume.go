@@ -10,9 +10,9 @@ import (
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm/clause"
 )
 
 func (h handler) EditVolume(c *gin.Context) {
@@ -76,12 +76,7 @@ func (h handler) EditVolume(c *gin.Context) {
 	volumeIDuint := uint(volumeID)
 	editedVolume := requestBody.ToVolumeOnModeration(claims.ID, &check.TitleID, &volumeIDuint)
 
-	onConflictClause := clause.OnConflict{
-		Columns:   []clause.Column{{Name: "existing_id"}},
-		UpdateAll: true,
-	}
-
-	err = tx.Clauses(onConflictClause).Create(&editedVolume).Error
+	err = tx.Clauses(helpers.OnConflictClause).Create(&editedVolume).Error
 
 	if err != nil {
 		if dbErrors.IsUniqueViolation(err, constraints.UniqVolumeTitle) {

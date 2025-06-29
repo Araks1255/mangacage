@@ -14,6 +14,7 @@ import (
 )
 
 type CreateTitleOptions struct {
+	Description string
 	Cover       []byte
 	Collection  *mongo.Collection
 	TeamID      uint
@@ -53,6 +54,9 @@ func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptio
 		return title.ID, nil
 	}
 
+	if opts[0].Description != "" {
+		title.Description = &opts[0].Description
+	}
 	if opts[0].ModeratorID != 0 {
 		title.ModeratorID = &opts[0].ModeratorID
 	}

@@ -100,6 +100,7 @@ func gormMigrate(db *gorm.DB) error {
 		&models.TeamJoinRequest{},
 		&models.TitleTranslateRequest{},
 		&models.UserViewedChapter{},
+		&models.TitleRate{},
 	); err != nil {
 		return err
 	}

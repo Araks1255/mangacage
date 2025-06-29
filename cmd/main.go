@@ -84,7 +84,7 @@ func main() {
 	chapters.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
 	volumes.RegisterRoutes(db, notificationsClient, secretKey, router)
 	users.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
-	views.RegisterRoutes(db, router)
+	views.RegisterRoutes(db, router, secretKey)
 	favorites.RegisterRoutes(db, secretKey, router)
 	moderation.RegisterRoutes(db, mongoClient, secretKey, router)
 	genres.RegisterRoutes(db, notificationsClient, secretKey, router)

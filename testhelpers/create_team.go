@@ -13,6 +13,7 @@ import (
 )
 
 type CreateTeamOptions struct {
+	Description string
 	Cover       []byte
 	Collection  *mongo.Collection
 	ModeratorID uint
@@ -40,6 +41,9 @@ func CreateTeam(db *gorm.DB, creatorID uint, opts ...CreateTeamOptions) (uint, e
 		return team.ID, nil
 	}
 
+	if opts[0].Description != "" {
+		team.Description = opts[0].Description
+	}
 	if opts[0].ModeratorID != 0 {
 		team.ModeratorID = &opts[0].ModeratorID
 	}

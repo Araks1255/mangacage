@@ -70,6 +70,7 @@ func CreateUser(db *gorm.DB, opts ...CreateUserOptions) (uint, error) {
 			UserID:         user.ID,
 			CreatorID:      user.ID,
 			ProfilePicture: opts[0].ProfilePicture,
+			Visible:        opts[0].Visible,
 		}
 
 		if _, err := opts[0].Collection.InsertOne(context.Background(), userProfilePicture); err != nil {

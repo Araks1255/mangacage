@@ -26,6 +26,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.
 	{
 		teams.GET("/:id/cover", h.GetTeamCover)
 		teams.GET("/:id/", h.GetTeam)
+		teams.GET("/", h.GetTeams)
 
 		teamsAuth := teams.Group("/")
 		teamsAuth.Use(middlewares.Auth(secretKey))

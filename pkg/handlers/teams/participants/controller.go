@@ -23,11 +23,6 @@ func RegisterRoutes(db *gorm.DB, secretKey string, r *gin.Engine) {
 			participantsOfMyTeam.DELETE("/:id/roles", h.DeleteParticipantRole)
 			participantsOfMyTeam.DELETE("/:id", middlewares.RequireRoles(db, []string{"team_leader"}), h.ExcludeParticipant) // Исключать может только лидер
 		}
-
-		participants := teams.Group("/:id/participants")
-		{
-			participants.GET("/", h.GetTeamParticipants)
-		}
 	}
 }
 

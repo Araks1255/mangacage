@@ -27,6 +27,7 @@ type GetChaptersParams struct {
 
 	FavoritedBy *uint `form:"favoritedBy" binding:"excluded_with=MyFavorites"`
 	MyFavorites *bool `form:"myFavorites" binding:"excluded_with=FavoritedBy"`
+	Viewed      *bool `form:"viewed"`
 }
 
 func (h handler) GetChapters(c *gin.Context) {
@@ -96,6 +97,16 @@ func (h handler) GetChapters(c *gin.Context) {
 			Where("ufc.user_id = ?", claims.(*auth.Claims).ID)
 	}
 
+	if params.Viewed != nil && *params.Viewed {
+		claims, ok := c.Get("claims")
+		if !ok {
+			c.AbortWithStatusJSON(401, gin.H{"error": "получение истории чтения глав доступно только авторизованным пользователям"})
+			return
+		}
+		query = query.Joins("INNER JOIN user_viewed_chapters AS uvc ON uvc.chapter_id = c.id").
+			Where("uvc.user_id = ?", claims.(*auth.Claims).ID)
+	}
+
 	if params.Order != "desc" && params.Order != "asc" {
 		params.Order = "desc"
 	}
@@ -109,6 +120,12 @@ func (h handler) GetChapters(c *gin.Context) {
 
 	case "createdAt":
 		query = query.Order(fmt.Sprintf("c.id %s", params.Order))
+
+	case "readedAt":
+		if params.Viewed != nil && *params.Viewed {
+			query = query.Order(fmt.Sprintf("uvc.created_at %s", params.Order))
+			break
+		}
 
 	default:
 		query = query.Order("name DESC")
