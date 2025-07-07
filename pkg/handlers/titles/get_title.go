@@ -1,11 +1,12 @@
 package titles
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,6 +32,15 @@ func (h handler) GetTitle(c *gin.Context) {
 			"COUNT(DISTINCT uvc.*) AS quantity_of_viewed_chapters",
 			"COUNT(DISTINCT c.id) AS qunatity_of_chapters",
 			"tr.rate AS user_rate",
+			fmt.Sprintf(
+				`EXISTS(
+					SELECT 1 FROM users AS u
+					INNER JOIN user_roles AS ur ON ur.user_id = u.id
+					INNER JOIN roles AS r ON r.id = ur.role_id
+					INNER JOIN title_teams ON title_teams.team_id = u.team_id
+					WHERE title_teams.title_id = t.id AND u.id = %d AND r.name IN ('team_leader', 'ex_team_leader')
+				) AS can_edit`, claims.(*auth.Claims).ID,
+			),
 		)
 	}
 
@@ -51,7 +61,7 @@ func (h handler) GetTitle(c *gin.Context) {
 			Group("tr.rate")
 	}
 
-	var title models.TitleDTO
+	var title dto.ResponseTitleDTO
 
 	if err := query.Scan(&title).Error; err != nil {
 		log.Println(err)

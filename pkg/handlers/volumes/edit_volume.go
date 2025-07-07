@@ -7,8 +7,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
-	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	pb "github.com/Araks1255/mangacage_protos"
@@ -24,17 +23,14 @@ func (h handler) EditVolume(c *gin.Context) {
 		return
 	}
 
-	var requestBody models.VolumeOnModerationDTO
-	c.ShouldBindJSON(&requestBody)
+	var requestBody dto.EditVolumeDTO
 
-	ok, err := utils.HasAnyNonEmptyFields(&requestBody)
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	if !ok {
+	if requestBody.Name == nil && requestBody.Description == nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": "запрос должен содержать как минимум 1 изменяемый параметр"})
 		return
 	}
@@ -73,10 +69,9 @@ func (h handler) EditVolume(c *gin.Context) {
 		return
 	}
 
-	volumeIDuint := uint(volumeID)
-	editedVolume := requestBody.ToVolumeOnModeration(claims.ID, &check.TitleID, &volumeIDuint)
+	editedVolume := requestBody.ToVolumeOnModeration(claims.ID, uint(volumeID))
 
-	err = tx.Clauses(helpers.OnConflictClause).Create(&editedVolume).Error
+	err = tx.Clauses(helpers.OnExistingIDConflictClause).Create(&editedVolume).Error
 
 	if err != nil {
 		if dbErrors.IsUniqueViolation(err, constraints.UniqVolumeTitle) {

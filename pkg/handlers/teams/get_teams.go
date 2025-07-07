@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -46,7 +46,7 @@ func (h handler) GetTeams(c *gin.Context) {
 		query = query.Order("name DESC")
 	}
 
-	var result []models.TeamDTO
+	var result []dto.ResponseTeamDTO
 
 	if err := query.Scan(&result).Error; err != nil {
 		log.Println(err)

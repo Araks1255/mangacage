@@ -1,27 +1,23 @@
 package titles
 
 import (
-	"context"
 	"log"
-	"mime/multipart"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
-	"github.com/Araks1255/mangacage/pkg/common/models"
-	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
-	"github.com/Araks1255/mangacage/pkg/common/utils"
+
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers/titles"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func (h handler) CreateTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var requestBody models.TitleOnModerationDTO
+	var requestBody dto.CreateTitleDTO
 
 	if err := c.ShouldBindWith(&requestBody, binding.FormMultipart); err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
@@ -38,62 +34,54 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	newTitle := requestBody.ToTitleOnModeration(claims.ID, nil)
+	newTitle := requestBody.ToTitleOnModeration(claims.ID)
 
 	tx := h.DB.Begin()
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	{
-		exists, err := helpers.CheckEntityWithTheSameNameExistence(tx, "titles", *requestBody.Name, requestBody.EnglishName, requestBody.OriginalName)
-		if err != nil {
+	exists, err := helpers.CheckEntityWithTheSameNameExistence(tx, "titles", &requestBody.Name, &requestBody.EnglishName, &requestBody.OriginalName)
+	if err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	if exists {
+		c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
+		return
+	}
+
+	err = tx.Clauses(helpers.OnIDConflictClause).Create(&newTitle).Error
+
+	if err != nil {
+		code, err := titles.ParseTitleOnModerationInsertError(err)
+		if code == 500 {
 			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
 		}
-
-		if exists {
-			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
-			return
-		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
 	}
 
-	{
-		err := tx.Create(&newTitle).Error
-
-		if err != nil {
-			code, err := titles.ParseTitleOnModerationInsertError(err)
-			if code == 500 {
-				log.Println(err)
-			}
-			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
-			return
+	code, err := titles.InsertTitleOnModerationGenres(tx, newTitle.ID, requestBody.GenresIDs)
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
 		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
 	}
 
-	{
-		code, err := titles.InsertTitleOnModerationGenres(tx, newTitle.ID, requestBody.GenresIDs)
-		if err != nil {
-			if code == 500 {
-				log.Println(err)
-			}
-			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
-			return
+	code, err = titles.InsertTitleOnModerationTags(tx, newTitle.ID, requestBody.TagsIDs)
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
 		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
 	}
 
-	{
-		code, err := titles.InsertTitleOnModerationTags(tx, newTitle.ID, requestBody.TagsIDs)
-		if err != nil {
-			if code == 500 {
-				log.Println(err)
-			}
-			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
-			return
-		}
-	}
-
-	if err := insertTitleOnModerationCover(c.Request.Context(), h.TitlesCovers, newTitle.ID, claims.ID, requestBody.Cover); err != nil {
+	if err := titles.UpsertTitleOnModerationCover(c.Request.Context(), h.TitlesCovers, requestBody.Cover, newTitle.ID, claims.ID); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -106,23 +94,4 @@ func (h handler) CreateTitle(c *gin.Context) {
 	if _, err := h.NotificationsClient.NotifyAboutTitleOnModeration(c.Request.Context(), &pb.TitleOnModeration{ID: uint64(newTitle.ID), New: true}); err != nil {
 		log.Println(err)
 	}
-}
-
-func insertTitleOnModerationCover(ctx context.Context, collection *mongo.Collection, titleOnModerationID, userID uint, coverFileHeader *multipart.FileHeader) (err error) {
-	cover, err := utils.ReadMultipartFile(coverFileHeader, 2<<20)
-	if err != nil {
-		return err
-	}
-
-	titleCover := mongoModels.TitleOnModerationCover{
-		TitleOnModerationID: titleOnModerationID,
-		CreatorID:           userID,
-		Cover:               cover,
-	}
-
-	if _, err = collection.InsertOne(ctx, titleCover); err != nil {
-		return err
-	}
-
-	return nil
 }

@@ -1,6 +1,6 @@
 package constraints
 
 const (
-	UniTeamsOnModerationName      = "uni_teams_on_moderation_name"
-	UniTeamsOnModerationCreatorID = "uni_teams_on_moderation_creator_id"
+	UniqTeamsOnModerationName      = "uniq_teams_on_moderation_name"
+	UniqTeamsOnModerationCreatorID = "uniq_teams_on_moderation_creator_id"
 )

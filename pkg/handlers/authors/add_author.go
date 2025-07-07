@@ -22,7 +22,7 @@ func (h handler) AddAuthor(c *gin.Context) {
 
 	newAuthor := requestBody.ToAuthorOnModeration(claims.ID)
 
-	exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "authors", newAuthor.Name, nil, &newAuthor.OriginalName)
+	exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "authors", &newAuthor.Name, nil, &newAuthor.OriginalName)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

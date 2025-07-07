@@ -5,6 +5,8 @@ import (
 	"log"
 	"strconv"
 
+	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
+
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -19,23 +21,15 @@ func (h handler) GetTeamCover(c *gin.Context) {
 
 	filter := bson.M{"team_id": teamID}
 
-	var result struct {
-		TeamID uint   `bson:"team_id"`
-		Cover  []byte `bson:"cover"`
-	}
+	var result mongoModels.TeamCover
 
 	if err := h.TeamsCovers.FindOne(c.Request.Context(), filter).Decode(&result); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			c.AbortWithStatusJSON(404, gin.H{"error":"команда не найдена"})
+			c.AbortWithStatusJSON(404, gin.H{"error": "команда не найдена"})
 			return
 		}
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(result.Cover) == 0 {
-		c.AbortWithStatusJSON(500, gin.H{"error": "произошла ошибка при получении обложки команды"})
 		return
 	}
 

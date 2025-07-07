@@ -7,3 +7,6 @@
 /go.sum
 /.vscode
 /test_data
+/.env
+/GEMINI.md
+/changes.txt

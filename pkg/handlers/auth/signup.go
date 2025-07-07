@@ -28,7 +28,7 @@ func (h handler) Signup(c *gin.Context) {
 		return
 	}
 
-	exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "users", *requestBody.UserName, nil, nil)
+	exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "users", requestBody.UserName, nil, nil)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

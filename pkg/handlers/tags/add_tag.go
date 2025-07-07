@@ -21,7 +21,7 @@ func (h handler) AddTag(c *gin.Context) {
 		return
 	}
 
-	exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "tags", requestBody.Name, nil, nil)
+	exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "tags", &requestBody.Name, nil, nil)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

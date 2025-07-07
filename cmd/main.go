@@ -19,6 +19,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/handlers/users"
 	"github.com/Araks1255/mangacage/pkg/handlers/users/favorites"
 	"github.com/Araks1255/mangacage/pkg/handlers/users/moderation"
+	"github.com/Araks1255/mangacage/pkg/handlers/users/viewedchapters"
 	"github.com/Araks1255/mangacage/pkg/handlers/views"
 	"github.com/Araks1255/mangacage/pkg/handlers/volumes"
 	pb "github.com/Araks1255/mangacage_protos"
@@ -77,7 +78,7 @@ func main() {
 	router := gin.Default()
 
 	auth.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
-	titles.RegisterRoutes(db, mongoClient, notificationsClient, router)
+	titles.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
 	teams.RegisterRoutes(db, mongoClient, secretKey, router)
 	joinrequests.RegisterRoutes(db, secretKey, router)
 	participants.RegisterRoutes(db, secretKey, router)
@@ -90,6 +91,7 @@ func main() {
 	genres.RegisterRoutes(db, notificationsClient, secretKey, router)
 	tags.RegisterRoutes(db, notificationsClient, secretKey, router)
 	authors.RegisterRoutes(db, notificationsClient, secretKey, router)
+	viewedchapters.RegisterRoutes(db, router)
 
 	router.Run(":8080")
 }

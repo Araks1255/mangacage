@@ -1,8 +1,6 @@
 package models
 
 import (
-	"time"
-
 	"gorm.io/gorm"
 )
 
@@ -35,7 +33,10 @@ type VolumeOnModeration struct {
 	Volume     *Volume `gorm:"foreignKey:ExistingID;references:id;constraint:OnDelete:CASCADE"`
 
 	TitleID *uint
-	Title   *Title `gorm:"foreignKey:TitleID;references:id;constraint:OnDelete:SET NULL"`
+	Title   *Title `gorm:"foreignKey:TitleID;references:id;constraint:OnDelete:CASCADE"`
+
+	TitleOnModerationID *uint
+	TitleOnModeration   *TitleOnModeration `gorm:"foreignKey:TitleOnModerationID;references:id;constraint:OnDelete:CASCADE"`
 
 	CreatorID uint
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
@@ -49,46 +50,4 @@ type VolumeOnModeration struct {
 
 func (VolumeOnModeration) TableName() string {
 	return "volumes_on_moderation"
-}
-
-type VolumeDTO struct {
-	ID        uint       `json:"id"`
-	CreatedAt *time.Time `json:"createdAt,omitempty"`
-
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-
-	Title   *string `json:"title,omitempty"`
-	TitleID *uint   `json:"titleId,omitempty"`
-
-	Team   *string `json:"team,omitempty"`
-	TeamID *uint   `json:"teamId,omitempty"`
-}
-
-type VolumeOnModerationDTO struct {
-	ID        uint       `json:"id"`
-	CreatedAt *time.Time `json:"createdAt,omitempty"`
-
-	Name        *string `json:"name" binding:"required"`
-	Description *string `json:"description,omitempty"`
-
-	Title   *string `json:"title,omitempty"`
-	TitleID *uint   `json:"titleId,omitempty"`
-
-	Team   *string `json:"team,omitempty"`
-	TeamID *uint   `json:"teamId,omitempty"`
-
-	Existing   *string `json:"existing,omitempty"`
-	ExistingID *uint   `json:"existingId,omitempty"`
-}
-
-func (v VolumeOnModerationDTO) ToVolumeOnModeration(creatorID uint, titleID, existingID *uint) VolumeOnModeration {
-	return VolumeOnModeration{
-		Name:        v.Name,
-		Description: v.Description,
-		TeamID:      v.TeamID,
-		TitleID:     titleID,
-		ExistingID:  existingID,
-		CreatorID:   creatorID,
-	}
 }

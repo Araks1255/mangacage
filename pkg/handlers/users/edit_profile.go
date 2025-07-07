@@ -37,7 +37,7 @@ func (h handler) EditProfile(c *gin.Context) {
 	}
 
 	if requestBody.UserName != nil {
-		exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "users", *requestBody.UserName, nil, nil)
+		exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "users", requestBody.UserName, nil, nil)
 		if err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -56,7 +56,7 @@ func (h handler) EditProfile(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	err = tx.Clauses(helpers.OnConflictClause).Create(&editedProfile).Error
+	err = tx.Clauses(helpers.OnExistingIDConflictClause).Create(&editedProfile).Error
 
 	if err != nil {
 		if dbErrors.IsUniqueViolation(err, constraints.UniqUserOnModerationUserName) {

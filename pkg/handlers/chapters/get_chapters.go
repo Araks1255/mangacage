@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,7 +27,10 @@ type GetChaptersParams struct {
 
 	FavoritedBy *uint `form:"favoritedBy" binding:"excluded_with=MyFavorites"`
 	MyFavorites *bool `form:"myFavorites" binding:"excluded_with=FavoritedBy"`
-	Viewed      *bool `form:"viewed"`
+	CreatedBy   *uint `form:"createdBy" binding:"excluded_with=MyCreations"`
+	MyCreations *bool `form:"myCreations" binding:"excluded_with=CreatedBy"`
+
+	Viewed *bool `form:"viewed"`
 }
 
 func (h handler) GetChapters(c *gin.Context) {
@@ -60,31 +63,40 @@ func (h handler) GetChapters(c *gin.Context) {
 		query = query.Where("lower(c.name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
 	}
 
-	if params.ViewsFrom != nil || params.ViewsTo != nil {
-		if params.ViewsTo == nil {
-			query = query.Where("c.views >= ?", params.ViewsFrom)
-		} else if params.ViewsFrom == nil {
-			query = query.Where("c.views <= ?", params.ViewsTo)
-		} else {
-			query = query.Where("c.views BETWEEN ? AND ?", params.ViewsFrom, params.ViewsTo)
-		}
+	if params.ViewsFrom != nil {
+		query = query.Where("c.views >= ?", params.ViewsFrom)
+	}
+	if params.ViewsTo != nil {
+		query = query.Where("c.views <= ?", params.ViewsTo)
 	}
 
-	if params.NumberOfPagesFrom != nil || params.NumberOfPagesTo != nil {
-		if params.NumberOfPagesTo == nil {
-			query = query.Where("c.number_of_pages >= ?", params.NumberOfPagesFrom)
-		} else if params.NumberOfPagesFrom == nil {
-			query = query.Where("c.number_of_pages <= ?", params.NumberOfPagesTo)
-		} else {
-			query = query.Where("c.number_of_pages BETWEEN ? AND ?", params.NumberOfPagesFrom, params.NumberOfPagesTo)
-		}
+	if params.NumberOfPagesFrom != nil {
+		query = query.Where("c.number_of_pages >= ?", params.NumberOfPagesFrom)
+	}
+	if params.NumberOfPagesTo != nil {
+		query = query.Where("c.number_of_pages <= ?", params.NumberOfPagesTo)
 	}
 
 	if params.FavoritedBy != nil {
 		query = query.Joins("INNER JOIN user_favorite_chapters AS ufc ON ufc.chapter_id = c.id").
 			Joins("INNER JOIN users AS u ON u.id = ufc.user_id").
-			Where("u.id = ?", params.FavoritedBy).
+			Where("u.id = ?", *params.FavoritedBy).
 			Where("u.visible")
+	}
+
+	if params.CreatedBy != nil {
+		query = query.Joins("INNER JOIN users AS creators ON creators.id = c.creator_id").
+			Where("creators.id = ?", *params.CreatedBy).
+			Where("creators.visible")
+	}
+
+	if params.MyCreations != nil && *params.MyCreations {
+		claims, ok := c.Get("claims")
+		if !ok {
+			c.AbortWithStatusJSON(401, gin.H{"error": "получение своих публикаций доступно только авторизованным пользователям"})
+			return
+		}
+		query = query.Where("c.creator_id = ?", claims.(*auth.Claims).ID)
 	}
 
 	if params.MyFavorites != nil && *params.MyFavorites {
@@ -138,7 +150,7 @@ func (h handler) GetChapters(c *gin.Context) {
 
 	query = query.Limit(int(params.Limit)).Offset(offset)
 
-	var result []models.ChapterDTO
+	var result []dto.ResponseChapterDTO
 
 	if err := query.Scan(&result).Error; err != nil {
 		log.Println(err)

@@ -1,37 +1,29 @@
 package teams
 
 import (
-	"database/sql"
+	"errors"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers/teams"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/gin-gonic/gin/binding"
 )
 
 func (h handler) EditTeam(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	form, err := c.MultipartForm()
+	var requestBody *dto.EditTeamDTO
+
+	team, err := mapEditTeamBodyToTeamOnModeration(requestBody, c.ShouldBindWith, claims.ID)
 	if err != nil {
-		log.Println(err)
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(form.Value["name"]) == 0 && len(form.Value["description"]) == 0 && len(form.File["cover"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "запрос должен содержать хотя-бы один изменяемый параметр"})
-		return
-	}
-
-	if len(form.File["cover"]) != 0 && form.File["cover"][0].Size > 2<<20 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "превышен лимит размера обложки (2мб)"})
 		return
 	}
 
@@ -39,79 +31,42 @@ func (h handler) EditTeam(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	editedTeam := models.TeamOnModeration{ // Тут можно было просто на переменных сделать, но со структурой мне побольше нравится
-		CreatorID: claims.ID,
-	}
+	if team.Name != nil {
+		var teamWithTheSameNameExists bool
 
-	if len(form.Value["description"]) != 0 {
-		editedTeam.Description = form.Value["description"][0]
-	}
-
-	if err := tx.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&editedTeam.ExistingID).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(form.Value["name"]) != 0 {
-		var doesTeamWithTheSameNameExist bool
-
-		if err := tx.Raw("SELECT EXISTS(SELECT 1 FROM teams WHERE lower(name) = lower(?))", form.Value["name"][0]).Scan(&doesTeamWithTheSameNameExist).Error; err != nil {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
-		}
-
-		if doesTeamWithTheSameNameExist {
-			c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже существует"})
-			return
-		}
-
-		editedTeam.Name = sql.NullString{String: form.Value["name"][0], Valid: true}
-	}
-
-	err = tx.Raw(
-		`INSERT INTO teams_on_moderation (created_at, name, description, existing_id, creator_id)
-		VALUES (NOW(), ?, ?, ?, ?)
-		ON CONFLICT (existing_id) DO UPDATE
-		SET
-			name = EXCLUDED.name,
-			description = EXCLUDED.description,
-			creator_id = EXCLUDED.creator_id,
-			updated_at = NOW()
-		RETURNING id`,
-		editedTeam.Name, editedTeam.Description, editedTeam.ExistingID, editedTeam.CreatorID,
-	).Scan(&editedTeam.ID).Error
-
-	if err != nil {
-		if dbErrors.IsUniqueViolation(err, constraints.UniTeamsOnModerationCreatorID) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "у вас уже есть команда, ожидающая модерации"})
-			return
-		}
-
-		if dbErrors.IsUniqueViolation(err, constraints.UniTeamsOnModerationName) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже ожидает модерации"})
-			return
-		}
-
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(form.File["cover"]) != 0 {
-		cover, err := utils.ReadMultipartFile(form.File["cover"][0], 2<<20)
+		err := tx.Raw("SELECT EXISTS(SELECT 1 FROM teams WHERE lower(name) = lower(?))", team.Name).Scan(&teamWithTheSameNameExists).Error
 		if err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
 		}
 
-		filter := bson.M{"team_on_moderation_id": editedTeam.ID}
-		update := bson.M{"$set": bson.M{"cover": cover, "creator_id": claims.ID}}
-		opts := options.Update().SetUpsert(true)
+		if teamWithTheSameNameExists {
+			c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже существует"})
+			return
+		}
+	}
 
-		if _, err := h.TeamsCovers.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
+	if err := tx.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&team.ExistingID).Error; err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = tx.Clauses(helpers.OnIDConflictClause).Create(&team).Error
+
+	if err != nil {
+		code, err := parseEditTeamError(err)
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
+	}
+
+	if requestBody.Cover != nil {
+		err := teams.UpsertTeamOnModerationCover(c.Request.Context(), h.TeamsCovers, requestBody.Cover, team.ID, claims.ID)
+		if err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
@@ -122,4 +77,34 @@ func (h handler) EditTeam(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "изменения команды успешно отправлены на модерацию"})
 	// Уведомление
+}
+
+func mapEditTeamBodyToTeamOnModeration(requestBody *dto.EditTeamDTO, bindFn func(any, binding.Binding) error, userID uint) (*models.TeamOnModeration, error) {
+	if err := bindFn(requestBody, binding.FormMultipart); err != nil {
+		return nil, err
+	}
+
+	if requestBody.Name == nil && requestBody.Description == nil && requestBody.Cover == nil {
+		return nil, errors.New("необходим как минимум 1 изменямый параметр")
+	}
+
+	if requestBody.Cover != nil && requestBody.Cover.Size > 2<<20 {
+		return nil, errors.New("превышен максимальный размер обложки (2мб)")
+	}
+
+	res := requestBody.ToTeamOnModeration(userID, 0)
+
+	return &res, nil
+}
+
+func parseEditTeamError(err error) (code int, parsedErr error) {
+	if dbErrors.IsUniqueViolation(err, constraints.UniqTeamsOnModerationCreatorID) {
+		return 409, errors.New("у вас уже есть команда, ожидающая модерации")
+	}
+
+	if dbErrors.IsUniqueViolation(err, constraints.UniqTeamsOnModerationName) {
+		return 409, errors.New("команда с таким названием уже ожидает модерации")
+	}
+
+	return 500, err
 }

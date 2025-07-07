@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 )
@@ -30,6 +30,8 @@ type GetTitlesParams struct {
 	AgeLimitTo   *int `form:"ageLimitTo"`
 	ViewsFrom    *int `form:"viewsFrom"`
 	ViewsTo      *int `form:"viewsTo"`
+	RateFrom     *int `json:"rateFrom"`
+	RateTo       *int `json:"rateTo"`
 
 	Genres []string `form:"genres"`
 	Tags   []string `form:"tags"`
@@ -97,34 +99,32 @@ func (h handler) GetTitles(c *gin.Context) {
 			Where("uft.user_id = ?", claims.(*auth.Claims).ID)
 	}
 
-	if params.YearFrom != nil || params.YearTo != nil {
-		if params.YearTo == nil {
-			query = query.Where("t.year_of_release >= ?", params.YearFrom)
-		} else if params.YearFrom == nil {
-			query = query.Where("t.year_of_release <= ?", params.YearTo)
-		} else {
-			query = query.Where("t.year_of_release BETWEEN ? AND ?", params.YearFrom, params.YearTo)
-		}
+	if params.YearFrom != nil {
+		query = query.Where("t.year_of_release >= ?", params.YearFrom)
+	}
+	if params.YearTo != nil {
+		query = query.Where("t.year_of_release <= ?", params.YearTo)
 	}
 
-	if params.AgeLimitFrom != nil || params.AgeLimitTo != nil {
-		if params.AgeLimitTo == nil {
-			query = query.Where("t.age_limit >= ?", params.AgeLimitFrom)
-		} else if params.AgeLimitFrom == nil {
-			query = query.Where("t.age_limit <= ?", params.AgeLimitTo)
-		} else {
-			query = query.Where("t.age_limit BETWEEN ? AND ?", params.AgeLimitFrom, params.AgeLimitTo)
-		}
+	if params.AgeLimitFrom != nil {
+		query = query.Where("t.age_limit >= ?", params.AgeLimitFrom)
+	}
+	if params.AgeLimitTo != nil {
+		query = query.Where("t.age_limit <= ?", params.AgeLimitTo)
 	}
 
-	if params.ViewsFrom != nil || params.ViewsTo != nil {
-		if params.ViewsTo == nil {
-			query = query.Where("t.views >= ?", params.ViewsFrom)
-		} else if params.ViewsFrom == nil {
-			query = query.Where("t.views <= ?", params.ViewsTo)
-		} else {
-			query = query.Where("t.views BETWEEN ? AND ?", params.ViewsFrom, params.ViewsTo)
-		}
+	if params.ViewsFrom != nil {
+		query = query.Where("t.views >= ?", params.ViewsFrom)
+	}
+	if params.ViewsTo != nil {
+		query = query.Where("t.views <= ?", params.ViewsTo)
+	}
+
+	if params.RateFrom != nil {
+		query = query.Where("t.sum_of_rates/t.number_of_rates::FLOAT >= ?::FLOAT", params.RateFrom)
+	}
+	if params.RateTo != nil {
+		query = query.Where("t.sum_of_rates/t.number_of_rates::FLOAT <= ?::FLOAT", params.RateTo)
 	}
 
 	if params.Order != "desc" && params.Order != "asc" {
@@ -148,7 +148,7 @@ func (h handler) GetTitles(c *gin.Context) {
 				SELECT g.name FROM genres AS g
 				INNER JOIN title_genres AS tg ON tg.genre_id = g.id
 				WHERE tg.title_id = t.id
-			))::TEXT[] @> ?::TEXT[]`, // Агрегаты нельзя использовать в where, так что так
+			))::TEXT[] @> ?::TEXT[]`,
 			pq.Array(params.Genres),
 		)
 	}
@@ -164,7 +164,7 @@ func (h handler) GetTitles(c *gin.Context) {
 		)
 	}
 
-	var result []models.TitleDTO
+	var result []dto.ResponseTitleDTO
 
 	if err := query.Scan(&result).Error; err != nil {
 		log.Println(err)

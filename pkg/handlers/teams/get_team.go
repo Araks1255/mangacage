@@ -4,7 +4,7 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,7 +15,7 @@ func (h handler) GetTeam(c *gin.Context) {
 		return
 	}
 
-	var team models.TeamDTO
+	var team dto.ResponseTeamDTO
 
 	if err = h.DB.Table("teams").Select("*").Where("id = ?", teamID).Scan(&team).Error; err != nil {
 		log.Println(err)

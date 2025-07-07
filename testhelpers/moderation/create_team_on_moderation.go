@@ -2,7 +2,6 @@ package moderation
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
@@ -23,8 +22,9 @@ func CreateTeamOnModeration(db *gorm.DB, userID uint, opts ...CreateTeamOnModera
 		return 0, errors.New("объектов опций не может быть больше одного")
 	}
 
+	name := uuid.New().String()
 	team := models.TeamOnModeration{
-		Name:      sql.NullString{String: uuid.New().String(), Valid: true},
+		Name:      &name,
 		CreatorID: userID,
 	}
 

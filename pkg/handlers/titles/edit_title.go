@@ -1,31 +1,31 @@
 package titles
 
 import (
-	"context"
 	"errors"
 	"log"
-	"mime/multipart"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers/titles"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (h handler) EditTitle(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var requestBody models.TitleOnModerationDTO
-	c.ShouldBindWith(&requestBody, binding.FormMultipart)
+	var requestBody dto.EditTitleDTO
+
+	if err := c.ShouldBindWith(&requestBody, binding.FormMultipart); err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+		return
+	}
 
 	if requestBody.Cover != nil && requestBody.Cover.Size > 2<<20 {
 		c.AbortWithStatusJSON(400, gin.H{"error": "превышен максимальный размер обложки (2мб)"})
@@ -58,7 +58,7 @@ func (h handler) EditTitle(c *gin.Context) {
 	}
 
 	if editedTitle.Name != nil || editedTitle.EnglishName != nil || editedTitle.OriginalName != nil {
-		exists, err := helpers.CheckEntityWithTheSameNameExistence(tx, "titles", *editedTitle.Name, editedTitle.EnglishName, editedTitle.OriginalName)
+		exists, err := helpers.CheckEntityWithTheSameNameExistence(tx, "titles", editedTitle.Name, editedTitle.EnglishName, editedTitle.OriginalName)
 		if err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -71,7 +71,7 @@ func (h handler) EditTitle(c *gin.Context) {
 		}
 	}
 
-	err = tx.Clauses(helpers.OnConflictClause).Create(&editedTitle).Error
+	err = tx.Clauses(helpers.OnExistingIDConflictClause).Create(&editedTitle).Error
 
 	if err != nil {
 		code, err := titles.ParseTitleOnModerationInsertError(err)
@@ -105,7 +105,7 @@ func (h handler) EditTitle(c *gin.Context) {
 	}
 
 	if requestBody.Cover != nil {
-		if err := upsertTitleOnModerationCover(c.Request.Context(), h.TitlesCovers, requestBody.Cover, editedTitle.ID, claims.ID); err != nil {
+		if err := titles.UpsertTitleOnModerationCover(c.Request.Context(), h.TitlesCovers, requestBody.Cover, editedTitle.ID, claims.ID); err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
@@ -121,13 +121,13 @@ func (h handler) EditTitle(c *gin.Context) {
 	}
 }
 
-func mapEditTitleParamsToTitleOnModeration(userID uint, body *models.TitleOnModerationDTO, paramFn func(string) string) (res *models.TitleOnModeration, code int, err error) {
+func mapEditTitleParamsToTitleOnModeration(userID uint, body *dto.EditTitleDTO, paramFn func(string) string) (res *models.TitleOnModeration, code int, err error) {
 	titleID, err := strconv.ParseUint(paramFn("id"), 10, 64)
 	if err != nil {
 		return nil, 400, errors.New("указан невалидный id тайтла")
 	}
 
-	ok, err := utils.HasAnyNonEmptyFields(body)
+	ok, err := utils.HasAnyNonEmptyFields(body, "AuthorID", "AuthorOnModerationID")
 	if err != nil {
 		return nil, 500, err
 	}
@@ -136,26 +136,7 @@ func mapEditTitleParamsToTitleOnModeration(userID uint, body *models.TitleOnMode
 		return nil, 400, errors.New("запрос должен содержать как минимум 1 изменяемый параметр")
 	}
 
-	titleIDuint := uint(titleID)
-
-	titleOnModeration := body.ToTitleOnModeration(userID, &titleIDuint)
+	titleOnModeration := body.ToTitleOnModeration(userID, uint(titleID))
 
 	return &titleOnModeration, 0, nil
-}
-
-func upsertTitleOnModerationCover(ctx context.Context, collection *mongo.Collection, coverFileHeader *multipart.FileHeader, titleOnModerationID, userID uint) error {
-	cover, err := utils.ReadMultipartFile(coverFileHeader, 2<<20)
-	if err != nil {
-		return err
-	}
-
-	filter := bson.M{"title_on_moderation_id": titleOnModerationID}
-	update := bson.M{"$set": bson.M{"cover": cover, "creator_id": userID}}
-	opts := options.Update().SetUpsert(true)
-
-	if _, err := collection.UpdateOne(ctx, filter, update, opts); err != nil {
-		return err
-	}
-
-	return nil
 }

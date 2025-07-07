@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,7 +14,7 @@ func (h handler) GetMyTeamOnModeration(c *gin.Context) {
 	moderationType := c.Query("type")
 
 	var (
-		team models.TeamOnModerationDTO
+		team dto.ResponseTeamDTO
 		err  error
 	)
 

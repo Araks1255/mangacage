@@ -4,7 +4,7 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,7 +15,7 @@ func (h handler) GetVolume(c *gin.Context) {
 		return
 	}
 
-	var volume models.VolumeDTO
+	var volume dto.ResponseVolumeDTO
 
 	if err := h.DB.Raw(
 		`SELECT

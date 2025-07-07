@@ -1,34 +1,28 @@
 package chapters
 
 import (
-	"database/sql"
+	"errors"
 	"io"
 	"log"
 	"mime/multipart"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
-	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/common/models/mongo"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/gorm"
 )
 
 func (h handler) CreateChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
-
-	volumeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный id тома"})
-		return
-	}
-
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 500<<20)
 
 	contentType := c.Request.Header.Get("Content-Type")
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
@@ -43,19 +37,23 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	name, description, pages, err := parseCreateChapterBody(reader)
+	var requestBody dto.CreateChapterDTO
+
+	code, err := parseCreateChapterBody(reader, &requestBody)
 	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
-	if len(pages) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает страниц главы"})
-		return
-	}
-	if name == "" {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает названия главы"})
+	code, err = checkCreateChapterConflicts(h.DB, &requestBody, claims.ID)
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -63,65 +61,30 @@ func (h handler) CreateChapter(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var check struct {
-		UserTeamID       *uint
-		DoesChapterExist bool
-	}
+	chapter := requestBody.ToChapterOnModeration(claims.ID)
 
-	if err = tx.Raw(
-		`SELECT
-			(
-				SELECT team_id FROM title_teams WHERE title_id = (
-					SELECT title_id FROM volumes WHERE id = ?
-				) AND team_id = (
-					SELECT team_id FROM users WHERE id = ?
-				)
-			) AS user_team_id,
-			EXISTS(SELECT 1 FROM chapters WHERE lower(name) = lower(?) AND volume_id = ?) AS does_chapter_exist`,
-		volumeID, claims.ID, name, volumeID,
-	).Scan(&check).Error; err != nil {
+	err = tx.Clauses(helpers.OnIDConflictClause).Create(&chapter).Error
+
+	if err != nil {
+		if dbErrors.IsUniqueViolation(err, constraints.UniqChapterOnModerationVolume) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе"})
+			return
+		}
+		if dbErrors.IsUniqueViolation(err, constraints.UniqChapterOnModerationVolumeOnModeration) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе на модерации"})
+			return
+		}
+
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if check.UserTeamID == nil {
-		c.AbortWithStatusJSON(404, gin.H{"error": "том не найден среди томов тайтлов, переводимых вашей командой"})
-		return
-	}
-	if check.DoesChapterExist {
-		c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже существует в этом томе"})
-		return
-	}
+	filter := bson.M{"chapter_on_moderation_id": chapter.ID}
+	update := bson.M{"$set": bson.M{"pages": requestBody.Pages, "creator_id": claims.ID}}
+	opts := options.Update().SetUpsert(true)
 
-	newChapter := models.ChapterOnModeration{
-		Name:          sql.NullString{String: name, Valid: true},
-		Description:   description,
-		NumberOfPages: len(pages),
-		VolumeID:      uint(volumeID),
-		CreatorID:     claims.ID,
-		TeamID:        *check.UserTeamID,
-	}
-
-	err = tx.Create(&newChapter).Error
-
-	if err != nil {
-		if dbErrors.IsUniqueViolation(err, constraints.UniqChapterVolume) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе"})
-		} else {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		}
-		return
-	}
-
-	chapterPages := mongo.ChapterOnModerationPages{
-		ChapterOnModerationID: newChapter.ID,
-		CreatorID:             claims.ID,
-		Pages:                 pages,
-	}
-
-	if _, err := h.ChaptersPages.InsertOne(c.Request.Context(), chapterPages); err != nil {
+	if _, err := h.ChaptersPages.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -131,13 +94,13 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "глава успешно отправлена на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutChapterOnModeration(c.Request.Context(), &pb.ChapterOnModeration{ID: uint64(newChapter.ID), New: true}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutChapterOnModeration(c.Request.Context(), &pb.ChapterOnModeration{ID: uint64(chapter.ID), New: true}); err != nil {
 		log.Println(err)
 	}
 }
 
-func parseCreateChapterBody(r *multipart.Reader) (name, description string, pages [][]byte, parsingError error) { // Тут я сделал ручной парсинг формы, потому-что при использовании *gin.Context.MultipartForm() все файлы из тела запроса сохраняются в виде *multipart.FileHeader (содержащих сами файлы), а потом, при их чтении, полученные срезы байт вновь сохраняются в оперативной памяти, и нагрузка на неё идёт двойная (хотя тут вообще по-хорошему надо сделать постепенную вставку в mongoDB, чтобы страницы в целом в памяти не находились все разом. Но этим я займусь позже)
-	pages = make([][]byte, 0, 45)
+func parseCreateChapterBody(r *multipart.Reader, body *dto.CreateChapterDTO) (code int, err error) {
+	body.Pages = make([][]byte, 0, 45)
 	for {
 		part, err := r.NextPart()
 
@@ -145,33 +108,127 @@ func parseCreateChapterBody(r *multipart.Reader) (name, description string, page
 			break
 		}
 		if err != nil {
-			return "", "", nil, err
+			return 500, err
 		}
 
-		if part.FormName() == "name" {
-			data, err := io.ReadAll(part)
-			if err != nil {
-				return "", "", nil, err
-			}
-			name = string(data)
+		data, err := io.ReadAll(part)
+		if err != nil {
+			return 500, err
 		}
 
-		if part.FormName() == "description" {
-			data, err := io.ReadAll(part)
-			if err != nil {
-				return "", "", nil, err
-			}
-			description = string(data)
-		}
+		switch part.FormName() {
+		case "name":
+			body.Name = string(data)
 
-		if part.FileName() != "" && part.FormName() == "pages" {
-			page, err := io.ReadAll(part)
+		case "id":
+			id, err := strconv.ParseUint(string(data), 10, 64)
 			if err != nil {
-				return "", "", nil, err
+				return 400, err
 			}
-			pages = append(pages, page)
+			idUint := uint(id)
+			body.ID = &idUint
+
+		case "volumeId":
+			id, err := strconv.ParseUint(string(data), 10, 64)
+			if err != nil {
+				return 400, err
+			}
+			idUint := uint(id)
+			body.VolumeID = &idUint
+
+		case "volumeOnModerationId":
+			id, err := strconv.ParseUint(string(data), 10, 64)
+			if err != nil {
+				return 400, err
+			}
+			idUint := uint(id)
+			body.VolumeOnModerationID = &idUint
+
+		case "description":
+			description := string(data)
+			body.Description = &description
+
+		case "pages":
+			if len(data) > 1<<20 {
+				return 400, errors.New("превышен максимальный размер страницы (1мб)")
+			}
+
+			body.Pages = append(body.Pages, data)
+
+			if len(body.Pages) > 230 {
+				return 400, errors.New("превышено максимальное количество страниц (230)")
+			}
 		}
 	}
 
-	return name, description, pages, nil
+	return 0, nil
+}
+
+func checkCreateChapterConflicts(db *gorm.DB, parsedBody *dto.CreateChapterDTO, userID uint) (code int, err error) {
+	if parsedBody.Name == "" || len(parsedBody.Pages) == 0 {
+		return 400, errors.New("в запросе недостаточно данных")
+	}
+
+	if (parsedBody.VolumeID != nil && parsedBody.VolumeOnModerationID != nil) || (parsedBody.VolumeID == nil && parsedBody.VolumeOnModerationID == nil) {
+		return 400, errors.New("ожидается один id тома")
+	}
+
+	if parsedBody.VolumeID != nil {
+		var check struct {
+			ChapterExists bool
+			UserTeamID    *uint
+		}
+
+		err := db.Raw(
+			`SELECT
+				EXISTS(SELECT 1 FROM chapters WHERE lower(name) = lower(?) AND volume_id = ?) AS chapter_exists,
+				(
+					SELECT
+						tt.team_id
+					FROM
+						title_teams AS tt
+						INNER JOIN volumes AS v ON v.title_id = tt.title_id
+						INNER JOIN users AS u ON u.team_id = tt.team_id
+					WHERE
+						v.id = ? AND u.id = ?
+				) AS user_team_id`,
+			parsedBody.Name, *parsedBody.VolumeID, *parsedBody.VolumeID, userID,
+		).Scan(&check).Error
+
+		if err != nil {
+			return 500, err
+		}
+
+		if check.UserTeamID == nil {
+			return 404, errors.New("том не найден среди переводимых вашей командрй")
+		}
+		if check.ChapterExists {
+			return 409, errors.New("глава с таким названием уже существует в этом томе")
+		}
+
+		parsedBody.TeamID = *check.UserTeamID
+	}
+
+	if parsedBody.VolumeOnModerationID != nil {
+		var userTeamID *uint
+
+		err := db.Raw(
+			`SELECT u.team_id FROM users AS u
+			INNER JOIN volumes_on_moderation AS vom ON vom.creator_id = u.id
+			WHERE vom.id = ? AND u.id = ?`,
+			*parsedBody.VolumeOnModerationID, userID,
+		).Scan(&userTeamID).Error
+
+		if err != nil {
+			return 500, err
+		}
+
+		if userTeamID == nil {
+			return 404, errors.New("том на модерации не найден среди ваших заявок")
+		}
+
+		parsedBody.TeamID = *userTeamID
+	}
+
+	return 0, nil
 }

@@ -1,48 +1,28 @@
 package teams
 
 import (
-	"database/sql"
+	"errors"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
-	"github.com/Araks1255/mangacage/pkg/common/models"
-	"github.com/Araks1255/mangacage/pkg/common/models/mongo"
-	"github.com/Araks1255/mangacage/pkg/common/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers/teams"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"gorm.io/gorm"
 )
 
 func (h handler) CreateTeam(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	form, err := c.MultipartForm()
-	if err != nil {
-		log.Println(err)
+	var requestBody dto.CreateTeamDTO
+
+	if err := c.ShouldBindWith(&requestBody, binding.FormMultipart); err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(form.Value["name"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает названия команды"})
-		return
-	}
-	if len(form.File["cover"]) == 0 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "в запросе не хватает обложки команды"})
-		return
-	}
-
-	name := form.Value["name"][0]
-
-	var description string
-	if len(form.Value["description"]) != 0 {
-		description = form.Value["description"][0]
-	}
-
-	coverFileHeader := form.File["cover"][0]
-	if coverFileHeader.Size > 2<<20 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "превышен лимит размера обложки (2мб)"})
 		return
 	}
 
@@ -50,69 +30,30 @@ func (h handler) CreateTeam(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var check struct {
-		DoesUserHaveTeam             bool
-		DoesTeamWithTheSameNameExist bool
-	}
-
-	if err := tx.Raw(
-		`SELECT
-			EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id IS NOT NULL) AS does_user_have_team,
-			EXISTS(SELECT 1 FROM teams WHERE lower(name) = lower(?)) AS does_team_with_the_same_name_exist`,
-		claims.ID, name,
-	).Scan(&check).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+	code, err := checkCreateTeamConflicts(tx, claims.ID, requestBody.Name)
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
-	if check.DoesUserHaveTeam {
-		c.AbortWithStatusJSON(409, gin.H{"error": "вы уже состоите в команде перевода"})
-		return
-	}
-	if check.DoesTeamWithTheSameNameExist {
-		c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже существует"})
-		return
-	}
+	newTeam := requestBody.ToTeamOnModeration(claims.ID)
 
-	newTeam := models.TeamOnModeration{
-		Name:        sql.NullString{String: name, Valid: true},
-		Description: description,
-		CreatorID:   claims.ID,
-	}
-
-	err = tx.Create(&newTeam).Error
+	err = tx.Clauses(helpers.OnIDConflictClause).Create(&newTeam).Error
 
 	if err != nil {
-		if dbErrors.IsUniqueViolation(err, constraints.UniTeamsOnModerationCreatorID) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "у вас уже есть команда, ожидающая модерации"})
-			return
+		code, err := parseCreateTeamError(err)
+		if code == 500 {
+			log.Println(err)
 		}
-
-		if dbErrors.IsUniqueViolation(err, constraints.UniTeamsOnModerationName) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "команда с таким названием уже ожидает модерации"})
-			return
-		}
-
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
-	cover, err := utils.ReadMultipartFile(coverFileHeader, 2<<20)
+	err = teams.UpsertTeamOnModerationCover(c.Request.Context(), h.TeamsCovers, requestBody.Cover, newTeam.ID, claims.ID)
 	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	teamCover := mongo.TeamOnModerationCover{
-		TeamOnModerationID: newTeam.ID,
-		CreatorID:          claims.ID,
-		Cover:              cover,
-	}
-
-	if _, err := h.TeamsCovers.InsertOne(c.Request.Context(), teamCover); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -122,4 +63,44 @@ func (h handler) CreateTeam(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "команда успешно отправлена на модерацию"})
 	// Уведомление
+}
+
+func checkCreateTeamConflicts(db *gorm.DB, userID uint, teamName string) (code int, err error) {
+	var check struct {
+		DoesUserHaveTeam             bool
+		DoesTeamWithTheSameNameExist bool
+	}
+
+	err = db.Raw(
+		`SELECT
+			EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id IS NOT NULL) AS does_user_have_team,
+			EXISTS(SELECT 1 FROM teams WHERE lower(name) = lower(?)) AS does_team_with_the_same_name_exist`,
+		userID, teamName,
+	).Scan(&check).Error
+
+	if err != nil {
+		return 500, err
+	}
+
+	if check.DoesUserHaveTeam {
+		return 409, errors.New("вы уже состоите в команде перевода")
+	}
+
+	if check.DoesTeamWithTheSameNameExist {
+		return 409, errors.New("команда с таким названием уже существует")
+	}
+
+	return 0, nil
+}
+
+func parseCreateTeamError(err error) (code int, parsedErr error) {
+	if dbErrors.IsUniqueViolation(err, constraints.UniqTeamsOnModerationCreatorID) {
+		return 409, errors.New("у вас уже есть команда, ожидающая модерации")
+	}
+
+	if dbErrors.IsUniqueViolation(err, constraints.UniqTeamsOnModerationName) {
+		return 409, errors.New("команда с таким названием уже ожидает модерации")
+	}
+
+	return 500, err
 }

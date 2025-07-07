@@ -5,7 +5,6 @@ import (
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
@@ -16,12 +15,7 @@ type handler struct {
 	NotificationsClient pb.NotificationsClient
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, r *gin.Engine) {
-	viper.SetConfigFile("./pkg/common/envs/.env")
-	viper.ReadInConfig()
-
-	secretKey := viper.Get("SECRET_KEY").(string)
-
+func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, secretKey string, r *gin.Engine) {
 	mongoDB := client.Database("mangacage")
 
 	titlesCoversCollection := mongoDB.Collection(mongodb.TitlesCoversCollection)

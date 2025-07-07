@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -64,7 +64,7 @@ func (h handler) GetVolumes(c *gin.Context) {
 
 	query = query.Limit(int(params.Limit)).Offset(offset)
 
-	var result []models.VolumeDTO
+	var result []dto.ResponseVolumeDTO
 
 	if err := query.Scan(&result).Error; err != nil {
 		log.Println(err)

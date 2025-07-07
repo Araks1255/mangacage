@@ -1,2 +1,2 @@
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_chapter_volume -- Это составной индекс, гарантирующий, что у тома не будет глав с одинаковым названием. Через gorm автомиграции он не создавался, видимо из-за того, что некторые поля были типа sql.NullXxx
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_chapter_on_moderation_volume -- Это составной индекс, гарантирующий, что у тома не будет глав с одинаковым названием. Через gorm автомиграции он не создавался, видимо из-за того, что некторые поля были типа sql.NullXxx
 ON chapters_on_moderation (lower(name), volume_id)

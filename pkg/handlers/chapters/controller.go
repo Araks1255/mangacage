@@ -47,7 +47,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 				// 	h.DeleteChapter,
 				// )
 
-				chaptersAuth.POST( // Тут идёт создание отредактированной главы (прямо отдельная сущность в отдельной таблице базы данных), поэтому post а не put
+				chaptersAuth.POST(
 					"/",
 					middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}),
 					h.EditChapter,

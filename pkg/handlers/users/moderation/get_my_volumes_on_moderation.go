@@ -1,96 +1,86 @@
 package moderation
 
 import (
+	"fmt"
 	"log"
-	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
+
+type getMyVolumesOnModerationParams struct {
+	Sort  string  `form:"sort"`
+	Query *string `form:"query"`
+	Order string  `form:"order"`
+	Page  int     `form:"page,default=1"`
+	Limit uint    `form:"limit,default=20"`
+
+	ModerationType      string `form:"type"`
+	TitleID             *uint  `form:"titleId"`
+	TitleOnModerationID *uint  `form:"titleOnModerationId"`
+}
 
 func (h handler) GetMyVolumesOnModeration(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	limit := 10
+	var params getMyVolumesOnModerationParams
 
-	if c.Query("limit") != "" {
-		var err error
-		if limit, err = strconv.Atoi(c.Query("limit")); err != nil {
-			c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный лимит"})
-			return
-		}
-	}
-
-	moderationType := c.Query("type")
-
-	var (
-		volumes []models.VolumeOnModerationDTO
-		err     error
-	)
-
-	switch moderationType {
-	case "new":
-		err = h.DB.Raw(`
-			SELECT
-				vom.id, vom.created_at, vom.name, vom.description,
-				t.name AS title, t.id AS title_id
-			FROM
-				volumes_on_moderation AS vom
-				INNER JOIN titles AS t ON t.id = vom.title_id
-			WHERE
-				vom.existing_id IS NULL
-			AND
-				vom.creator_id = ?
-			LIMIT ?`,
-			claims.ID, limit,
-		).Scan(&volumes).Error
-
-	case "edited":
-		err = h.DB.Raw(`
-			SELECT
-				vom.id, vom.created_at, vom.name, vom.description,
-				v.name AS existing, v.id AS existing_id,
-				t.name AS title, t.id AS title_id
-			FROM
-				volumes_on_moderation AS vom
-				INNER JOIN volumes AS v ON v.id = vom.existing_id
-				INNER JOIN titles AS t ON t.id = vom.title_id
-				WHERE vom.creator_id = ?
-			LIMIT ?`,
-			claims.ID, limit,
-		).Scan(&volumes).Error
-
-	case "":
-		err = h.DB.Raw(`
-			SELECT
-				vom.id, vom.created_at, vom.name, vom.description,
-				v.name AS existing, v.id AS existing_id,
-				t.name AS title, t.id AS title_id
-			FROM
-				volumes_on_moderation AS vom
-				LEFT JOIN volumes AS v ON vom.existing_id = v.id
-				INNER JOIN titles AS t ON t.id = vom.title_id
-				WHERE vom.creator_id = ?
-			LIMIT ?`,
-			claims.ID, limit,
-		).Scan(&volumes).Error
-
-	default:
-		c.AbortWithStatusJSON(400, gin.H{"error": "недопустимый тип модерации"})
+	if err := c.ShouldBindQuery(&params); err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err != nil {
+	offset := (params.Page - 1) * int(params.Limit)
+	if offset < 0 {
+		offset = 0
+	}
+
+	query := h.DB.Table("volumes_on_moderation AS vom").
+		Select("vom.*, t.name AS title, tom.name AS title_on_moderation, v.name AS existing").
+		Joins("LEFT JOIN volumes AS v ON vom.existing_id = v.id").
+		Joins("LEFT JOIN titles AS t ON vom.title_id = t.id").
+		Joins("LEFT JOIN titles_on_moderation AS tom ON vom.title_on_moderation_id = tom.id").
+		Where("vom.creator_id = ?", claims.ID).
+		Offset(offset).Limit(int(params.Limit))
+
+	if params.ModerationType == "new" {
+		query = query.Where("vom.existing_id IS NULL")
+	}
+	if params.ModerationType == "edited" {
+		query = query.Where("vom.existing_id IS NOT NULL")
+	}
+
+	if params.TitleID != nil {
+		query = query.Where("vom.title_id = ?", *params.TitleID)
+	}
+	if params.TitleOnModerationID != nil {
+		query = query.Where("vom.title_on_moderation_id = ?", *params.TitleOnModerationID)
+	}
+
+	if params.Order != "desc" && params.Order != "asc" {
+		params.Order = "desc"
+	}
+
+	switch params.Sort {
+	case "createdAt":
+		query = query.Order(fmt.Sprintf("vom.id %s", params.Order))
+	default:
+		query = query.Order(fmt.Sprintf("vom.name %s", params.Order))
+	}
+
+	var result []dto.ResponseVolumeDTO
+
+	if err := query.Scan(&result).Error; err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	if len(volumes) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено ваших томов на модерации"})
+	if len(result) == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "по вашему запросу ничего не найдено"})
 		return
 	}
 
-	c.JSON(200, &volumes)
+	c.JSON(200, &result)
 }

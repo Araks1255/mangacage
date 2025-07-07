@@ -4,7 +4,7 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,14 +15,14 @@ func (h handler) GetChapter(c *gin.Context) {
 		return
 	}
 
-	var chapter models.ChapterDTO
+	var chapter dto.ResponseChapterDTO
 
 	if err := h.DB.Raw(
 		`SELECT 
 			c.*,
-			v.name AS volume, v.id AS volume_id,
-			t.name AS title, t.id AS title_id,
-			teams.name AS team
+			v.name AS volume,
+			teams.name AS team,
+			t.name AS title, t.id AS title_id
 		FROM
 			chapters AS c
 			INNER JOIN volumes AS v ON v.id = c.volume_id

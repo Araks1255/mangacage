@@ -21,7 +21,7 @@ func (h handler) AddGenre(c *gin.Context) {
 		return
 	}
 
-	exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "genres", requestBody.Name, nil, nil)
+	exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "genres", &requestBody.Name, nil, nil)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

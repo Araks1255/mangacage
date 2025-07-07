@@ -2,7 +2,6 @@ package moderation
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
@@ -24,9 +23,10 @@ func CreateChapterOnModeration(db *gorm.DB, volumeID, teamID, userID uint, opts 
 		return 0, errors.New("объект опций может быть только один")
 	}
 
+	name := uuid.New().String()
 	chapter := models.ChapterOnModeration{
-		Name:      sql.NullString{String: uuid.New().String(), Valid: true},
-		VolumeID:  volumeID,
+		Name:      &name,
+		VolumeID:  &volumeID,
 		CreatorID: userID,
 		TeamID:    teamID,
 	}
@@ -36,7 +36,8 @@ func CreateChapterOnModeration(db *gorm.DB, volumeID, teamID, userID uint, opts 
 			chapter.ExistingID = &opts[0].ExistingID
 		}
 		if len(opts[0].Pages) != 0 {
-			chapter.NumberOfPages = len(opts[0].Pages)
+			numberOfPages := len(opts[0].Pages)
+			chapter.NumberOfPages = &numberOfPages
 		}
 	}
 
