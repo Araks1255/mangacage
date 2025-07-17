@@ -9,11 +9,7 @@ import (
 )
 
 type getUsersParams struct {
-	Sort  string  `form:"sort"`
-	Order string  `form:"order"`
-	Query *string `form:"query"`
-	Page  int     `form:"page,default=1"`
-	Limit uint    `form:"limit,default=20"`
+	dto.CommonParams
 
 	TeamID *uint `form:"teamId"`
 }

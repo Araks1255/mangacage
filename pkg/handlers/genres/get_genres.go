@@ -10,11 +10,7 @@ import (
 )
 
 type getGenresParams struct {
-	Query *string `form:"query"`
-	Order string  `form:"order"`
-	Sort  string  `form:"sort"`
-	Page  int     `form:"page,default=1"`
-	Limit uint    `form:"limit,default=20"`
+	dto.CommonParams
 
 	FavoritedBy *uint `form:"favoritedBy" binding:"excluded_with=MyFavorites"`
 	MyFavorites *bool `form:"myFavorites" binding:"excluded_with=FavoritedBy"`
