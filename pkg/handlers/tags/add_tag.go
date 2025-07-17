@@ -5,7 +5,7 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	"github.com/gin-gonic/gin"
@@ -14,7 +14,7 @@ import (
 func (h handler) AddTag(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var requestBody models.TagOnModerationDTO
+	var requestBody dto.CreateTagDTO
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
@@ -29,7 +29,7 @@ func (h handler) AddTag(c *gin.Context) {
 	}
 
 	if exists {
-		c.AbortWithStatusJSON(409, gin.H{"error": "тэг с таким названием уже существует"})
+		c.AbortWithStatusJSON(409, gin.H{"error": "тег с таким названием уже существует"})
 		return
 	}
 
@@ -39,7 +39,7 @@ func (h handler) AddTag(c *gin.Context) {
 
 	if err != nil {
 		if dbErrors.IsUniqueViolation(err, constraints.UniqTagOnModerationName) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "тэг с таким названием уже ожидает модерации"})
+			c.AbortWithStatusJSON(409, gin.H{"error": "тег с таким названием уже ожидает модерации"})
 		} else {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -47,6 +47,6 @@ func (h handler) AddTag(c *gin.Context) {
 		return
 	}
 
-	c.JSON(201, gin.H{"success": "тэг успешно отправлен на модерацию"})
+	c.JSON(201, gin.H{"success": "тег успешно отправлен на модерацию"})
 	// Уведомление
 }

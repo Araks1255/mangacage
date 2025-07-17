@@ -33,6 +33,9 @@ func HasAnyNonEmptyFields(structPointer any, skipFields ...string) (bool, error)
 		}
 
 		if !fieldVal.IsZero() {
+			if fieldVal.Kind() == reflect.Ptr && fieldVal.Elem().IsZero() {
+				continue
+			}
 			return true, nil
 		}
 	}

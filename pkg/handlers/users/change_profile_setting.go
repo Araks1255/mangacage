@@ -10,7 +10,7 @@ import (
 )
 
 type profileSettings struct { // В будущем может ещё что-то появится
-	Visible bool `json:"visible" binding:"required"`
+	Visible *bool `json:"visible" binding:"required"`
 }
 
 func (h handler) ChangeProfileSettings(c *gin.Context) {
@@ -27,14 +27,20 @@ func (h handler) ChangeProfileSettings(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	if err := tx.Exec("UPDATE users SET visible = ? WHERE id = ?", requestBody.Visible, claims.ID).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+	result := tx.Exec("UPDATE users SET visible = ? WHERE id = ? AND verificated", *requestBody.Visible, claims.ID)
+	if result.Error != nil {
+		log.Println(result.Error)
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.AbortWithStatusJSON(409, gin.H{"error": "ваш аккаунт ещё не прошел верификацию"})
 		return
 	}
 
 	filter := bson.M{"user_id": claims.ID}
-	update := bson.M{"$set": bson.M{"visible": requestBody.Visible}}
+	update := bson.M{"$set": bson.M{"visible": *requestBody.Visible}}
 
 	if _, err := h.UsersProfilePictures.UpdateOne(c.Request.Context(), filter, update); err != nil {
 		log.Println(err)

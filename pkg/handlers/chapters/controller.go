@@ -25,13 +25,6 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 
 	api := r.Group("/api")
 	{
-		api.POST(
-			"/volumes/:id/chapters",
-			middlewares.Auth(secretKey),
-			middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}),
-			h.CreateChapter,
-		)
-
 		chapters := api.Group("/chapters")
 		{
 			chapters.GET("/:id", h.GetChapter)
@@ -41,17 +34,12 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 			chaptersAuth := chapters.Group("/")
 			chaptersAuth.Use(middlewares.Auth(secretKey))
 			{
-				// chaptersAuth.DELETE(
-				// 	"/",
-				// 	middlewares.RequireRoles(db, []string{"team_leader"}),
-				// 	h.DeleteChapter,
-				// )
-
-				chaptersAuth.POST(
-					"/",
-					middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}),
-					h.EditChapter,
-				)
+				chaptersForTeamLeaders := chaptersAuth.Group("/")
+				chaptersForTeamLeaders.Use(middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader", "translater"}))
+				{
+					chaptersForTeamLeaders.POST("/", h.CreateChapter)
+					chaptersForTeamLeaders.POST("/:id/edited", h.EditChapter)
+				}
 			}
 		}
 	}

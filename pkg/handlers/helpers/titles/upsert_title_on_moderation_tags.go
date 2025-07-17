@@ -9,7 +9,12 @@ import (
 	"gorm.io/gorm"
 )
 
-func InsertTitleOnModerationTags(db *gorm.DB, titleOnModerationID uint, tagsIDs []uint) (code int, err error) {
+func UpsertTitleOnModerationTags(db *gorm.DB, titleOnModerationID uint, tagsIDs []uint) (code int, err error) {
+	err = db.Exec("DELETE FROM title_on_moderation_tags WHERE title_on_moderation_id = ?", titleOnModerationID).Error
+	if err != nil {
+		return 500, err
+	}
+
 	err = db.Exec(
 		`INSERT INTO title_on_moderation_tags (title_on_moderation_id, tag_id)
 		SELECT ?, UNNEST(?::BIGINT[])`,

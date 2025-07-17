@@ -63,10 +63,7 @@ func GetChapterSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal("в ответе нет времени создания")
 		}
 		if _, ok := resp["volume"]; !ok {
-			t.Fatal("в ответе нет названия тома")
-		}
-		if _, ok := resp["volumeId"]; !ok {
-			t.Fatal("в ответе нет id тома")
+			t.Fatal("в ответе нет тома")
 		}
 		if _, ok := resp["title"]; !ok {
 			t.Fatal("в ответе нет названия тайтла")

@@ -90,56 +90,102 @@ func checkEditChapterConflicts(db *gorm.DB, chapter models.ChapterOnModeration) 
 	query := `SELECT
 				EXISTS(
 					SELECT 1 FROM chapters AS c
-					INNER JOIN volumes AS v ON v.id = c.volume_id
-					INNER JOIN title_teams AS tt ON tt.title_id = v.title_id AND tt.team_id = u.team_id
+					INNER JOIN title_teams AS tt ON tt.title_id = c.title_id
+					INNER JOIN users AS u ON tt.team_id = u.team_id
 					WHERE c.id = ? AND u.id = ?
 				) AS chapter_exists`
 
 	if chapter.Name != nil {
+		query += `,EXISTS(
+			SELECT 1 FROM chapters
+			WHERE lower(name) = lower(?)
+			AND volume = (SELECT volume FROM chapters WHERE id = ?)
+			AND team_id = (SELECT team_id FROM users WHERE id = ?)
+		) AS chapter_with_the_same_name_exists`
+	}
+
+	if chapter.Volume != nil {
+		query += `,EXISTS(
+			SELECT 1 FROM chapters
+			WHERE lower(name) = lower(?)
+			AND volume = ?
+			AND team_id = (SELECT team_id FROM users WHERE id = ?)
+		) AS chapter_with_the_same_name_and_volume_exists`
+	}
+
+	if chapter.Name == nil && chapter.Volume == nil {
+		var chapterExists bool
+		if err := db.Raw(query, chapter.ExistingID, chapter.CreatorID).Scan(&chapterExists).Error; err != nil {
+			return 500, err
+		}
+		if !chapterExists {
+			return 404, errors.New("глава не найдена среди глав тайтлов переводимых вашей командой")
+		}
+	}
+
+	if chapter.Name != nil && chapter.Volume == nil {
 		var check struct {
 			ChapterExists                bool
 			ChapterWithTheSameNameExists bool
 		}
 
-		query += ",EXISTS(SELECT 1 FROM chapters WHERE lower(name) = lower(?) AND volume_id = (SELECT volume_id FROM chapters WHERE id = ?)) AS chapter_with_the_same_name_exists"
-
-		err := db.Raw(query, *chapter.ExistingID, chapter.CreatorID, chapter.Name, chapter.ExistingID).Scan(&check).Error
+		err := db.Raw(
+			query,
+			chapter.ExistingID, chapter.CreatorID,
+			chapter.Name, chapter.ExistingID, chapter.CreatorID,
+		).Scan(&check).Error
 
 		if err != nil {
 			return 500, err
 		}
 
 		if !check.ChapterExists {
-			return 404, errors.New("глава не найдена среди глав переводимых вашей командой тайтлов")
+			return 404, errors.New("глава не найдена среди глав тайтлов переводимых вашей командой")
 		}
 		if check.ChapterWithTheSameNameExists {
-			return 409, errors.New("глава с таким названием уже ожидает модерации в этом томе")
+			return 409, errors.New("глава с таким названием и номером тома уже выложена вашей командой в этом тайтле")
+		}
+	}
+
+	if chapter.Name != nil && chapter.Volume != nil {
+		var check struct {
+			ChapterExists                         bool
+			ChapterWithTheSameNameExists          bool
+			ChapterWithTheSameNameAndVolumeExists bool
 		}
 
-		return 0, nil
-	}
+		err := db.Raw(
+			query,
+			chapter.ExistingID, chapter.CreatorID,
+			chapter.Name, chapter.ExistingID, chapter.CreatorID,
+			chapter.Name, chapter.Volume, chapter.CreatorID,
+		).Scan(&check).Error
 
-	var chapterExists bool
+		if err != nil {
+			return 500, err
+		}
 
-	if err := db.Raw(query, chapter.ExistingID, chapter.CreatorID).Scan(&chapterExists).Error; err != nil {
-		return 500, err
-	}
-
-	if !chapterExists {
-		return 404, errors.New("глава не найдена среди глав переводимых вашей командой тайтлов0")
+		if !check.ChapterExists {
+			return 404, errors.New("глава не найдена среди глав тайтлов переводимых вашей командой")
+		}
+		if check.ChapterWithTheSameNameExists {
+			return 409, errors.New("глава с таким названием и номером тома уже выложена вашей командой в этом тайтле")
+		}
+		if check.ChapterWithTheSameNameAndVolumeExists {
+			return 409, errors.New("глава с таким названием и номером тома уже выложена вашей командой в этом тайтле")
+		}
 	}
 
 	return 0, nil
 }
 
 func parseChapterEditError(err error) (code int, parsedError error) {
-	if dbErrors.IsUniqueViolation(err, constraints.UniqChapterOnModerationVolume) {
-		return 409, errors.New("глава с таким названием уже ожидает модерации в этом томе")
-
+	if dbErrors.IsUniqueViolation(err, constraints.UniqChapterOnModerationVolumeTitleTeam) {
+		return 409, errors.New("глава с таким названием и номером тома, созданная вашей командой, уже ожидает модерации в этом тайтле")
 	}
 
-	if dbErrors.IsForeignKeyViolation(err, constraints.FkChaptersOnModerationVolume) {
-		return 404, errors.New("том не найден")
+	if dbErrors.IsUniqueViolation(err, constraints.UniqChapterOnModerationVolumeTitleOnModeration) {
+		return 409, errors.New("глава с таким названием и номером тома уже ожидает модерации в этом тайтле на модерации")
 	}
 
 	return 500, err

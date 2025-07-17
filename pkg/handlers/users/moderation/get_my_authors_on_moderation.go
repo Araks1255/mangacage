@@ -1,36 +1,68 @@
 package moderation
 
 import (
+	"fmt"
 	"log"
-	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
+
+type getMyAuthorsOnModerationParams struct {
+	Sort  string  `form:"sort"`
+	Query *string `form:"query"`
+	Order string  `form:"order"`
+	Page  int     `form:"page,default=1"`
+	Limit uint    `form:"limit,default=20"`
+}
 
 func (h handler) GetMyAuthorsOnModeration(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	limit := uint64(10)
-	if c.Query("limit") != "" {
-		var err error
-		if limit, err = strconv.ParseUint(c.Query("limit"), 10, 32); err != nil {
-			c.AbortWithStatusJSON(400, gin.H{"error": "указан невалидный лимит"})
-			return
-		}
+	var params getMyAuthorsOnModerationParams
+
+	if err := c.ShouldBindQuery(&params); err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+		return
 	}
 
-	var result []models.AuthorOnModerationDTO
+	offset := (params.Page - 1) * int(params.Limit)
+	if offset < 0 {
+		offset = 0
+	}
 
-	if err := h.DB.Table("authors_on_moderation").Select("*").Where("creator_id = ?", claims.ID).Limit(int(limit)).Scan(&result).Error; err != nil {
+	query := h.DB.Table("authors_on_moderation").
+		Select("*").
+		Where("creator_id = ?", claims.ID).
+		Limit(int(params.Limit)).
+		Offset(offset)
+
+	if params.Query != nil {
+		query = query.Where("lower(name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
+	}
+
+	if params.Order != "desc" && params.Order != "asc" {
+		params.Order = "desc"
+	}
+
+	switch params.Sort {
+	case "createdAt":
+		query = query.Order(fmt.Sprintf("id %s", params.Order))
+	default:
+		query = query.Order(fmt.Sprintf("name %s", params.Order))
+	}
+
+	var result []dto.ResponseAuthorDTO
+
+	if err := query.Scan(&result).Error; err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error":err.Error()})
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
 	if len(result) == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error":"не найдено ваших авторов на модерации"})
+		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено ваших авторов на модерации"})
 		return
 	}
 

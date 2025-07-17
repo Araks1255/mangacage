@@ -56,13 +56,12 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.
 			chapters.GET("/:id", h.GetMyChapterOnModeration)
 		}
 
-		volumes := moderation.Group("/volumes")
+		team := moderation.Group("/team")
 		{
-			volumes.GET("/", h.GetMyVolumesOnModeration)
-			volumes.GET("/:id", h.GetMyVolumeOnModeration)
+			team.GET("/", h.GetMyTeamOnModeration)
+			team.GET("/cover", h.GetMyTeamOnModerationCover)
 		}
 
-		moderation.GET("/team", h.GetMyTeamOnModeration)
 		moderation.GET("/authors", h.GetMyAuthorsOnModeration)
 		moderation.GET("/genres", h.GetMyGenresOnModeration)
 		moderation.GET("/tags", h.GetMyTagsOnModeration)

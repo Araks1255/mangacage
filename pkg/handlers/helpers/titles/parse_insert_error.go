@@ -13,15 +13,19 @@ func ParseTitleOnModerationInsertError(err error) (code int, formatedErr error) 
 		return 404, errors.New("автор не найден")
 	}
 
-	if dbErrors.IsUniqueViolation(err, constraints.UniqTitlesOnModerationEnglishName) {
+	if dbErrors.IsForeignKeyViolation(err, constraints.FkTitlesOnModerationAuthorOnModeration) {
+		return 404, errors.New("автор на модерации не найден")
+	}
+
+	if dbErrors.IsUniqueViolation(err, constraints.UniqTitleOnModerationEnglishName) {
 		return 409, errors.New("тайтл с таким английским названием уже ожидает модерации")
 	}
 
-	if dbErrors.IsUniqueViolation(err, constraints.UniqTitlesOnModerationOriginalName) {
+	if dbErrors.IsUniqueViolation(err, constraints.UniqTitleOnModerationOriginalName) {
 		return 409, errors.New("тайтл с таким оригинальным названием уже ожидает модерации")
 	}
 
-	if dbErrors.IsUniqueViolation(err, constraints.UniqTitlesOnModerationName) {
+	if dbErrors.IsUniqueViolation(err, constraints.UniqTitleOnModerationName) {
 		return 409, errors.New("тайтл с таким названием уже ожидает модерации")
 	}
 

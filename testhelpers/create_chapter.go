@@ -17,18 +17,19 @@ type CreateChapterOptions struct {
 	Collection  *mongo.Collection
 	Views       uint
 	ModeratorID uint
+	Volume      uint
 }
 
-func CreateChapter(db *gorm.DB, volumeID, teamID, creatorID uint, opts ...CreateChapterOptions) (uint, error) {
+func CreateChapter(db *gorm.DB, titleID, teamID, creatorID uint, opts ...CreateChapterOptions) (uint, error) {
 	if len(opts) > 1 {
 		return 0, errors.New("Объектов опций не может быть больше одного")
 	}
 
 	chapter := models.Chapter{
 		Name:      uuid.New().String(),
-		VolumeID:  volumeID,
 		CreatorID: creatorID,
 		TeamID:    teamID,
+		TitleID:   titleID,
 	}
 
 	if len(opts) != 0 {
@@ -40,6 +41,9 @@ func CreateChapter(db *gorm.DB, volumeID, teamID, creatorID uint, opts ...Create
 		}
 		if opts[0].Views != 0 {
 			chapter.Views = opts[0].Views
+		}
+		if opts[0].Volume != 0 {
+			chapter.Volume = opts[0].Volume
 		}
 	}
 

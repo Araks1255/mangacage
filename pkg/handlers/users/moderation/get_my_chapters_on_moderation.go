@@ -19,8 +19,7 @@ type getMyChaptersOnModerationParams struct {
 	NumberOfPagesFrom *int `form:"numberOfPagesFrom"`
 	NumberOfPagesTo   *int `form:"numberOfPagesTo"`
 
-	VolumeID             *uint `form:"volumeId"`
-	VolumeOnModerationID *uint `form:"volumeOnModerationId"`
+	Volume *uint `form:"volume"`
 
 	TitleID             *uint `form:"titleId"`
 	TitleOnModerationID *uint `form:"titleOnModerationId"`
@@ -45,19 +44,20 @@ func (h handler) GetMyChaptersOnModeration(c *gin.Context) {
 
 	query := h.DB.Table("chapters_on_moderation AS com").
 		Select(
-			`com.*, v.name AS volume, vom.name AS volume_on_moderation,
-			t.id AS title_id, t.name AS title,
-			tom.id AS title_on_moderation_id, tom.name AS title_on_moderation,
-			c.name AS existing`,
+			`com.*, c.name AS existing,
+			t.name AS title, tom.name AS title_on_moderation, teams.name AS team`,
 		).
 		Joins("LEFT JOIN chapters AS c ON com.existing_id = c.id").
-		Joins("LEFT JOIN volumes AS v ON com.volume_id = v.id").
-		Joins("LEFT JOIN volumes_on_moderation AS vom ON com.volume_on_moderation_id = vom.id").
-		Joins("LEFT JOIN titles AS t ON v.title_id = t.id OR vom.title_id = t.id").
-		Joins("LEFT JOIN titles_on_moderation AS tom ON vom.title_on_moderation_id = tom.id").
+		Joins("LEFT JOIN titles AS t ON com.title_id = t.id").
+		Joins("INNER JOIN teams ON teams.id = com.team_id").
+		Joins("LEFT JOIN titles_on_moderation AS tom ON com.title_on_moderation_id = tom.id").
 		Where("com.creator_id = ?", claims.ID).
 		Offset(offset).
 		Limit(int(params.Limit))
+
+	if params.Query != nil {
+		query = query.Where("lower(com.name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
+	}
 
 	if params.ModerationType == "new" {
 		query = query.Where("com.existing_id IS NULL")
@@ -73,11 +73,8 @@ func (h handler) GetMyChaptersOnModeration(c *gin.Context) {
 		query = query.Where("com.number_of_pages <= ?", params.NumberOfPagesTo)
 	}
 
-	if params.VolumeID != nil {
-		query = query.Where("v.id = ?", params.VolumeID)
-	}
-	if params.VolumeOnModerationID != nil {
-		query = query.Where("vom.id = ?", params.VolumeOnModerationID)
+	if params.Volume != nil {
+		query = query.Where("com.volume = ?", params.Volume)
 	}
 
 	if params.TitleID != nil {

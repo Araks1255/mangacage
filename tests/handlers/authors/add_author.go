@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/handlers/authors"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -31,7 +31,7 @@ func AddAuthorSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		body := models.AuthorOnModerationDTO{
+		body := dto.CreateAuthorDTO{
 			Name:         uuid.New().String(),
 			EnglishName:  uuid.New().String(),
 			OriginalName: "テストオーサー",
@@ -84,7 +84,7 @@ func AddAuthorWithTheSameNameAsAuthor(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		body := models.AuthorOnModerationDTO{
+		body := dto.CreateAuthorDTO{
 			Name:         authorName,
 			EnglishName:  authorName,
 			OriginalName: authorName,
@@ -137,7 +137,7 @@ func AddAuthorWithTheSameNameAsAuthorOnModeration(env testenv.Env) func(*testing
 			t.Fatal(err)
 		}
 
-		body := models.AuthorOnModerationDTO{
+		body := dto.CreateAuthorDTO{
 			Name:         authorName,
 			EnglishName:  authorName,
 			OriginalName: authorName,

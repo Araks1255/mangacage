@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers/authors"
 	"github.com/gin-gonic/gin"
@@ -13,7 +13,7 @@ import (
 func (h handler) AddAuthor(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var requestBody models.AuthorOnModerationDTO
+	var requestBody dto.CreateAuthorDTO
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})

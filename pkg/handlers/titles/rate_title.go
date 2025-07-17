@@ -34,8 +34,7 @@ func (h handler) RateTitle(c *gin.Context) {
 			t.id, uvc.user_id, ?
 		FROM
 			titles AS t
-			INNER JOIN volumes AS v ON v.title_id = t.id
-			INNER JOIN chapters AS c ON c.volume_id = v.id
+			INNER JOIN chapters AS c ON c.title_id = t.id
 			INNER JOIN user_viewed_chapters AS uvc ON uvc.chapter_id = c.id AND uvc.user_id = ?
 		WHERE
 			t.id = ?
@@ -45,10 +44,9 @@ func (h handler) RateTitle(c *gin.Context) {
 			COUNT(DISTINCT c.id) >= 10
 		OR
 			COUNT(DISTINCT c.id) = (
-				SELECT COUNT(c2.id)
-				FROM chapters AS c2
-				INNER JOIN volumes AS v2 ON v2.id = c2.volume_id
-				WHERE v2.title_id = t.id
+				SELECT COUNT(chapters.id)
+				FROM chapters
+				WHERE chapters.title_id = t.id
 			)
 			
 		ON CONFLICT (title_id, user_id)

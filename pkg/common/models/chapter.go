@@ -7,13 +7,14 @@ import (
 type Chapter struct {
 	gorm.Model
 
-	Name          string
+	Name          string `gorm:"not null"`
 	Description   string
-	NumberOfPages int
-	Views         uint
+	NumberOfPages int  `gorm:"not null"`
+	Views         uint `gorm:"not null;default:0"`
+	Volume        uint `gorm:"not null"`
 
-	VolumeID uint    `gorm:"not null"`
-	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id" json:"-"`
+	TitleID uint  `gorm:"not null"`
+	Title   Title `gorm:"foreignKey:TitleID;references:id;constraint:OnDelete:CASCADE"`
 
 	CreatorID uint
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
@@ -22,7 +23,7 @@ type Chapter struct {
 	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
 
 	ModeratorID *uint
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL" json:"-"`
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 type ChapterOnModeration struct {
@@ -31,21 +32,22 @@ type ChapterOnModeration struct {
 	Name          *string
 	Description   *string
 	NumberOfPages *int
+	Volume        *uint
+
+	TitleID *uint
+	Title   *Title `gorm:"foreignKey:TitleID;references:id;constraint:OnDelete:CASCADE"`
+
+	TitleOnModerationID *uint
+	TitleOnModeration   *TitleOnModeration `gorm:"foreignKey:TitleOnModerationID;references:id;constraint:OnDelete:CASCADE"`
 
 	ExistingID *uint    `gorm:"unique"`
 	Chapter    *Chapter `gorm:"foreignKey:ExistingID;references:id;constraint:OnDelete:CASCADE"`
-
-	VolumeID *uint
-	Volume   *Volume `gorm:"foreignKey:VolumeID;references:id;constraint:OnDelete:SET NULL"`
-
-	VolumeOnModerationID *uint
-	VolumeOnModeration   *VolumeOnModeration `gorm:"foreignKey:VolumeOnModerationID;references:id;constraint:OnDelete:CASCADE"`
 
 	CreatorID uint
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
 
 	TeamID uint
-	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:CASCADE"`
+	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
 
 	ModeratorID *uint
 	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`

@@ -40,13 +40,12 @@ func (h handler) AddRoleToParticipant(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	if ok, reason, err := checkAddRoleToParticipantConflicts(tx, claims.ID, uint(participantID), roleID, isUserTeamLeader); !ok {
-		if err != nil {
+	code, err := checkAddRoleToParticipantConflicts(tx, claims.ID, participantID, roleID, isUserTeamLeader)
+	if err != nil {
+		if code == 500 {
 			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		} else {
-			c.AbortWithStatusJSON(404, gin.H{"error": reason})
 		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -131,7 +130,7 @@ func parseAddRoleToParticipantParams(urlParamFn func(string) string, bindJSONFn 
 	return uint(memberID), requestBody.RoleID, nil
 }
 
-func checkAddRoleToParticipantConflicts(db *gorm.DB, userID, participantID, roleID uint, isUserTeamLeader bool) (ok bool, reason string, err error) {
+func checkAddRoleToParticipantConflicts(db *gorm.DB, userID, participantID, roleID uint, isUserTeamLeader bool) (code int, err error) {
 	var check struct {
 		DoesParticipantExist bool
 		DoesRoleExist        bool
@@ -150,18 +149,18 @@ func checkAddRoleToParticipantConflicts(db *gorm.DB, userID, participantID, role
 	}
 
 	if err = db.Raw(query, participantID, userID, roleID).Scan(&check).Error; err != nil {
-		return false, "", err
+		return 500, err
 	}
 
 	if !check.DoesParticipantExist {
-		return false, "участник не найден в вашей команде", nil
-	}
-	
-	if !check.DoesRoleExist {
-		return false, "роль не найдена среди доступных вам для изменения", nil
+		return 404, errors.New("участник не найден в вашей команде")
 	}
 
-	return true, "", nil
+	if !check.DoesRoleExist {
+		return 404, errors.New("роль не найдена среди доступных вам для изменения")
+	}
+
+	return 0, nil
 }
 
 func didUserTransferTeamLeaderRole(db *gorm.DB, isTeamLeader bool, roleID uint) (bool, error) {

@@ -4,7 +4,7 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,7 +15,7 @@ func (h handler) GetAuthor(c *gin.Context) {
 		return
 	}
 
-	var author models.AuthorDTO
+	var author dto.ResponseAuthorDTO
 
 	if err := h.DB.Table("authors").Select("*").Where("id = ?", authorID).Scan(&author).Error; err != nil {
 		log.Println(err)

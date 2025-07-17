@@ -15,6 +15,7 @@ import (
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"gorm.io/gorm"
 )
 
 func (h handler) EditTitle(c *gin.Context) {
@@ -27,12 +28,16 @@ func (h handler) EditTitle(c *gin.Context) {
 		return
 	}
 
-	if requestBody.Cover != nil && requestBody.Cover.Size > 2<<20 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "превышен максимальный размер обложки (2мб)"})
+	editedTitle, code, err := mapEditTitleParamsToTitleOnModeration(claims.ID, &requestBody, c.Param)
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
-	editedTitle, code, err := mapEditTitleParamsToTitleOnModeration(claims.ID, &requestBody, c.Param)
+	code, err = checkEditTitleConflicts(h.DB, *editedTitle, claims.ID)
 	if err != nil {
 		if code == 500 {
 			log.Println(err)
@@ -44,32 +49,6 @@ func (h handler) EditTitle(c *gin.Context) {
 	tx := h.DB.Begin()
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
-
-	ok, err := titles.IsUserTeamTranslatingTitle(tx, claims.ID, *editedTitle.ExistingID)
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !ok {
-		c.AbortWithStatusJSON(404, gin.H{"error": "тайтл не найден среди тайтлов, переводимых вашей командой"})
-		return
-	}
-
-	if editedTitle.Name != nil || editedTitle.EnglishName != nil || editedTitle.OriginalName != nil {
-		exists, err := helpers.CheckEntityWithTheSameNameExistence(tx, "titles", editedTitle.Name, editedTitle.EnglishName, editedTitle.OriginalName)
-		if err != nil {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
-		}
-
-		if exists {
-			c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
-			return
-		}
-	}
 
 	err = tx.Clauses(helpers.OnExistingIDConflictClause).Create(&editedTitle).Error
 
@@ -83,7 +62,7 @@ func (h handler) EditTitle(c *gin.Context) {
 	}
 
 	if len(requestBody.GenresIDs) != 0 {
-		code, err := titles.InsertTitleOnModerationGenres(tx, editedTitle.ID, requestBody.GenresIDs)
+		code, err := titles.UpsertTitleOnModerationGenres(tx, editedTitle.ID, requestBody.GenresIDs)
 		if err != nil {
 			if code == 500 {
 				log.Println(err)
@@ -94,7 +73,7 @@ func (h handler) EditTitle(c *gin.Context) {
 	}
 
 	if len(requestBody.TagsIDs) != 0 {
-		code, err := titles.InsertTitleOnModerationTags(tx, editedTitle.ID, requestBody.TagsIDs)
+		code, err := titles.UpsertTitleOnModerationTags(tx, editedTitle.ID, requestBody.TagsIDs)
 		if err != nil {
 			if code == 500 {
 				log.Println(err)
@@ -122,12 +101,16 @@ func (h handler) EditTitle(c *gin.Context) {
 }
 
 func mapEditTitleParamsToTitleOnModeration(userID uint, body *dto.EditTitleDTO, paramFn func(string) string) (res *models.TitleOnModeration, code int, err error) {
+	if body.Cover != nil && body.Cover.Size > 2<<20 {
+		return nil, 400, errors.New("превышен максимальный размер обложки (2мб)")
+	}
+
 	titleID, err := strconv.ParseUint(paramFn("id"), 10, 64)
 	if err != nil {
 		return nil, 400, errors.New("указан невалидный id тайтла")
 	}
 
-	ok, err := utils.HasAnyNonEmptyFields(body, "AuthorID", "AuthorOnModerationID")
+	ok, err := utils.HasAnyNonEmptyFields(body, "AuthorID")
 	if err != nil {
 		return nil, 500, err
 	}
@@ -139,4 +122,28 @@ func mapEditTitleParamsToTitleOnModeration(userID uint, body *dto.EditTitleDTO, 
 	titleOnModeration := body.ToTitleOnModeration(userID, uint(titleID))
 
 	return &titleOnModeration, 0, nil
+}
+
+func checkEditTitleConflicts(db *gorm.DB, title models.TitleOnModeration, userID uint) (code int, err error) {
+	ok, err := titles.IsUserTeamTranslatingTitle(db, userID, *title.ExistingID)
+	if err != nil {
+		return 500, err
+	}
+
+	if !ok {
+		return 404, errors.New("тайтл не найден среди тайтлов, переводимых вашей командой")
+	}
+
+	if title.Name != nil || title.EnglishName != nil || title.OriginalName != nil {
+		exists, err := helpers.CheckEntityWithTheSameNameExistence(db, "titles", title.Name, title.EnglishName, title.OriginalName)
+		if err != nil {
+			return 500, err
+		}
+
+		if exists {
+			return 409, errors.New("тайтл с таким названием уже существует")
+		}
+	}
+
+	return 0, nil
 }

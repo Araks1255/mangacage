@@ -21,9 +21,9 @@ type GetChaptersParams struct {
 	ViewsFrom         *uint `form:"viewsFrom"`
 	ViewsTo           *uint `form:"viewsTo"`
 
-	VolumeID *uint `form:"volumeId"`
-	TitleID  *uint `form:"titleId"`
-	TeamID   *uint `form:"teamId"`
+	Volume  *uint `form:"volume"`
+	TitleID *uint `form:"titleId"`
+	TeamID  *uint `form:"teamId"`
 
 	FavoritedBy *uint `form:"favoritedBy" binding:"excluded_with=MyFavorites"`
 	MyFavorites *bool `form:"myFavorites" binding:"excluded_with=FavoritedBy"`
@@ -42,21 +42,20 @@ func (h handler) GetChapters(c *gin.Context) {
 	}
 
 	query := h.DB.Table("chapters AS c").
-		Select("c.*, v.name AS volume, teams.name AS team, t.name AS title, t.id AS title_id").
-		Joins("INNER JOIN volumes AS v ON v.id = c.volume_id").
-		Joins("INNER JOIN titles AS t ON t.id = v.title_id").
-		Joins("INNER JOIN teams ON teams.id = c.team_id")
+		Select("c.*, teams.name AS team, t.name AS title").
+		Joins("INNER JOIN titles AS t ON t.id = c.title_id").
+		Joins("LEFT JOIN teams ON c.team_id = teams.id")
 
 	if params.TitleID != nil {
 		query = query.Where("t.id = ?", params.TitleID)
 	}
 
-	if params.VolumeID != nil {
-		query = query.Where("v.id = ?", params.VolumeID)
-	}
-
 	if params.TeamID != nil {
 		query = query.Where("c.team_id = ?", params.TeamID)
+	}
+
+	if params.Volume != nil {
+		query = query.Where("c.volume = ?", params.Volume)
 	}
 
 	if params.Query != nil {
@@ -138,9 +137,8 @@ func (h handler) GetChapters(c *gin.Context) {
 			query = query.Order(fmt.Sprintf("uvc.created_at %s", params.Order))
 			break
 		}
-
 	default:
-		query = query.Order("name DESC")
+		query = query.Order(fmt.Sprintf("c.name %s", params.Order))
 	}
 
 	offset := (params.Page - 1) * int(params.Limit)

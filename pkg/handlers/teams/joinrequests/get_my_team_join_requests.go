@@ -4,20 +4,18 @@ import (
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
 func (h handler) GetMyTeamJoinRequests(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var requests []models.TeamJoinRequestDTO
+	var requests []dto.ResponseTeamJoinRequestDTO
 
 	if err := h.DB.Raw(
 		`SELECT
-			tjr.id, tjr.created_at, tjr.introductory_message,
-			r.name AS role, r.id AS role_id,
-			t.name AS team, t.id AS team_id
+			tjr.*, r.name AS role, t.name AS team
 		FROM
 			team_join_requests AS tjr
 			LEFT JOIN roles AS r ON tjr.role_id = r.id

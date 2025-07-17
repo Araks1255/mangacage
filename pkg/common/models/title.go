@@ -22,10 +22,7 @@ type Title struct {
 	CreatorID uint
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
 
-	ModeratorID *uint
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
-
-	AuthorID uint
+	AuthorID uint   `gorm:"not null"`
 	Author   Author `gorm:"foreignKey:AuthorID;references:id;constraint:OnDelete:SET NULL"`
 
 	Views uint `gorm:"default:0;not null"`
@@ -33,9 +30,14 @@ type Title struct {
 	SumOfRates    uint `gorm:"not null"`
 	NumberOfRates uint `gorm:"not null"`
 
+	NumberOfChapters uint `gorm:"not null"`
+
 	Genres []Genre `gorm:"many2many:title_genres;constraint:OnDelete:CASCADE"`
 	Tags   []Tag   `gorm:"many2many:title_tags;constraint:OnDelete:CASCADE"`
 	Teams  []Team  `gorm:"many2many:title_teams;constraint:OnDelete:CASCADE"`
+
+	ModeratorID *uint
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 type TitleOnModeration struct {
@@ -59,20 +61,17 @@ type TitleOnModeration struct {
 	CreatorID uint
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
 
-	ModeratorID *uint
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
-
 	AuthorID *uint
 	Author   *Author `gorm:"foreignKey:AuthorID;references:id;constraint:OnDelete:SET NULL"`
 
 	AuthorOnModerationID *uint
 	AuthorOnModeration   *AuthorOnModeration `gorm:"foreignKey:AuthorOnModerationID;references:id;constraint:OnDelete:CASCADE"`
 
-	TeamID *uint
-	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
-
 	Genres []Genre `gorm:"many2many:title_on_moderation_genres;constraint:OnDelete:CASCADE"`
 	Tags   []Tag   `gorm:"many2many:title_on_moderation_tags;constraint:OnDelete:CASCADE"`
+
+	ModeratorID *uint
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 func (TitleOnModeration) TableName() string {

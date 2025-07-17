@@ -11,6 +11,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/handlers/authors"
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
 	"github.com/Araks1255/mangacage/pkg/handlers/genres"
+	"github.com/Araks1255/mangacage/pkg/handlers/roles"
 	"github.com/Araks1255/mangacage/pkg/handlers/tags"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams/joinrequests"
@@ -21,7 +22,6 @@ import (
 	"github.com/Araks1255/mangacage/pkg/handlers/users/moderation"
 	"github.com/Araks1255/mangacage/pkg/handlers/users/viewedchapters"
 	"github.com/Araks1255/mangacage/pkg/handlers/views"
-	"github.com/Araks1255/mangacage/pkg/handlers/volumes"
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -83,7 +83,6 @@ func main() {
 	joinrequests.RegisterRoutes(db, secretKey, router)
 	participants.RegisterRoutes(db, secretKey, router)
 	chapters.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
-	volumes.RegisterRoutes(db, notificationsClient, secretKey, router)
 	users.RegisterRoutes(db, mongoClient, notificationsClient, secretKey, router)
 	views.RegisterRoutes(db, router, secretKey)
 	favorites.RegisterRoutes(db, secretKey, router)
@@ -91,7 +90,8 @@ func main() {
 	genres.RegisterRoutes(db, notificationsClient, secretKey, router)
 	tags.RegisterRoutes(db, notificationsClient, secretKey, router)
 	authors.RegisterRoutes(db, notificationsClient, secretKey, router)
-	viewedchapters.RegisterRoutes(db, router)
+	viewedchapters.RegisterRoutes(db, secretKey, router)
+	roles.RegisterRoutes(db, router)
 
 	router.Run(":8080")
 }

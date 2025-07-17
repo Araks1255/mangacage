@@ -4,7 +4,7 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,16 +15,18 @@ func (h handler) GetUser(c *gin.Context) {
 		return
 	}
 
-	var user models.UserDTO
+	var user dto.ResponseUserDTO
 
 	err = h.DB.Table("users AS u").
-		Select("u.*, ARRAY_AGG(DISTINCT r.name) AS roles, t.name AS team").
-		Joins("INNER JOIN user_roles AS ur ON ur.user_id = u.id").
-		Joins("INNER JOIN roles AS r ON r.id = ur.role_id").
+		Select(
+			`u.*, t.name AS team, ARRAY(
+				SELECT r.name FROM roles AS r
+				INNER JOIN user_roles AS ur ON ur.role_id = r.id
+				WHERE ur.user_id = u.id
+			) AS roles`,
+		).
 		Joins("LEFT JOIN teams AS t ON u.team_id = t.id").
 		Where("u.id = ?", userID).
-		Where("u.visible").
-		Group("u.id, t.id").
 		Scan(&user).Error
 
 	if err != nil {
@@ -35,6 +37,11 @@ func (h handler) GetUser(c *gin.Context) {
 
 	if user.ID == 0 {
 		c.AbortWithStatusJSON(404, gin.H{"error": "пользователь не найден"})
+		return
+	}
+
+	if !user.Visible {
+		c.AbortWithStatusJSON(403, gin.H{"error": "этот пользователь имеет скрытый профиль"})
 		return
 	}
 

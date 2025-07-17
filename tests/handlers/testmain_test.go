@@ -81,7 +81,7 @@ func TestMain(m *testing.M) {
 }
 
 func cleanTestDB(db *gorm.DB, mongoDB *mongo.Database) {
-	db.Exec("TRUNCATE TABLE authors, chapters, titles, users, teams, volumes, genres, tags RESTART IDENTITY CASCADE")
+	db.Exec("TRUNCATE TABLE authors, chapters, titles, users, teams, genres, tags RESTART IDENTITY CASCADE")
 
 	ctx := context.Background()
 	coll := mongoDB.Collection

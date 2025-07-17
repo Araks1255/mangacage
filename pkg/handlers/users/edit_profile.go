@@ -1,12 +1,15 @@
 package users
 
 import (
+	"context"
+	"errors"
 	"log"
+	"mime/multipart"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
@@ -14,43 +17,31 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/gorm"
 )
 
 func (h handler) EditProfile(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var requestBody models.UserOnModerationDTO
+	var requestBody dto.EditUserDTO
 
-	c.ShouldBindWith(&requestBody, binding.FormMultipart)
+	if err := c.ShouldBindWith(&requestBody, binding.FormMultipart); err != nil {
+		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
+		return
+	}
 
-	ok, err := utils.HasAnyNonEmptyFields(&requestBody)
+	code, err := checkEditProfileConflicts(h.DB, requestBody, claims.ID)
 	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !ok {
-		c.AbortWithStatusJSON(400, gin.H{"error": "необходим как минимум 1 изменяемый параметр"})
-		return
-	}
-
-	if requestBody.UserName != nil {
-		exists, err := helpers.CheckEntityWithTheSameNameExistence(h.DB, "users", requestBody.UserName, nil, nil)
-		if err != nil {
+		if code == 500 {
 			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
 		}
-
-		if exists {
-			c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже существует"})
-			return
-		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
 	}
 
-	editedProfile := requestBody.ToUserOnModeration(&claims.ID)
+	editedProfile := requestBody.ToUserOnModeration(claims.ID)
 
 	tx := h.DB.Begin()
 	defer dbUtils.RollbackOnPanic(tx)
@@ -68,18 +59,8 @@ func (h handler) EditProfile(c *gin.Context) {
 	}
 
 	if requestBody.ProfilePicture != nil {
-		profilePicture, err := utils.ReadMultipartFile(requestBody.ProfilePicture, 2<<20)
+		err = upsertProfilePicture(c.Request.Context(), h.UsersProfilePictures, requestBody.ProfilePicture, editedProfile.ID, claims.ID)
 		if err != nil {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
-		}
-
-		filter := bson.M{"user_on_moderation_id": editedProfile.ID}
-		update := bson.M{"$set": bson.M{"profilePicture": profilePicture, "creator_id": claims.ID}}
-		opts := options.Update().SetUpsert(true)
-
-		if _, err := h.UsersProfilePictures.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 			return
@@ -96,4 +77,45 @@ func (h handler) EditProfile(c *gin.Context) {
 	}); err != nil {
 		log.Println(err)
 	}
+}
+
+func checkEditProfileConflicts(db *gorm.DB, requestBody dto.EditUserDTO, userID uint) (code int, err error) {
+	ok, err := utils.HasAnyNonEmptyFields(&requestBody)
+	if err != nil {
+		return 500, err
+	}
+
+	if !ok {
+		return 400, errors.New("необходим как минимум 1 изменяемый параметр")
+	}
+
+	if requestBody.UserName != nil {
+		exists, err := helpers.CheckEntityWithTheSameNameExistence(db, "users", requestBody.UserName, nil, nil)
+		if err != nil {
+			return 500, err
+		}
+
+		if exists {
+			return 409, errors.New("пользователь с таким именем уже существует")
+		}
+	}
+
+	return 0, nil
+}
+
+func upsertProfilePicture(ctx context.Context, collection *mongo.Collection, pictureFileHeader *multipart.FileHeader, userOnModerationID, userID uint) error {
+	profilePicture, err := utils.ReadMultipartFile(pictureFileHeader, 2<<20)
+	if err != nil {
+		return err
+	}
+
+	filter := bson.M{"user_on_moderation_id": userOnModerationID}
+	update := bson.M{"$set": bson.M{"profilePicture": profilePicture, "creator_id": userID}}
+	opts := options.Update().SetUpsert(true)
+
+	if _, err := collection.UpdateOne(ctx, filter, update, opts); err != nil {
+		return err
+	}
+
+	return nil
 }

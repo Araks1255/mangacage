@@ -30,8 +30,10 @@ type GetTitlesParams struct {
 	AgeLimitTo   *int `form:"ageLimitTo"`
 	ViewsFrom    *int `form:"viewsFrom"`
 	ViewsTo      *int `form:"viewsTo"`
-	RateFrom     *int `json:"rateFrom"`
-	RateTo       *int `json:"rateTo"`
+	RateFrom     *int `form:"rateFrom"`
+	RateTo       *int `form:"rateTo"`
+	ChaptersFrom *int `form:"chaptersFrom"`
+	ChaptersTo   *int `form:"chaptersTo"`
 
 	Genres []string `form:"genres"`
 	Tags   []string `form:"tags"`
@@ -53,7 +55,10 @@ func (h handler) GetTitles(c *gin.Context) {
 		offset = 0
 	}
 
-	query := h.DB.Table("titles AS t").Select("t.*").Limit(int(params.Limit)).Offset(offset)
+	query := h.DB.Table("titles AS t").
+		Select("t.*, a.name AS author").
+		Joins("INNER JOIN authors AS a ON a.id = t.author_id").
+		Limit(int(params.Limit)).Offset(offset)
 
 	if params.Query != nil {
 		query = query.Where(

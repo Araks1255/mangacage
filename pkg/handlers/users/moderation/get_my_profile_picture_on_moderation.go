@@ -1,6 +1,7 @@
 package moderation
 
 import (
+	"errors"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
@@ -18,7 +19,7 @@ func (h handler) GetMyProfilePictureOnModeration(c *gin.Context) {
 	filter := bson.M{"creator_id": claims.ID}
 
 	if err := h.ProfilePictures.FindOne(c.Request.Context(), filter).Decode(&result); err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			c.AbortWithStatusJSON(404, gin.H{"error": "у вас нет изменений аватарки на модерации"})
 			return
 		}

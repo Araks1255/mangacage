@@ -1,35 +1,24 @@
 package models
 
 type Tag struct {
-	ID   uint `gorm:"primaryKey;autoIncrement:true"`
-	Name string
-}
+	ID   uint   `gorm:"primaryKey;autoIncrement:true"`
+	Name string `gorm:"not null"`
 
-type TagDTO struct {
-	ID   uint   `json:"id"`
-	Name string `json:"name"`
+	ModeratorID *uint
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 type TagOnModeration struct {
-	ID        uint `gorm:"primaryKey;autoIncrement:true"`
-	Name      string
+	ID   uint   `gorm:"primaryKey;autoIncrement:true"`
+	Name string `gorm:"not null"`
+
 	CreatorID uint
-	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraints:OnDelete:CASCADE"`
+	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraints:OnDelete:SET NULL"`
+
+	ModeratorID *uint
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 func (TagOnModeration) TableName() string {
 	return "tags_on_moderation"
-}
-
-type TagOnModerationDTO struct {
-	ID        uint   `json:"id"`
-	Name      string `json:"name" binding:"required"`
-	CreatorID *uint  `json:"creatorId"`
-}
-
-func (t TagOnModerationDTO) ToTagOnModeration(creatorID uint) TagOnModeration {
-	return TagOnModeration{
-		Name:      t.Name,
-		CreatorID: creatorID,
-	}
 }

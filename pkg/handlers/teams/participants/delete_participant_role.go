@@ -1,6 +1,7 @@
 package participants
 
 import (
+	"errors"
 	"log"
 	"slices"
 	"strconv"
@@ -37,15 +38,12 @@ func (h handler) DeleteParticipantRole(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	ok, reason, err := checkDeleteParticipantRoleConflicts(tx, claims.ID, participantID, roleID, isUserTeamLeader)
+	code, err := checkDeleteParticipantRoleConflicts(tx, claims.ID, participantID, roleID, isUserTeamLeader)
 	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !ok {
-		c.AbortWithStatusJSON(404, gin.H{"error": reason})
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -58,7 +56,7 @@ func (h handler) DeleteParticipantRole(c *gin.Context) {
 	}
 
 	if result.RowsAffected == 0 {
-		c.AbortWithStatusJSON(409, gin.H{"error": "участник не обладает такой ролью"}) // Ошибка не произошла, юзер существует, роль тоже. Значит, не выполниться запрос может только при отсутствии у юзера роли
+		c.AbortWithStatusJSON(409, gin.H{"error": "участник не обладает такой ролью"})
 		return
 	}
 
@@ -109,7 +107,7 @@ func parseDeleteParticipantRoleParams(urlParamFn func(string) string, bindJSONFn
 	return uint(memberID), requestBody.RoleID, nil
 }
 
-func checkDeleteParticipantRoleConflicts(db *gorm.DB, userID, participantID, roleID uint, isUserTeamLeader bool) (ok bool, reason string, err error) {
+func checkDeleteParticipantRoleConflicts(db *gorm.DB, userID, participantID, roleID uint, isUserTeamLeader bool) (code int, err error) {
 	var check struct {
 		DoesParticipantExist bool
 		DoesRoleExist        bool
@@ -128,16 +126,16 @@ func checkDeleteParticipantRoleConflicts(db *gorm.DB, userID, participantID, rol
 	}
 
 	if err = db.Raw(query, participantID, userID, roleID).Scan(&check).Error; err != nil {
-		return false, "", err
+		return 500, err
 	}
 
 	if !check.DoesParticipantExist {
-		return false, "участник не найден в вашей команде", nil
+		return 404, errors.New("участник не найден в вашей команде")
 	}
 
 	if !check.DoesRoleExist {
-		return false, "роль не найдена среди доступных вам для удаления", nil
+		return 404, errors.New("роль не найдена среди доступных вам для удаления")
 	}
 
-	return true, "", nil
+	return 0, nil
 }

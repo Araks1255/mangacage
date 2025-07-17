@@ -1,12 +1,16 @@
 package teams
 
 import (
+	"context"
+	"errors"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
 )
 
 func (h handler) DeleteTeam(c *gin.Context) {
@@ -16,12 +20,39 @@ func (h handler) DeleteTeam(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
+	teamID, teamOnModerationID, code, err := getUserTeamsIDs(tx, claims.ID)
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := deleteTeam(tx, teamID); err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := deleteTeamsCovers(c.Request.Context(), h.TeamsCovers, teamID, teamOnModerationID); err != nil {
+		log.Println(err)
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	tx.Commit()
+
+	c.JSON(200, gin.H{"success": "команда успешно удалена"})
+}
+
+func getUserTeamsIDs(db *gorm.DB, userID uint) (teamID uint, teamOnModerationID *uint, code int, err error) {
 	var check struct {
 		TeamID             *uint
 		TeamOnModerationID *uint
 	}
 
-	if err := tx.Raw(
+	err = db.Raw(
 		`SELECT
 			t.id AS team_id,
 			tom.id AS team_on_moderation_id
@@ -31,57 +62,48 @@ func (h handler) DeleteTeam(c *gin.Context) {
 			INNER JOIN users AS u ON u.team_id = t.id
 		WHERE
 			u.id = ?`,
-		claims.ID,
-	).Scan(&check).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
+		userID,
+	).Scan(&check).Error
+
+	if err != nil {
+		return 0, nil, 500, err
 	}
 
 	if check.TeamID == nil {
-		c.AbortWithStatusJSON(409, gin.H{"error": "ваша команда не найдена"}) // По бизнес логике такого быть не может, так Fкак до этого в middleware идёт проверка ролей пользователя: team_leader и ex_team_leader, и юзер без них до этого момента не дойдет, а если такие роли есть, то команды не быть не может. Но мало ли
-		return
+		return 0, nil, 404, errors.New("ваша команда не найдена")
 	}
 
-	result := h.DB.Exec("DELETE FROM teams WHERE id = ?", *check.TeamID)
+	return *check.TeamID, check.TeamOnModerationID, 0, nil
+}
+
+func deleteTeam(db *gorm.DB, teamID uint) error {
+	result := db.Exec("DELETE FROM teams WHERE id = ?", teamID)
 
 	if result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-		return
+		return result.Error
 	}
 
 	if result.RowsAffected == 0 {
-		c.AbortWithStatusJSON(500, gin.H{"error": "не удалось удалить команду"})
-		return
+		return errors.New("не удалось удалить вашу команду")
 	}
 
-	filter := bson.M{"team_id": *check.TeamID}
+	return nil
+}
 
-	res, err := h.TeamsCovers.DeleteOne(c.Request.Context(), filter)
+func deleteTeamsCovers(ctx context.Context, collection *mongo.Collection, teamID uint, teamOnModerationID *uint) error {
+	filter := bson.M{"team_id": teamID}
 
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
+	if _, err := collection.DeleteOne(ctx, filter); err != nil {
+		return err
 	}
 
-	if res.DeletedCount == 0 {
-		c.AbortWithStatusJSON(500, gin.H{"error": "не удалось удалить обложку команды"})
-		return
-	}
+	if teamOnModerationID != nil {
+		filter = bson.M{"team_on_moderation_id": *teamOnModerationID}
 
-	if check.TeamOnModerationID != nil {
-		filter = bson.M{"team_on_moderation_id": *check.TeamOnModerationID}
-
-		if _, err = h.TeamsCovers.DeleteOne(c.Request.Context(), filter); err != nil {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
+		if _, err := collection.DeleteOne(ctx, filter); err != nil {
+			return err
 		}
 	}
 
-	tx.Commit()
-
-	c.JSON(200, gin.H{"success": "ваша команда успешно удалена"})
+	return nil
 }

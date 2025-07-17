@@ -77,7 +77,6 @@ func gormMigrate(db *gorm.DB) error {
 	if err = db.AutoMigrate(
 		&models.Author{},
 		&models.Title{},
-		&models.Volume{},
 		&models.Chapter{},
 	); err != nil {
 		return err
@@ -85,7 +84,6 @@ func gormMigrate(db *gorm.DB) error {
 
 	if err = db.AutoMigrate(
 		&models.TitleOnModeration{},
-		&models.VolumeOnModeration{},
 		&models.ChapterOnModeration{},
 		&models.UserOnModeration{},
 		&models.TeamOnModeration{},

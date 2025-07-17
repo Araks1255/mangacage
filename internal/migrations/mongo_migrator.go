@@ -48,6 +48,13 @@ func migrateCollection(ctx context.Context, db *mongo.Database, collectionName, 
 		},
 	}
 
+	if entityName == "team" || entityName == "user" {
+		indexes = append(indexes, mongo.IndexModel{
+			Keys:    bson.M{"creator_id": 1},
+			Options: options.Index().SetUnique(true),
+		})
+	}
+
 	if _, err := collection.Indexes().CreateMany(ctx, indexes); errors.As(err, &cmdErr) && cmdErr.Code != 85 && cmdErr.Code != 86 { // Это коды повторного создания
 		return err
 	}

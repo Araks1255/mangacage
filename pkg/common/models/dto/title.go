@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"gorm.io/gorm"
 
 	"github.com/lib/pq"
 	"golang.org/x/text/unicode/norm"
@@ -73,30 +74,38 @@ type ResponseTitleDTO struct {
 	TranslatingStatus *string `json:"translatingStatus,omitempty"`
 	PublishingStatus  *string `json:"publishingStatus,omitempty"`
 
+	NumberOfRates *uint `json:"numberOfRates,omitempty"`
+	SumOfRates    *uint `json:"sumOfRates,omitempty"`
+
 	Author   *string `json:"author,omitempty"`
 	AuthorID *uint   `json:"authorId,omitempty"`
 
 	AuthorOnModeration   *string `json:"authorOnModeration,omitempty"`
 	AuthorOnModerationID *uint   `json:"authorOnModerationId,omitempty"`
 
-	Views *uint    `json:"views,omitempty"`
-	Rate  *float64 `json:"rate,omitempty"`
+	Views *uint `json:"views,omitempty"`
 
-	Genres pq.StringArray `json:"genres,omitempty" gorm:"type:TEXT[]"`
-	Tags   pq.StringArray `json:"tags,omitempty" gorm:"type:TEXT[]"`
+	Genres   pq.StringArray `json:"genres,omitempty" gorm:"type:TEXT[]"`
+	Tags     pq.StringArray `json:"tags,omitempty" gorm:"type:TEXT[]"`
+	Volumes  pq.Int64Array  `json:"volumes,omitempty" gorm:"type:BIGINT[]"`
+	TeamsIDs pq.Int64Array  `json:"teamsIds" gorm:"type:BIGINT[]"`
 
 	Existing   *string `json:"existing,omitempty"`
 	ExistingID *uint   `json:"existingId,omitempty"`
 
-	QuantityOfViewedChapters *int64 `json:"quantityOfViewedChapters,omitempty"`
-	UserRate                 *int   `json:"userRate,omitempty"`
-	QuantityOfChapters       *int64 `json:"quantityOfChapters,omitempty"`
-	CanEdit                  *bool  `json:"canEdit,omitempty"`
+	NumberOfViewedChapters *int64 `json:"numberOfViewedChapters,omitempty"`
+	UserRate               *int   `json:"userRate,omitempty"`
+	NumberOfChapters       *int64 `json:"numberOfChapters,omitempty"`
 }
 
 func (t CreateTitleDTO) ToTitleOnModeration(creatorID uint) models.TitleOnModeration {
 	formatedOriginalName := norm.NFC.String(t.OriginalName)
+	var id uint
+	if t.ID != nil {
+		id = *t.ID
+	}
 	return models.TitleOnModeration{
+		Model:                gorm.Model{ID: id},
 		CreatorID:            creatorID,
 		Name:                 &t.Name,
 		EnglishName:          &t.EnglishName,
@@ -129,5 +138,6 @@ func (t EditTitleDTO) ToTitleOnModeration(creatorID, existingID uint) models.Tit
 		TranslatingStatus: t.TranslatingStatus,
 		PublishingStatus:  t.PublishingStatus,
 		AuthorID:          t.AuthorID,
+		ExistingID:        &existingID,
 	}
 }

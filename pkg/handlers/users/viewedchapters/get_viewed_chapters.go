@@ -34,11 +34,10 @@ func (h handler) GetViewedChapters(c *gin.Context) { // Это получени�
 		`SELECT * FROM (
 			SELECT
 				DISTINCT ON (t.id)
-				c.*, v.name AS volume, t.id AS title_id, t.name AS title, teams.name AS team, uvc.created_at AS was_read_at
+				c.*, t.id AS title_id, t.name AS title, teams.name AS team, uvc.created_at AS was_read_at
 			FROM
 				chapters AS c
-				INNER JOIN volumes AS v ON v.id = c.volume_id
-				INNER JOIN titles AS t ON t.id = v.title_id
+				INNER JOIN titles AS t ON t.id = c.title_id
 				INNER JOIN teams ON teams.id = c.team_id
 				INNER JOIN user_viewed_chapters AS uvc ON uvc.chapter_id = c.id
 			WHERE

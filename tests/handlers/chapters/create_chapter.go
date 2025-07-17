@@ -25,8 +25,6 @@ func GetCreateChapterScenarios(env testenv.Env) map[string]func(t *testing.T) {
 		"does not translate title":               CreateChapterByUserWhoseTeamDoesNotTranslateTitle(env),
 		"the same name as chapter on moderation": CreateChapterWithTheSameNameAsChapterOnModeration(env),
 		"the same name as chapter":               CreateChapterWithTheSameNameAsChapter(env),
-		"wrong volume id":                        CreateChapterWithWrongVolumeID(env),
-		"invalid volume id":                      CreateChapterWithInvalidVolumeID(env),
 		"wrong content type":                     CreateChapterWithWrongContentType(env),
 		"without name":                           CreateChapterWithoutName(env),
 		"without pages":                          CreateChapterWithoutPages(env),
@@ -42,7 +40,7 @@ func CreateChapterSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -54,6 +52,12 @@ func CreateChapterSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 		if err := writer.WriteField("description", "someDescription"); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.WriteField("titleId", fmt.Sprintf("%d", titleID)); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.WriteField("volume", "0"); err != nil {
 			t.Fatal(err)
 		}
 
@@ -75,10 +79,9 @@ func CreateChapterSuccess(env testenv.Env) func(*testing.T) {
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
+		r.POST("/chapters", h.CreateChapter)
 
-		url := fmt.Sprintf("/volume/%d/chapters", volumeID)
-		req := httptest.NewRequest("POST", url, &body)
+		req := httptest.NewRequest("POST", "/chapters", &body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
@@ -103,9 +106,9 @@ func CreateChapterByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
+		r.POST("/chapters", h.CreateChapter)
 
-		req := httptest.NewRequest("POST", "/volume/18/chapters", nil)
+		req := httptest.NewRequest("POST", "/chapters", nil)
 
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -123,11 +126,6 @@ func CreateChapterByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		writer := multipart.NewWriter(bytes.NewBuffer([]byte{}))
 		writer.Close()
 
@@ -135,10 +133,9 @@ func CreateChapterByNonTeamLeader(env testenv.Env) func(*testing.T) {
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
+		r.POST("/chapters", h.CreateChapter)
 
-		url := fmt.Sprintf("/volume/%d/chapters", volumeID)
-		req := httptest.NewRequest("POST", url, nil)
+		req := httptest.NewRequest("POST", "/chapters", nil)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
@@ -164,7 +161,7 @@ func CreateChapterByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*te
 			t.Fatal(err)
 		}
 
-		volumeID, err := testhelpers.CreateVolumeWithDependencies(env.DB, userID)
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -176,6 +173,12 @@ func CreateChapterByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*te
 			t.Fatal(err)
 		}
 		if err := writer.WriteField("description", "someDescription"); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.WriteField("titleId", fmt.Sprintf("%d", titleID)); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.WriteField("volume", "0"); err != nil {
 			t.Fatal(err)
 		}
 
@@ -197,10 +200,9 @@ func CreateChapterByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*te
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
+		r.POST("/chapters", h.CreateChapter)
 
-		url := fmt.Sprintf("/volume/%d/chapters", volumeID)
-		req := httptest.NewRequest("POST", url, &body)
+		req := httptest.NewRequest("POST", "/chapters", &body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
@@ -228,7 +230,7 @@ func CreateChapterWithTheSameNameAsChapterOnModeration(env testenv.Env) func(*te
 			t.Fatal(err)
 		}
 
-		volumeID, err := testhelpers.CreateVolumeTranslatingByUserTeam(env.DB, userID)
+		titleID, err := testhelpers.CreateTitleTranslatingByUserTeam(env.DB, userID, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -240,6 +242,12 @@ func CreateChapterWithTheSameNameAsChapterOnModeration(env testenv.Env) func(*te
 			t.Fatal(err)
 		}
 		if err := writer.WriteField("description", "someDescription"); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.WriteField("titleId", fmt.Sprintf("%d", titleID)); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.WriteField("volume", "0"); err != nil {
 			t.Fatal(err)
 		}
 
@@ -263,10 +271,9 @@ func CreateChapterWithTheSameNameAsChapterOnModeration(env testenv.Env) func(*te
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
+		r.POST("/chapters", h.CreateChapter)
 
-		url := fmt.Sprintf("/volume/%d/chapters", volumeID)
-		req := httptest.NewRequest("POST", url, &body)
+		req := httptest.NewRequest("POST", "/chapters", &body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
@@ -283,7 +290,7 @@ func CreateChapterWithTheSameNameAsChapterOnModeration(env testenv.Env) func(*te
 			t.Fatal(w.Body.String())
 		}
 
-		req2 := httptest.NewRequest("POST", url, &body2)
+		req2 := httptest.NewRequest("POST", "/chapters", &body2)
 		req2.AddCookie(cookie)
 		req2.Header.Set("Content-Type", writer.FormDataContentType())
 		w2 := httptest.NewRecorder()
@@ -325,12 +332,7 @@ func CreateChapterWithTheSameNameAsChapter(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		volumeID, err := testhelpers.CreateVolume(env.DB, titleID, teamID, userID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		chapterID, err := testhelpers.CreateChapter(env.DB, volumeID, teamID, userID)
+		chapterID, err := testhelpers.CreateChapter(env.DB, titleID, teamID, userID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -343,7 +345,7 @@ func CreateChapterWithTheSameNameAsChapter(env testenv.Env) func(*testing.T) {
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
+		r.POST("/chapters", h.CreateChapter)
 
 		var body bytes.Buffer
 		writer := multipart.NewWriter(&body)
@@ -369,9 +371,7 @@ func CreateChapterWithTheSameNameAsChapter(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		url := fmt.Sprintf("/volume/%d/chapters", volumeID)
-
-		req := httptest.NewRequest("POST", url, &body)
+		req := httptest.NewRequest("POST", "/chapters", &body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
@@ -390,103 +390,6 @@ func CreateChapterWithTheSameNameAsChapter(env testenv.Env) func(*testing.T) {
 	}
 }
 
-func CreateChapterWithWrongVolumeID(env testenv.Env) func(*testing.T) {
-	return func(t *testing.T) {
-		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		volumeID := 9223372036854775807
-
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-
-		if err := writer.WriteField("name", uuid.New().String()); err != nil {
-			t.Fatal(err)
-		}
-		if err := writer.WriteField("description", "someDescription"); err != nil {
-			t.Fatal(err)
-		}
-
-		part, err := writer.CreateFormFile("pages", "file")
-		if err != nil {
-			t.Fatal(err)
-		}
-		data, err := os.ReadFile("./test_data/test_chapter_page.png")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err = part.Write(data); err != nil {
-			t.Fatal(err)
-		}
-
-		writer.Close()
-
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
-
-		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
-
-		url := fmt.Sprintf("/volume/%d/chapters", volumeID)
-		req := httptest.NewRequest("POST", url, &body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-
-		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		req.AddCookie(cookie)
-
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-
-		if w.Code != 404 {
-			t.Fatal(w.Body.String())
-		}
-	}
-}
-
-func CreateChapterWithInvalidVolumeID(env testenv.Env) func(*testing.T) {
-	return func(t *testing.T) {
-		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		invalidVolumeID := ">_<"
-
-		writer := multipart.NewWriter(bytes.NewBuffer([]byte{}))
-		writer.Close()
-
-		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
-
-		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
-
-		url := fmt.Sprintf("/volume/%s/chapters", invalidVolumeID)
-		req := httptest.NewRequest("POST", url, nil)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-
-		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		req.AddCookie(cookie)
-
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-
-		if w.Code != 400 {
-			t.Fatal(w.Body.String())
-		}
-	}
-}
-
 func CreateChapterWithWrongContentType(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		userID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"team_leader"}})
@@ -494,16 +397,13 @@ func CreateChapterWithWrongContentType(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		volumeID := 1
-
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
+		r.POST("/chapters", h.CreateChapter)
 
-		url := fmt.Sprintf("/volume/%d/chapters", volumeID)
-		req := httptest.NewRequest("POST", url, nil)
+		req := httptest.NewRequest("POST", "/chapters", nil)
 		req.Header.Set("Content-Type", "application/json")
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
@@ -529,8 +429,6 @@ func CreateChapterWithoutName(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		volumeID := 18
-
 		var body bytes.Buffer
 		writer := multipart.NewWriter(&body)
 
@@ -556,10 +454,9 @@ func CreateChapterWithoutName(env testenv.Env) func(*testing.T) {
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
+		r.POST("/chapters", h.CreateChapter)
 
-		url := fmt.Sprintf("/volume/%d/chapters", volumeID)
-		req := httptest.NewRequest("POST", url, &body)
+		req := httptest.NewRequest("POST", "/chapters", &body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
@@ -585,8 +482,6 @@ func CreateChapterWithoutPages(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		volumeID := 18
-
 		var body bytes.Buffer
 		writer := multipart.NewWriter(&body)
 
@@ -603,10 +498,9 @@ func CreateChapterWithoutPages(env testenv.Env) func(*testing.T) {
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/volume/:id/chapters", h.CreateChapter)
+		r.POST("/chapters", h.CreateChapter)
 
-		url := fmt.Sprintf("/volume/%d/chapters", volumeID)
-		req := httptest.NewRequest("POST", url, &body)
+		req := httptest.NewRequest("POST", "/chapters", &body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)

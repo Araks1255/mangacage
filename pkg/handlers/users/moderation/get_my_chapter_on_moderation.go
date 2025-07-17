@@ -22,16 +22,13 @@ func (h handler) GetMyChapterOnModeration(c *gin.Context) {
 
 	err = h.DB.Raw(
 		`SELECT
-			com.*, v.name AS volume, vom.name AS volume_on_moderation,
-			t.name AS title, tom.name AS title_on_moderation,
-			c.name AS existing
+			com.*, c.name AS existing,
+			t.name AS title, tom.name AS title_on_moderation
 		FROM
 			chapters_on_moderation AS com
 			LEFT JOIN chapters AS c ON com.existing_id = c.id
-			LEFT JOIN volumes AS v ON com.volume_id = v.id
-			LEFT JOIN volumes_on_moderation AS vom ON com.volume_on_moderation_id = vom.id
-			LEFT JOIN titles AS t ON v.title_id = t.id OR vom.title_id = t.id
-			LEFT JOIN titles_on_moderation AS tom ON vom.title_on_moderation_id = tom.id
+			LEFT JOIN titles AS t ON com.title_id = t.id
+			LEFT JOIN titles_on_moderation AS tom ON com.title_on_moderation_id = tom.id
 		WHERE
 			com.id = ? AND com.creator_id = ?`,
 		chapterOnModerationID, claims.ID,

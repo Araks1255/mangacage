@@ -16,7 +16,7 @@ func ParseAuthorOnModerationInsertError(err error) (code int, formatedErr error)
 		return 409, errors.New("автор с таким английским именем уже ожидает модерации")
 	}
 
-	if dbErrors.IsUniqueViolation(err, constraints.UniAuthorOnModerationOriginalName) {
+	if dbErrors.IsUniqueViolation(err, constraints.UniAuthorsOnModerationOriginalName) {
 		return 409, errors.New("автор с таким оригинальным именем уже ожидает модерации")
 	}
 

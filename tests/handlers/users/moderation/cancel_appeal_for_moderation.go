@@ -15,7 +15,6 @@ import (
 func GetCancelAppealForModerationScenarios(env testenv.Env) map[string]func(*testing.T) {
 	return map[string]func(*testing.T){
 		"titles":       CancelAppealForTitleModeration(env),
-		"volumes":      CancelAppealForVolumeModeration(env),
 		"chapters":     CancelAppealForChapterModeration(env),
 		"teams":        CancelAppealForTeamModeration(env),
 		"wrong entity": CancelAppealForModerationWithWrongEntity(env),
@@ -28,16 +27,6 @@ func GetCancelAppealForModerationScenarios(env testenv.Env) map[string]func(*tes
 func CancelAppealForTitleModeration(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		scenarios := GetCancelAppealForTitleModerationScenarios(env)
-
-		for name, scenario := range scenarios {
-			t.Run(name, scenario)
-		}
-	}
-}
-
-func CancelAppealForVolumeModeration(env testenv.Env) func(*testing.T) {
-	return func(t *testing.T) {
-		scenarios := GetCancelAppealForVolumeModerationScenarios(env)
 
 		for name, scenario := range scenarios {
 			t.Run(name, scenario)

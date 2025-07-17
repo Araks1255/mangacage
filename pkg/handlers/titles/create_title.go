@@ -1,10 +1,12 @@
 package titles
 
 import (
+	"errors"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"gorm.io/gorm"
 
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
@@ -24,13 +26,12 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	if requestBody.AuthorID != nil && requestBody.AuthorOnModerationID != nil {
-		c.AbortWithStatusJSON(400, gin.H{"error": "должен быть заполнен только один id автора"})
-		return
-	}
-
-	if requestBody.Cover.Size > 2<<20 {
-		c.AbortWithStatusJSON(400, gin.H{"error": "превышен максимальный размер обложки (2мб)"})
+	code, err := checkCreateTitleConflicts(h.DB, requestBody, claims.ID)
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -39,18 +40,6 @@ func (h handler) CreateTitle(c *gin.Context) {
 	tx := h.DB.Begin()
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
-
-	exists, err := helpers.CheckEntityWithTheSameNameExistence(tx, "titles", &requestBody.Name, &requestBody.EnglishName, &requestBody.OriginalName)
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if exists {
-		c.AbortWithStatusJSON(409, gin.H{"error": "тайтл с таким названием уже существует"})
-		return
-	}
 
 	err = tx.Clauses(helpers.OnIDConflictClause).Create(&newTitle).Error
 
@@ -63,7 +52,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	code, err := titles.InsertTitleOnModerationGenres(tx, newTitle.ID, requestBody.GenresIDs)
+	code, err = titles.UpsertTitleOnModerationGenres(tx, newTitle.ID, requestBody.GenresIDs)
 	if err != nil {
 		if code == 500 {
 			log.Println(err)
@@ -72,7 +61,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 		return
 	}
 
-	code, err = titles.InsertTitleOnModerationTags(tx, newTitle.ID, requestBody.TagsIDs)
+	code, err = titles.UpsertTitleOnModerationTags(tx, newTitle.ID, requestBody.TagsIDs)
 	if err != nil {
 		if code == 500 {
 			log.Println(err)
@@ -94,4 +83,35 @@ func (h handler) CreateTitle(c *gin.Context) {
 	if _, err := h.NotificationsClient.NotifyAboutTitleOnModeration(c.Request.Context(), &pb.TitleOnModeration{ID: uint64(newTitle.ID), New: true}); err != nil {
 		log.Println(err)
 	}
+}
+
+func checkCreateTitleConflicts(db *gorm.DB, requestBody dto.CreateTitleDTO, userID uint) (code int, err error) {
+	if requestBody.AuthorID != nil && requestBody.AuthorOnModerationID != nil {
+		return 400, errors.New("должен быть заполнен только один id автора")
+	}
+	if requestBody.Cover.Size > 2<<20 {
+		return 400, errors.New("превышен максимальный размер обложки (2мб)")
+	}
+
+	exists, err := helpers.CheckEntityWithTheSameNameExistence(db, "titles", &requestBody.Name, &requestBody.EnglishName, &requestBody.OriginalName)
+	if err != nil {
+		return 500, err
+	}
+
+	if exists {
+		return 409, errors.New("тайтл с таким названием уже существует")
+	}
+
+	if requestBody.ID != nil {
+		isOwner, err := helpers.CheckEntityOnModerationOwnership(db, "titles", *requestBody.ID, userID)
+		if err != nil {
+			return 500, err
+		}
+
+		if !isOwner {
+			return 403, errors.New("изменять заявку на модерацию может только её создатель")
+		}
+	}
+
+	return 0, nil
 }

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,7 +21,7 @@ func (h handler) GetMyGenresOnModeration(c *gin.Context) {
 		}
 	}
 
-	var result []models.GenreOnModerationDTO
+	var result []dto.ResponseGenreDTO
 
 	if err := h.DB.Table("genres_on_moderation").Select("*").Where("creator_id = ?", claims.ID).Limit(int(limit)).Scan(&result).Error; err != nil {
 		log.Println(err)

@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/handlers/tags"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -31,7 +31,7 @@ func AddTagSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		body := models.TagOnModerationDTO{
+		body := dto.CreateTagDTO{
 			Name: uuid.New().String(),
 		}
 
@@ -82,7 +82,7 @@ func AddTagWithTheSameNameAsTag(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		body := models.TagOnModerationDTO{
+		body := dto.CreateTagDTO{
 			Name: tagName,
 		}
 
@@ -133,7 +133,7 @@ func AddTagWithTheSameNameAsTagOnModeration(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		body := models.TagOnModerationDTO{
+		body := dto.CreateTagDTO{
 			Name: tagOnModerationName,
 		}
 

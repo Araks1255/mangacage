@@ -31,12 +31,12 @@ func GetChapterPageSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		teamID, err := testhelpers.CreateTeam(env.DB, userID)
+		titleID, err := testhelpers.CreateTitleWithDependencies(env.DB, userID)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		volumeID, err := testhelpers.CreateVolumeWithDependencies(env.DB, userID)
+		teamID, err := testhelpers.CreateTeam(env.DB, userID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -47,7 +47,7 @@ func GetChapterPageSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		chapterID, err := testhelpers.CreateChapter(env.DB, volumeID, teamID, userID, testhelpers.CreateChapterOptions{Pages: pages, Collection: chaptersPages})
+		chapterID, err := testhelpers.CreateChapter(env.DB, titleID, teamID, userID, testhelpers.CreateChapterOptions{Pages: pages, Collection: chaptersPages})
 		if err != nil {
 			t.Fatal(err)
 		}

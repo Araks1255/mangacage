@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/handlers/genres"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -31,7 +31,7 @@ func AddGenreSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		body := models.GenreOnModerationDTO{
+		body := dto.CreateGenreDTO{
 			Name: uuid.New().String(),
 		}
 
@@ -82,7 +82,7 @@ func AddGenreWithTheSameNameAsGenre(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		body := models.GenreOnModerationDTO{
+		body := dto.CreateGenreDTO{
 			Name: genreName,
 		}
 
@@ -133,7 +133,7 @@ func AddGenreWithTheSameNameAsGenreOnModeration(env testenv.Env) func(*testing.T
 			t.Fatal(err)
 		}
 
-		body := models.GenreOnModerationDTO{
+		body := dto.CreateGenreDTO{
 			Name: genreOnModerationName,
 		}
 

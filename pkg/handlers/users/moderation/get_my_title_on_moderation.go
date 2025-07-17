@@ -22,17 +22,22 @@ func (h handler) GetMyTitleOnModeration(c *gin.Context) {
 
 	err = h.DB.Raw(
 		`SELECT
-			tom.*, t.name AS existing, a.name AS author, aom.name AS author_on_moderation_name,
+			tom.*, t.name AS existing, a.name AS author, aom.name AS author_on_moderation,
 			ARRAY(
-				SELECT g.name FROM genres AS g
+				SELECT DISTINCT g.name FROM genres AS g
 				LEFT JOIN title_on_moderation_genres AS tomg ON tomg.genre_id = g.id
 				WHERE tomg.title_on_moderation_id = tom.id			
 			) AS genres,
 			ARRAY(
-				SELECT tags.name FROM tags
+				SELECT DISTINCT tags.name FROM tags
 				LEFT JOIN title_on_moderation_tags AS tomt ON tomt.tag_id = tags.id
 				WHERE tomt.title_on_moderation_id = tom.id
-			) AS tags
+			) AS tags,
+			ARRAY(
+				SELECT DISTINCT com.volume
+				FROM chapters_on_moderation AS com
+				WHERE com.title_on_moderation_id = tom.id
+			) AS volumes
 		FROM
 			titles_on_moderation AS tom
 			LEFT JOIN titles AS t ON tom.existing_id = t.id

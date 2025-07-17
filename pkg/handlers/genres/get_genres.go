@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -67,7 +67,7 @@ func (h handler) GetGenres(c *gin.Context) {
 		query = query.Order(fmt.Sprintf("name %s", params.Order))
 	}
 
-	var result []models.GenreDTO
+	var result []dto.ResponseGenreDTO
 
 	if err := query.Scan(&result).Error; err != nil {
 		log.Println(err)

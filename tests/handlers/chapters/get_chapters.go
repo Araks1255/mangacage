@@ -47,14 +47,9 @@ func GetChaptersWithAllParamsSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		volumeID, err := testhelpers.CreateVolume(env.DB, titleID, teamID, userID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		for i := 0; i < 2; i++ {
 			_, err := testhelpers.CreateChapter(
-				env.DB, volumeID, teamID, userID,
+				env.DB, titleID, teamID, userID,
 				testhelpers.CreateChapterOptions{
 					Pages:      make([][]byte, 5+i),
 					Collection: chaptersPages,
@@ -77,8 +72,8 @@ func GetChaptersWithAllParamsSuccess(env testenv.Env) func(*testing.T) {
 		r.GET("/chapters", h.GetChapters)
 
 		url := fmt.Sprintf(
-			"/chapters?sort=createdAt&order=desc&page=1&limit=20&volumeId=%d&titleId=%d&teamId=%d&numberOfPagesFrom=5&numberOfPagesTo=1000&viewsFrom=5&viewsTo=1000",
-			volumeID, titleID, teamID,
+			"/chapters?sort=createdAt&order=desc&page=1&limit=20&volume=0&titleId=%d&teamId=%d&numberOfPagesFrom=5&numberOfPagesTo=1000&viewsFrom=5&viewsTo=1000",
+			titleID, teamID,
 		)
 
 		req := httptest.NewRequest("GET", url, nil)
@@ -109,10 +104,7 @@ func GetChaptersWithAllParamsSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal("время создания не дошло")
 		}
 		if _, ok := resp[0]["volume"]; !ok {
-			t.Fatal("название тома не дошло")
-		}
-		if _, ok := resp[0]["volumeId"]; !ok {
-			t.Fatal("id тома не дошел")
+			t.Fatal("номер тома не дошел")
 		}
 		if _, ok := resp[0]["title"]; !ok {
 			t.Fatal("название тайтла не дошло")

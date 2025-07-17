@@ -1,20 +1,19 @@
 package models
 
 import (
-	"mime/multipart"
-	"time"
-
-	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
 type User struct {
 	gorm.Model
-	UserName      string `gorm:"unique"`
-	Password      string
-	AboutYourself string
-	TgUserID      int64
-	Visible       bool `gorm:"not null;default:false"`
+
+	UserName      string `gorm:"unique;not null"`
+	Password      string `gorm:"not null"`
+	AboutYourself *string
+	TgUserID      *int64
+
+	Visible     bool `gorm:"not null;default:false"`
+	Verificated bool `gorm:"not null;default:false"`
 
 	TeamID *uint
 	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
@@ -30,54 +29,14 @@ type User struct {
 
 type UserOnModeration struct {
 	gorm.Model
+
 	UserName      *string
-	Password      *string
 	AboutYourself *string
-	TgUserID      int64
 
 	ExistingID *uint `gorm:"unique"`
-	User       *User `gorm:"foreignKey:ExistingID;references:id;constraint:OnDelete:CASCADE"`
-
-	TeamID *uint
-	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
+	Existing   *User `gorm:"foreignKey:ExistingID;references:id;constraint:OnDelete:CASCADE"`
 }
 
 func (UserOnModeration) TableName() string {
 	return "users_on_moderation"
-}
-
-type UserDTO struct {
-	ID        uint       `json:"id"`
-	CreatedAt *time.Time `json:"createdAt,omitempty"`
-
-	UserName      string  `json:"userName"`
-	AboutYourself *string `json:"aboutYourself,omitempty"`
-
-	Team   *string `json:"team,omitempty"`
-	TeamID *uint   `json:"teamId,omitempty"`
-
-	Roles *pq.StringArray `json:"roles,omitempty" gorm:"type:TEXT[]"`
-}
-
-type UserOnModerationDTO struct {
-	ID        uint      `json:"id" form:"-"`
-	CreatedAt time.Time `json:"createdAt,omitempty" form:"-"`
-
-	UserName      *string `json:"userName" form:"userName" binding:"required"`
-	Password      *string `json:"password" form:"-" binding:"required"`
-	AboutYourself *string `json:"aboutYourself" form:"aboutYourself"`
-
-	Team   *string `json:"team,omitempty" form:"-"`
-	TeamID *uint   `json:"teamId,omitempty" form:"-"`
-
-	ProfilePicture *multipart.FileHeader `json:"-" form:"profilePicture"`
-}
-
-func (u UserOnModerationDTO) ToUserOnModeration(existingID *uint) UserOnModeration {
-	return UserOnModeration{
-		UserName:      u.UserName,
-		Password:      u.Password,
-		AboutYourself: u.AboutYourself,
-		ExistingID:    existingID,
-	}
 }

@@ -43,7 +43,7 @@ func (h handler) GetTeams(c *gin.Context) {
 	case "createdAt":
 		query = query.Order(fmt.Sprintf("id %s", params.Order))
 	default:
-		query = query.Order("name DESC")
+		query = query.Order(fmt.Sprintf("name %s", *params.Query))
 	}
 
 	var result []dto.ResponseTeamDTO

@@ -13,7 +13,6 @@ import (
 
 var allowedEntities = map[string]struct{}{
 	"titles":   {},
-	"volumes":  {},
 	"chapters": {},
 	"teams":    {},
 	"authors":  {},

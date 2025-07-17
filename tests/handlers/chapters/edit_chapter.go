@@ -58,17 +58,7 @@ func EditChapterSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		firstVolumeID, err := testhelpers.CreateVolume(env.DB, titleID, teamID, userID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		chapterID, err := testhelpers.CreateChapter(env.DB, firstVolumeID, teamID, userID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		secondVolumeID, err := testhelpers.CreateVolume(env.DB, titleID, teamID, userID)
+		chapterID, err := testhelpers.CreateChapter(env.DB, titleID, teamID, userID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,7 +66,7 @@ func EditChapterSuccess(env testenv.Env) func(*testing.T) {
 		body := map[string]any{
 			"name":        uuid.New().String(),
 			"description": "someDescription",
-			"volumeId":    secondVolumeID,
+			"volume":      1,
 		}
 
 		jsonBody, err := json.Marshal(body)
@@ -281,17 +271,12 @@ func EditChapterByAddingTheSameNameAsChapterOnModeration(env testenv.Env) func(*
 			t.Fatal(err)
 		}
 
-		volumeID, err := testhelpers.CreateVolume(env.DB, titleID, teamID, userID)
+		existingChapter1ID, err := testhelpers.CreateChapter(env.DB, titleID, teamID, userID)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		existingChapter1ID, err := testhelpers.CreateChapter(env.DB, volumeID, teamID, userID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		existingChapter2ID, err := testhelpers.CreateChapter(env.DB, volumeID, teamID, userID)
+		existingChapter2ID, err := testhelpers.CreateChapter(env.DB, titleID, teamID, userID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -369,12 +354,7 @@ func EditChapterByAddingTheSameNameAsChapter(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		volumeID, err := testhelpers.CreateVolume(env.DB, titleID, teamID, userID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		existingChapterID, err := testhelpers.CreateChapter(env.DB, volumeID, teamID, userID)
+		existingChapterID, err := testhelpers.CreateChapter(env.DB, titleID, teamID, userID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -385,7 +365,7 @@ func EditChapterByAddingTheSameNameAsChapter(env testenv.Env) func(*testing.T) {
 			t.Fatal("ошибка при получении названия существующей главы")
 		}
 
-		editableChapterID, err := testhelpers.CreateChapter(env.DB, volumeID, teamID, userID)
+		editableChapterID, err := testhelpers.CreateChapter(env.DB, titleID, teamID, userID)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -30,7 +30,7 @@ func (h handler) CreateTeam(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	code, err := checkCreateTeamConflicts(tx, claims.ID, requestBody.Name)
+	code, err := checkCreateTeamConflicts(tx, requestBody, claims.ID)
 	if err != nil {
 		if code == 500 {
 			log.Println(err)
@@ -65,7 +65,22 @@ func (h handler) CreateTeam(c *gin.Context) {
 	// Уведомление
 }
 
-func checkCreateTeamConflicts(db *gorm.DB, userID uint, teamName string) (code int, err error) {
+func checkCreateTeamConflicts(db *gorm.DB, requestBody dto.CreateTeamDTO, userID uint) (code int, err error) {
+	if requestBody.Cover.Size > 2<<20 {
+		return 400, errors.New("превышен максимальный размер обложки (2мб)")
+	}
+
+	if requestBody.ID != nil {
+		isOwner, err := helpers.CheckEntityOnModerationOwnership(db, "teams", *requestBody.ID, userID)
+		if err != nil {
+			return 500, err
+		}
+
+		if !isOwner {
+			return 403, errors.New("редактировать заявку на модерацию может только её создатель")
+		}
+	}
+
 	var check struct {
 		DoesUserHaveTeam             bool
 		DoesTeamWithTheSameNameExist bool
@@ -75,7 +90,7 @@ func checkCreateTeamConflicts(db *gorm.DB, userID uint, teamName string) (code i
 		`SELECT
 			EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id IS NOT NULL) AS does_user_have_team,
 			EXISTS(SELECT 1 FROM teams WHERE lower(name) = lower(?)) AS does_team_with_the_same_name_exist`,
-		userID, teamName,
+		userID, requestBody.Name,
 	).Scan(&check).Error
 
 	if err != nil {
@@ -94,11 +109,11 @@ func checkCreateTeamConflicts(db *gorm.DB, userID uint, teamName string) (code i
 }
 
 func parseCreateTeamError(err error) (code int, parsedErr error) {
-	if dbErrors.IsUniqueViolation(err, constraints.UniqTeamsOnModerationCreatorID) {
+	if dbErrors.IsUniqueViolation(err, constraints.UniTeamsOnModerationCreatorID) {
 		return 409, errors.New("у вас уже есть команда, ожидающая модерации")
 	}
 
-	if dbErrors.IsUniqueViolation(err, constraints.UniqTeamsOnModerationName) {
+	if dbErrors.IsUniqueViolation(err, constraints.UniqTeamOnModerationName) {
 		return 409, errors.New("команда с таким названием уже ожидает модерации")
 	}
 

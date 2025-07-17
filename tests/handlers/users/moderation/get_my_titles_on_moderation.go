@@ -109,13 +109,6 @@ func GetMyTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["authorId"]; !ok {
 			t.Fatal("id автора не дошел")
 		}
-
-		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) != 2 {
-			t.Fatal("возникли проблемы с жанрами")
-		}
-		if tags, ok := resp[0]["tags"]; !ok || len(tags.([]any)) != 2 {
-			t.Fatal("возникли проблемы с тегами")
-		}
 	}
 }
 
@@ -152,7 +145,7 @@ func GetMyNewTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.GET("/users/me/moderation/titles", h.GetMyTitlesOnModeration)
 
-		req := httptest.NewRequest("GET", "/users/me/moderation/titles?type=new", nil)
+		req := httptest.NewRequest("GET", "/users/me/moderation/titles?moderationType=new", nil)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -192,13 +185,6 @@ func GetMyNewTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["authorId"]; !ok {
 			t.Fatal("id автора не дошел")
 		}
-
-		if genres, ok := resp[0]["genres"]; !ok || len(genres.([]any)) != 2 {
-			t.Fatal("возникли проблемы с жанрами")
-		}
-		if tags, ok := resp[0]["tags"]; !ok || len(tags.([]any)) != 2 {
-			t.Fatal("возникли проблемы с тегами")
-		}
 	}
 }
 
@@ -237,7 +223,7 @@ func GetMyEditedTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.GET("/users/me/moderation/titles", h.GetMyTitlesOnModeration)
 
-		req := httptest.NewRequest("GET", "/users/me/moderation/titles?type=edited", nil)
+		req := httptest.NewRequest("GET", "/users/me/moderation/titles?moderationType=edited", nil)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {
@@ -343,7 +329,7 @@ func GetMyTitlesOnModerationWithInvalidType(env testenv.Env) func(*testing.T) {
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.GET("/users/me/moderation/titles", h.GetMyTitlesOnModeration)
 
-		req := httptest.NewRequest("GET", "/users/me/moderation/titles?type=р_q", nil)
+		req := httptest.NewRequest("GET", "/users/me/moderation/titles?moderationType=р_q", nil)
 
 		cookie, err := testhelpers.CreateCookieWithToken(userID, env.SecretKey)
 		if err != nil {

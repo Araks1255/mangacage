@@ -14,11 +14,12 @@ import (
 
 type CreateChapterOnModerationOptions struct {
 	ExistingID uint
+	Volume     uint
 	Pages      [][]byte
 	Collection *mongo.Collection
 }
 
-func CreateChapterOnModeration(db *gorm.DB, volumeID, teamID, userID uint, opts ...CreateChapterOnModerationOptions) (uint, error) {
+func CreateChapterOnModeration(db *gorm.DB, titleID, teamID, userID uint, opts ...CreateChapterOnModerationOptions) (uint, error) {
 	if len(opts) > 1 {
 		return 0, errors.New("объект опций может быть только один")
 	}
@@ -26,7 +27,7 @@ func CreateChapterOnModeration(db *gorm.DB, volumeID, teamID, userID uint, opts 
 	name := uuid.New().String()
 	chapter := models.ChapterOnModeration{
 		Name:      &name,
-		VolumeID:  &volumeID,
+		TitleID:   &titleID,
 		CreatorID: userID,
 		TeamID:    teamID,
 	}
@@ -34,6 +35,9 @@ func CreateChapterOnModeration(db *gorm.DB, volumeID, teamID, userID uint, opts 
 	if len(opts) != 0 {
 		if opts[0].ExistingID != 0 {
 			chapter.ExistingID = &opts[0].ExistingID
+		}
+		if opts[0].Volume != 0 {
+			chapter.Volume = &opts[0].Volume
 		}
 		if len(opts[0].Pages) != 0 {
 			numberOfPages := len(opts[0].Pages)

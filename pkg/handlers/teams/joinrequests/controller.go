@@ -39,7 +39,7 @@ func RegisterRoutes(db *gorm.DB, secretKey string, r *gin.Engine) {
 
 		joinRequests := teamsAuth.Group("/join-requests")
 		{
-			joinRequests.GET("my", h.GetMyTeamJoinRequests)
+			joinRequests.GET("/my", h.GetMyTeamJoinRequests)
 			joinRequests.DELETE("/:id", h.CancelTeamJoinRequest)
 		}
 	}

@@ -1,6 +1,7 @@
 package chapters
 
 import (
+	"context"
 	"errors"
 	"io"
 	"log"
@@ -17,6 +18,7 @@ import (
 	pb "github.com/Araks1255/mangacage_protos"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/gorm"
 )
@@ -66,25 +68,16 @@ func (h handler) CreateChapter(c *gin.Context) {
 	err = tx.Clauses(helpers.OnIDConflictClause).Create(&chapter).Error
 
 	if err != nil {
-		if dbErrors.IsUniqueViolation(err, constraints.UniqChapterOnModerationVolume) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе"})
-			return
+		code, err := parseCreateChapterError(err)
+		if code == 500 {
+			log.Println(err)
 		}
-		if dbErrors.IsUniqueViolation(err, constraints.UniqChapterOnModerationVolumeOnModeration) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "глава с таким названием уже ожидает модерации в этом томе на модерации"})
-			return
-		}
-
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
-	filter := bson.M{"chapter_on_moderation_id": chapter.ID}
-	update := bson.M{"$set": bson.M{"pages": requestBody.Pages, "creator_id": claims.ID}}
-	opts := options.Update().SetUpsert(true)
-
-	if _, err := h.ChaptersPages.UpdateOne(c.Request.Context(), filter, update, opts); err != nil {
+	err = insertChapterOnModerationPages(c.Request.Context(), h.ChaptersPages, requestBody.Pages, chapter.ID, claims.ID)
+	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -128,21 +121,28 @@ func parseCreateChapterBody(r *multipart.Reader, body *dto.CreateChapterDTO) (co
 			idUint := uint(id)
 			body.ID = &idUint
 
-		case "volumeId":
-			id, err := strconv.ParseUint(string(data), 10, 64)
+		case "volume":
+			volume, err := strconv.ParseUint(string(data), 10, 64)
 			if err != nil {
 				return 400, err
 			}
-			idUint := uint(id)
-			body.VolumeID = &idUint
+			body.Volume = uint(volume)
 
-		case "volumeOnModerationId":
+		case "titleId":
 			id, err := strconv.ParseUint(string(data), 10, 64)
 			if err != nil {
 				return 400, err
 			}
 			idUint := uint(id)
-			body.VolumeOnModerationID = &idUint
+			body.TitleID = &idUint
+
+		case "titleOnModerationId":
+			id, err := strconv.ParseUint(string(data), 10, 64)
+			if err != nil {
+				return 400, err
+			}
+			idUint := uint(id)
+			body.TitleOnModerationID = &idUint
 
 		case "description":
 			description := string(data)
@@ -169,30 +169,42 @@ func checkCreateChapterConflicts(db *gorm.DB, parsedBody *dto.CreateChapterDTO, 
 		return 400, errors.New("в запросе недостаточно данных")
 	}
 
-	if (parsedBody.VolumeID != nil && parsedBody.VolumeOnModerationID != nil) || (parsedBody.VolumeID == nil && parsedBody.VolumeOnModerationID == nil) {
-		return 400, errors.New("ожидается один id тома")
+	if (parsedBody.TitleID != nil && parsedBody.TitleOnModerationID != nil) || (parsedBody.TitleID == nil && parsedBody.TitleOnModerationID == nil) {
+		return 400, errors.New("ожидается один id тайтла")
 	}
 
-	if parsedBody.VolumeID != nil {
-		var check struct {
-			ChapterExists bool
-			UserTeamID    *uint
+	if parsedBody.ID != nil {
+		isOwner, err := helpers.CheckEntityOnModerationOwnership(db, "titles", *parsedBody.ID, userID)
+		if err != nil {
+			return 500, err
 		}
 
-		err := db.Raw(
+		if !isOwner {
+			return 403, errors.New("изменять заявку на модерацию может только её создатель")
+		}
+	}
+
+	if parsedBody.TitleID != nil {
+		var check struct {
+			UserTeamID    *uint
+			ChapterExists bool
+		}
+
+		err = db.Raw(
 			`SELECT
-				EXISTS(SELECT 1 FROM chapters WHERE lower(name) = lower(?) AND volume_id = ?) AS chapter_exists,
 				(
-					SELECT
-						tt.team_id
-					FROM
-						title_teams AS tt
-						INNER JOIN volumes AS v ON v.title_id = tt.title_id
-						INNER JOIN users AS u ON u.team_id = tt.team_id
-					WHERE
-						v.id = ? AND u.id = ?
-				) AS user_team_id`,
-			parsedBody.Name, *parsedBody.VolumeID, *parsedBody.VolumeID, userID,
+					SELECT tt.team_id FROM title_teams AS tt
+					INNER JOIN users AS u ON u.team_id = tt.team_id
+					WHERE tt.title_id = ? AND u.id = ?
+				) AS user_team_id,
+				EXISTS(
+					SELECT 1 FROM chapters
+					WHERE lower(name) = lower(?)
+					AND title_id = ?
+					AND volume = ?
+					AND team_id = (SELECT team_id FROM users WHERE id = ?)
+				) AS chapter_exists`,
+			parsedBody.TitleID, userID, parsedBody.Name, parsedBody.TitleID, parsedBody.Volume, userID,
 		).Scan(&check).Error
 
 		if err != nil {
@@ -200,35 +212,62 @@ func checkCreateChapterConflicts(db *gorm.DB, parsedBody *dto.CreateChapterDTO, 
 		}
 
 		if check.UserTeamID == nil {
-			return 404, errors.New("том не найден среди переводимых вашей командрй")
+			return 404, errors.New("тайтл не найден среди переводимых вашей командой")
 		}
 		if check.ChapterExists {
-			return 409, errors.New("глава с таким названием уже существует в этом томе")
+			return 409, errors.New("глава с таким названием уже выложена вашей командой в этом томе этого тайтла")
 		}
 
 		parsedBody.TeamID = *check.UserTeamID
 	}
 
-	if parsedBody.VolumeOnModerationID != nil {
-		var userTeamID *uint
+	if parsedBody.TitleOnModerationID != nil {
+		var check struct {
+			TitleOnModerationNew bool
+			UserTeamID           *uint
+		}
 
-		err := db.Raw(
-			`SELECT u.team_id FROM users AS u
-			INNER JOIN volumes_on_moderation AS vom ON vom.creator_id = u.id
-			WHERE vom.id = ? AND u.id = ?`,
-			*parsedBody.VolumeOnModerationID, userID,
-		).Scan(&userTeamID).Error
+		err = db.Raw(
+			`SELECT
+				EXISTS(SELECT 1 FROM titles_on_moderation WHERE existing_id IS NULL AND id = ?) AS title_on_moderation_new,
+				(SELECT team_id FROM users WHERE id = ?) AS user_team_id`,
+			parsedBody.TitleOnModerationID, userID,
+		).Scan(&check).Error
 
 		if err != nil {
 			return 500, err
 		}
 
-		if userTeamID == nil {
-			return 404, errors.New("том на модерации не найден среди ваших заявок")
+		if !check.TitleOnModerationNew {
+			return 409, errors.New("не пытайтесь добавить том в изменения тайтла. просто добавьте их в уже существующий тайтл")
 		}
 
-		parsedBody.TeamID = *userTeamID
+		parsedBody.TeamID = *check.UserTeamID
 	}
 
 	return 0, nil
+}
+
+func parseCreateChapterError(err error) (code int, parsedError error) {
+	if dbErrors.IsUniqueViolation(err, constraints.UniqChapterOnModerationVolumeTitleTeam) {
+		return 409, errors.New("глава с таким названием и номером тома уже выложена вашей командой в этом тайтле")
+	}
+
+	if dbErrors.IsUniqueViolation(err, constraints.UniqChapterOnModerationVolumeTitleOnModeration) {
+		return 409, errors.New("глава с таким названием и номером тома уже ожидает модерации в этом тайтле на модерации")
+	}
+
+	return 500, err
+}
+
+func insertChapterOnModerationPages(ctx context.Context, collection *mongo.Collection, pages [][]byte, chapterOnModerationID, userID uint) error {
+	filter := bson.M{"chapter_on_moderation_id": chapterOnModerationID}
+	update := bson.M{"$set": bson.M{"pages": pages, "creator_id": userID}}
+	opts := options.Update().SetUpsert(true)
+
+	if _, err := collection.UpdateOne(ctx, filter, update, opts); err != nil {
+		return err
+	}
+
+	return nil
 }

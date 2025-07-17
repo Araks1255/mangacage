@@ -18,37 +18,17 @@ func CreateTitleWithDependencies(db *gorm.DB, userID uint, genres ...string) (ui
 	return titleID, nil
 }
 
-func CreateVolumeWithDependencies(db *gorm.DB, userID uint) (uint, error) {
+func CreateChapterWithDependencies(db *gorm.DB, userID uint) (uint, error) {
 	titleID, err := CreateTitleWithDependencies(db, userID)
 	if err != nil {
 		return 0, err
 	}
-
 	teamID, err := CreateTeam(db, userID)
 	if err != nil {
 		return 0, err
 	}
 
-	volumeID, err := CreateVolume(db, titleID, teamID, userID)
-	if err != nil {
-		return 0, err
-	}
-
-	return volumeID, nil
-}
-
-func CreateChapterWithDependencies(db *gorm.DB, userID uint) (uint, error) {
-	volumeID, err := CreateVolumeWithDependencies(db, userID)
-	if err != nil {
-		return 0, err
-	}
-
-	teamID, err := CreateTeam(db, userID)
-	if err != nil {
-		return 0, err
-	}
-
-	chapterID, err := CreateChapter(db, volumeID, teamID, userID)
+	chapterID, err := CreateChapter(db, titleID, teamID, userID)
 	if err != nil {
 		return 0, err
 	}
@@ -79,38 +59,6 @@ func CreateTitleTranslatingByUserTeam(db *gorm.DB, userID uint, genres, tags []s
 	return titleID, nil
 }
 
-func CreateVolumeTranslatingByUserTeam(db *gorm.DB, userID uint) (uint, error) {
-	teamID, err := CreateTeam(db, userID)
-	if err != nil {
-		return 0, err
-	}
-
-	if err = AddUserToTeam(db, userID, teamID); err != nil {
-		return 0, err
-	}
-
-	authorID, err := CreateAuthor(db)
-	if err != nil {
-		return 0, err
-	}
-
-	titleID, err := CreateTitle(db, userID, authorID)
-	if err != nil {
-		return 0, err
-	}
-
-	if err = TranslateTitle(db, teamID, titleID); err != nil {
-		return 0, err
-	}
-
-	volumeID, err := CreateVolume(db, titleID, teamID, userID)
-	if err != nil {
-		return 0, err
-	}
-
-	return volumeID, nil
-}
-
 func CreateChapterTranslatingByUserTeam(db *gorm.DB, userID uint) (uint, error) {
 	teamID, err := CreateTeam(db, userID)
 	if err != nil {
@@ -130,12 +78,7 @@ func CreateChapterTranslatingByUserTeam(db *gorm.DB, userID uint) (uint, error) 
 		return 0, err
 	}
 
-	volumeID, err := CreateVolume(db, titleID, teamID, userID)
-	if err != nil {
-		return 0, err
-	}
-
-	chapterID, err := CreateChapter(db, volumeID, teamID, userID)
+	chapterID, err := CreateChapter(db, titleID, teamID, userID)
 	if err != nil {
 		return 0, err
 	}

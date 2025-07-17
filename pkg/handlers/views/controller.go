@@ -27,4 +27,10 @@ func RegisterRoutes(db *gorm.DB, r *gin.Engine, secretKey string) {
 	r.GET("/users/me", h.ShowMyProfilePage)
 	r.GET("/users/me/moderation/titles", h.ShowTitlesOnModerationCatalog)
 	r.GET("/users/me/moderation/titles/:id", h.ShowTitleOnModerationPage)
+	r.GET("/users/me/moderation/chapters/:id", h.ShowChapterOnModerationPage)
+	r.GET("/users/me/moderation/chapters", h.ShowChaptersOnModerationCatalog)
+	r.GET("/users/me/moderation/teams", h.ShowTeamsOnModerationCatalog)
+	r.GET("/users/:id", h.ShowProfilePage)
+	r.GET("/users/me/team-join-requests", h.ShowTeamJoinRequestsCatalog)
+	r.GET("/users/me/title-translate-requests", h.ShowTitleTranslateRequestsCatalog)
 }

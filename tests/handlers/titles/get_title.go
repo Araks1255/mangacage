@@ -38,12 +38,7 @@ func GetTitleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		volumeID, err := testhelpers.CreateVolume(env.DB, titleID, teamID, userID)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		chapterID, err := testhelpers.CreateChapter(env.DB, volumeID, teamID, userID)
+		chapterID, err := testhelpers.CreateChapter(env.DB, titleID, teamID, userID)
 		if err != nil {
 			t.Fatal(err)
 		}

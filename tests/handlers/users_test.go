@@ -149,14 +149,6 @@ func TestGetMyTitlesOnModeration(t *testing.T) {
 	}
 }
 
-func TestGetMyVolumesOnModeration(t *testing.T) {
-	scenarios := moderation.GetGetMyVolumesOnModerationScenarios(env)
-
-	for name, scenario := range scenarios {
-		t.Run(name, scenario)
-	}
-}
-
 func TestGetMyChaptersOnModeration(t *testing.T) {
 	scenarios := moderation.GetGetMyChaptersOnModerationScenarios(env)
 

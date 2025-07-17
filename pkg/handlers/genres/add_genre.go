@@ -5,7 +5,7 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	"github.com/gin-gonic/gin"
@@ -14,7 +14,7 @@ import (
 func (h handler) AddGenre(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var requestBody models.GenreOnModerationDTO
+	var requestBody dto.CreateGenreDTO
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})

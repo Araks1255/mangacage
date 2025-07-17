@@ -6,7 +6,7 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/auth/utils"
-	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -18,7 +18,7 @@ func (h handler) Login(c *gin.Context) {
 		return
 	}
 
-	var requestBody models.UserOnModerationDTO
+	var requestBody dto.CreateUserDTO
 
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		log.Println(err)
@@ -31,7 +31,12 @@ func (h handler) Login(c *gin.Context) {
 		PasswordHash string
 	}
 
-	if err := h.DB.Raw("SELECT id AS user_id, password AS password_hash FROM users WHERE user_name = ?", requestBody.UserName).Scan(&check).Error; err != nil {
+	err := h.DB.Raw(
+		"SELECT id AS user_id, password AS password_hash FROM users WHERE user_name = ?",
+		requestBody.UserName,
+	).Scan(&check).Error
+
+	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -42,7 +47,7 @@ func (h handler) Login(c *gin.Context) {
 		return
 	}
 
-	if !utils.CompareHashPassword(*requestBody.Password, check.PasswordHash) {
+	if !utils.CompareHashPassword(requestBody.Password, check.PasswordHash) {
 		c.AbortWithStatusJSON(401, gin.H{"error": "неверный пароль"})
 		return
 	}
@@ -53,7 +58,7 @@ func (h handler) Login(c *gin.Context) {
 	claims := auth.Claims{
 		ID: *check.UserID,
 		StandardClaims: jwt.StandardClaims{
-			Subject:   *requestBody.UserName,
+			Subject:   requestBody.UserName,
 			ExpiresAt: expires.Unix(),
 		},
 	}

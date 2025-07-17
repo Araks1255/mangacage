@@ -17,7 +17,8 @@ func (h handler) GetTeam(c *gin.Context) {
 
 	var team dto.ResponseTeamDTO
 
-	if err = h.DB.Table("teams").Select("*").Where("id = ?", teamID).Scan(&team).Error; err != nil {
+	err = h.DB.Table("teams").Select("*").Where("id = ?", teamID).Scan(&team).Error
+	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return

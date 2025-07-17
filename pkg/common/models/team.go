@@ -6,8 +6,9 @@ import (
 
 type Team struct {
 	gorm.Model
-	Name        string
-	Description string `json:"description"`
+
+	Name        string `gorm:"not null"`
+	Description string
 
 	CreatorID uint
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
@@ -26,6 +27,9 @@ type TeamOnModeration struct {
 
 	CreatorID uint  `gorm:"unique;not null"`
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:CASCADE"`
+
+	ModeratorID *uint
+	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 func (TeamOnModeration) TableName() string {

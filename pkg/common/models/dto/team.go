@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
+
+	"gorm.io/gorm"
 )
 
 type CreateTeamDTO struct {
@@ -30,7 +32,14 @@ type ResponseTeamDTO struct {
 }
 
 func (t CreateTeamDTO) ToTeamOnModeration(userID uint) models.TeamOnModeration {
+	var id uint
+	if t.ID != nil {
+		id = *t.ID
+	}
 	return models.TeamOnModeration{
+		Model: gorm.Model{
+			ID: id,
+		},
 		Name:        &t.Name,
 		Description: t.Description,
 		CreatorID:   userID,
