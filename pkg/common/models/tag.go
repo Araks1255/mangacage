@@ -22,3 +22,10 @@ type TagOnModeration struct {
 func (TagOnModeration) TableName() string {
 	return "tags_on_moderation"
 }
+
+func (t TagOnModeration) ToTag() Tag {
+	return Tag{
+		Name:        t.Name,
+		ModeratorID: t.ModeratorID,
+	}
+}

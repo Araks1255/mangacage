@@ -77,3 +77,45 @@ type TitleOnModeration struct {
 func (TitleOnModeration) TableName() string {
 	return "titles_on_moderation"
 }
+
+func (t TitleOnModeration) ToTitle() Title {
+	title := Title{
+		CreatorID:   t.CreatorID,
+		ModeratorID: t.ModeratorID,
+		Genres:      t.Genres,
+		Tags:        t.Tags,
+	}
+
+	if t.Name != nil {
+		title.Name = *t.Name
+	}
+	if t.EnglishName != nil {
+		title.EnglishName = *t.EnglishName
+	}
+	if t.OriginalName != nil {
+		title.OriginalName = *t.OriginalName
+	}
+	if t.Description != nil {
+		title.Description = t.Description
+	}
+	if t.AgeLimit != nil {
+		title.AgeLimit = *t.AgeLimit
+	}
+	if t.YearOfRelease != nil {
+		title.YearOfRelease = *t.YearOfRelease
+	}
+	if t.Type != nil {
+		title.Type = *t.Type
+	}
+	if t.TranslatingStatus != nil {
+		title.TranslatingStatus = *t.TranslatingStatus
+	}
+	if t.PublishingStatus != nil {
+		title.PublishingStatus = *t.PublishingStatus
+	}
+	if t.AuthorID != nil {
+		title.AuthorID = *t.AuthorID
+	}
+
+	return title
+}

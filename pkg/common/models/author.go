@@ -9,7 +9,7 @@ type Author struct {
 	Name         string `gorm:"not null"`
 	EnglishName  string `gorm:"not null"`
 	OriginalName string `gorm:"unique;not null"`
-	About        string
+	About        *string
 
 	ModeratorID *uint
 	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
@@ -32,4 +32,14 @@ type AuthorOnModeration struct {
 
 func (AuthorOnModeration) TableName() string {
 	return "authors_on_moderation"
+}
+
+func (a AuthorOnModeration) ToAuthor() Author {
+	return Author{
+		Name:         a.Name,
+		EnglishName:  a.EnglishName,
+		OriginalName: a.OriginalName,
+		About:        a.About,
+		ModeratorID:  a.ModeratorID,
+	}
 }

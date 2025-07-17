@@ -35,3 +35,20 @@ type TeamOnModeration struct {
 func (TeamOnModeration) TableName() string {
 	return "teams_on_moderation"
 }
+
+func (t TeamOnModeration) ToTeam() Team {
+	team := Team{
+		CreatorID:   t.CreatorID,
+		ModeratorID: t.ModeratorID,
+	}
+
+	if t.Name != nil {
+		team.Name = *t.Name
+	}
+
+	if t.Description != nil {
+		team.Description = *t.Description
+	}
+
+	return team
+}

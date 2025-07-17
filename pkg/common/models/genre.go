@@ -22,3 +22,10 @@ type GenreOnModeration struct {
 func (GenreOnModeration) TableName() string {
 	return "genres_on_moderation"
 }
+
+func (g GenreOnModeration) ToGenre() Genre {
+	return Genre{
+		Name:        g.Name,
+		ModeratorID: g.ModeratorID,
+	}
+}

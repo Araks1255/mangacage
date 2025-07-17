@@ -56,3 +56,29 @@ type ChapterOnModeration struct {
 func (ChapterOnModeration) TableName() string {
 	return "chapters_on_moderation"
 }
+
+func (c ChapterOnModeration) ToChapter() Chapter {
+	chapter := Chapter{
+		CreatorID:   c.CreatorID,
+		TeamID:      c.TeamID,
+		ModeratorID: c.ModeratorID,
+	}
+
+	if c.Name != nil {
+		chapter.Name = *c.Name
+	}
+	if c.Description != nil {
+		chapter.Description = *c.Description
+	}
+	if c.NumberOfPages != nil {
+		chapter.NumberOfPages = *c.NumberOfPages
+	}
+	if c.Volume != nil {
+		chapter.Volume = *c.Volume
+	}
+	if c.TitleID != nil {
+		chapter.TitleID = *c.TitleID
+	}
+
+	return chapter
+}
