@@ -40,3 +40,16 @@ type UserOnModeration struct {
 func (UserOnModeration) TableName() string {
 	return "users_on_moderation"
 }
+
+func (u UserOnModeration) ToUser() User {
+	var user User
+
+	if u.UserName != nil {
+		user.UserName = *u.UserName
+	}
+	if u.AboutYourself != nil {
+		user.AboutYourself = u.AboutYourself
+	}
+
+	return user
+}
