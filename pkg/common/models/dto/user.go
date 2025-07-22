@@ -6,11 +6,17 @@ import (
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/lib/pq"
+	"gorm.io/gorm"
 )
 
 type CreateUserDTO struct {
 	UserName      string  `json:"userName" binding:"required"`
 	Password      string  `json:"password" binding:"required"`
+	AboutYourself *string `json:"aboutYourself"`
+}
+
+type EditUserOnVerificationDTO struct {
+	UserName      *string `json:"userName"`
 	AboutYourself *string `json:"aboutYourself"`
 }
 
@@ -44,6 +50,18 @@ func (u CreateUserDTO) ToUser() models.User {
 		AboutYourself: u.AboutYourself,
 		Verificated:   false,
 	}
+}
+
+func (u EditUserOnVerificationDTO) ToUser(id uint) models.User {
+	user := models.User{
+		Model:         gorm.Model{ID: id},
+		AboutYourself: u.AboutYourself,
+		Verificated:   false,
+	}
+	if u.UserName != nil {
+		user.UserName = *u.UserName
+	}
+	return user
 }
 
 func (u EditUserDTO) ToUserOnModeration(existingID uint) models.UserOnModeration {

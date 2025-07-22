@@ -41,7 +41,7 @@ func (h handler) GetViewedChapters(c *gin.Context) { // Это получени�
 				INNER JOIN teams ON teams.id = c.team_id
 				INNER JOIN user_viewed_chapters AS uvc ON uvc.chapter_id = c.id
 			WHERE
-				uvc.user_id = ?
+				uvc.user_id = ? AND NOT c.hidden
 			ORDER BY
 				t.id, uvc.created_at DESC
 		) AS res

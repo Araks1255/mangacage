@@ -21,7 +21,7 @@ func (h handler) GetTitle(c *gin.Context) {
 		"a.name AS author",
 		"COALESCE(ARRAY_AGG(DISTINCT g.name)::TEXT[], '{}'::TEXT[]) AS genres",
 		"COALESCE(ARRAY_AGG(DISTINCT tags.name)::TEXT[], '{}'::TEXT[]) AS tags",
-		"ARRAY(SELECT DISTINCT volume FROM chapters WHERE title_id = t.id ORDER BY volume DESC) AS volumes",
+		"ARRAY(SELECT DISTINCT volume FROM chapters WHERE title_id = t.id AND NOT hidden ORDER BY volume DESC) AS volumes",
 		"ARRAY(SELECT DISTINCT team_id FROM title_teams WHERE title_id = t.id) AS teams_ids",
 	}
 
@@ -41,10 +41,11 @@ func (h handler) GetTitle(c *gin.Context) {
 		Joins("LEFT JOIN title_tags AS tt ON t.id = tt.title_id").
 		Joins("INNER JOIN tags ON tt.tag_id = tags.id").
 		Group("t.id, a.id").
+		Where("NOT t.hidden").
 		Where("t.id = ?", desiredTitleID)
 
 	if ok {
-		query = query.Joins("LEFT JOIN chapters AS c ON t.id = c.title_id").
+		query = query.Joins("LEFT JOIN chapters AS c ON t.id = c.title_id AND NOT c.hidden").
 			Joins("LEFT JOIN user_viewed_chapters AS uvc ON c.id = uvc.chapter_id AND uvc.user_id = ?", claims.(*auth.Claims).ID).
 			Joins("LEFT JOIN title_rates AS tr ON t.id = tr.title_id AND tr.user_id = ?", claims.(*auth.Claims).ID).
 			Group("tr.rate")

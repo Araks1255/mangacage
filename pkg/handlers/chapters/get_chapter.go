@@ -27,7 +27,7 @@ func (h handler) GetChapter(c *gin.Context) {
 			INNER JOIN titles AS t ON t.id = c.title_id
 			INNER JOIN teams ON teams.id = c.team_id
 		WHERE
-			c.id = ?`,
+			c.id = ? AND NOT c.hidden`,
 		chapterID,
 	).Scan(&chapter).Error; err != nil {
 		log.Println(err)

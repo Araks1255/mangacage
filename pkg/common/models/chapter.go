@@ -24,6 +24,8 @@ type Chapter struct {
 
 	ModeratorID *uint
 	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
+
+	Hidden bool `gorm:"not null;default:false"`
 }
 
 type ChapterOnModeration struct {

@@ -53,6 +53,7 @@ func (h handler) GetTitles(c *gin.Context) {
 
 	query := h.DB.Table("titles AS t").
 		Select("t.*, a.name AS author").
+		Where("NOT t.hidden").
 		Joins("INNER JOIN authors AS a ON a.id = t.author_id").
 		Limit(int(params.Limit)).Offset(offset)
 

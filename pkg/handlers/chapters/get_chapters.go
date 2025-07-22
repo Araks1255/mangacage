@@ -40,7 +40,8 @@ func (h handler) GetChapters(c *gin.Context) {
 	query := h.DB.Table("chapters AS c").
 		Select("c.*, teams.name AS team, t.name AS title").
 		Joins("INNER JOIN titles AS t ON t.id = c.title_id").
-		Joins("LEFT JOIN teams ON c.team_id = teams.id")
+		Joins("LEFT JOIN teams ON c.team_id = teams.id").
+		Where("NOT c.hidden")
 
 	if params.TitleID != nil {
 		query = query.Where("t.id = ?", params.TitleID)

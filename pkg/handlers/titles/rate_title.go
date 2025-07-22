@@ -34,7 +34,7 @@ func (h handler) RateTitle(c *gin.Context) {
 			t.id, uvc.user_id, ?
 		FROM
 			titles AS t
-			INNER JOIN chapters AS c ON c.title_id = t.id
+			INNER JOIN chapters AS c ON c.title_id = t.id AND NOT c.hidden
 			INNER JOIN user_viewed_chapters AS uvc ON uvc.chapter_id = c.id AND uvc.user_id = ?
 		WHERE
 			t.id = ?
@@ -47,6 +47,7 @@ func (h handler) RateTitle(c *gin.Context) {
 				SELECT COUNT(chapters.id)
 				FROM chapters
 				WHERE chapters.title_id = t.id
+				AND NOT chapters.hidden
 			)
 			
 		ON CONFLICT (title_id, user_id)

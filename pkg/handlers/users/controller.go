@@ -36,6 +36,7 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 			me.GET("/", h.GetMyProfile)
 			me.GET("/profile-picture", h.GetMyProfilePicture)
 			me.POST("/edited", h.EditProfile)
+			me.PATCH("/on-verification", h.EditProfileOnVerification)
 			me.PATCH("/settings", h.ChangeProfileSettings)
 		}
 	}
