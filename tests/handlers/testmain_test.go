@@ -9,9 +9,8 @@ import (
 	"github.com/Araks1255/mangacage/internal/migrations"
 	"github.com/Araks1255/mangacage/internal/seeder"
 	dbPackage "github.com/Araks1255/mangacage/pkg/common/db"
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/tests/testenv"
-	pb "github.com/Araks1255/mangacage_protos"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -40,13 +39,13 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	mongoClient, err := dbPackage.MongoInit(mongoUrl)
+	mongoClient, err := dbPackage.MongoInit(ctx, mongoUrl)
 	if err != nil {
 		panic(err)
 	}
 	defer mongoClient.Disconnect(ctx)
 
-	conn, err := grpc.NewClient("localhost:9090", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic(err)
 	}
@@ -57,7 +56,7 @@ func TestMain(m *testing.M) {
 	env.DB = db
 	env.MongoDB = mongoDB
 	env.SecretKey = secretKey
-	env.NotificationsClient = pb.NewNotificationsClient(conn)
+	env.NotificationsClient = pb.NewSiteNotificationsClient(conn)
 
 	migrateFlag := flag.Bool("migrate", false, "Run migrations with api")
 
@@ -69,7 +68,7 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	if err = seeder.Seed(db, mongoDB, "test"); err != nil {
+	if err = seeder.Seed(db, mongoDB, "prod"); err != nil {
 		panic(err)
 	}
 

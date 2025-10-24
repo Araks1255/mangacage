@@ -4,7 +4,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -55,7 +54,7 @@ func DeleteTeamSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := teams.NewHandler(env.DB, teamsCovers)
+		h := teams.NewHandler(env.DB, teamsCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -81,7 +80,7 @@ func DeleteTeamSuccess(env testenv.Env) func(*testing.T) {
 
 func DeleteTeamByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -105,7 +104,7 @@ func DeleteTeamByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))

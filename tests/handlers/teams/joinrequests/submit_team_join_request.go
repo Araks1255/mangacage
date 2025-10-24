@@ -44,7 +44,7 @@ func SubmitTeamJoinRequestSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal("роль не найдена")
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -82,7 +82,7 @@ func SubmitTeamJoinRequestSuccess(env testenv.Env) func(*testing.T) {
 
 func SubmitTeamJoinRequestByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -108,7 +108,7 @@ func SubmitTeamJoinRequestWithInvalidTeamId(env testenv.Env) func(*testing.T) {
 
 		invalidTeamID := ";|"
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -154,7 +154,7 @@ func SubmitTeamJoinRequestByUserThatAlreadyInTeam(env testenv.Env) func(*testing
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -194,7 +194,7 @@ func SubmitTeamJoinRequestWithWrongRoleId(env testenv.Env) func(*testing.T) {
 
 		roleID := 9223372036854775807
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -246,7 +246,7 @@ func SubmitTeamJoinRequestTwice(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -281,7 +281,7 @@ func SubmitTeamJoinRequestWithWrongTeamId(env testenv.Env) func(*testing.T) {
 
 		teamID := 9223372036854775807
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

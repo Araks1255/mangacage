@@ -3,7 +3,7 @@ package dto
 import "github.com/Araks1255/mangacage/pkg/common/models"
 
 type CreateTagDTO struct {
-	Name string `json:"name" binding:"required"`
+	Name string `json:"name" binding:"required,min=2,max=30"`
 }
 
 type ResponseTagDTO struct {

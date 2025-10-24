@@ -3,6 +3,7 @@ package moderation
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
@@ -45,18 +46,23 @@ func (h handler) GetMyTitlesOnModeration(c *gin.Context) {
 		offset = 0
 	}
 
+	var selects strings.Builder
+	args := make([]any, 0, 3)
+
+	selects.WriteString("tom.id, tom.name")
+
+	if params.Query != nil {
+		selects.WriteString(
+			",tom.name <-> ? AS name_distance, tom.english_name <-> ? AS english_name_distance, tom.original_name <-> ? AS original_name_distance",
+		)
+		args = append(args, *params.Query, *params.Query, *params.Query)
+	}
+
 	query := h.DB.Table("titles_on_moderation AS tom").
-		Select("tom.*, t.name AS existing, a.name AS author, aom.name AS author_on_moderation").
-		Joins("LEFT JOIN titles AS t ON tom.existing_id = t.id").
-		Joins("LEFT JOIN authors AS a ON tom.author_id = a.id").
-		Joins("LEFT JOIN authors_on_moderation AS aom ON tom.author_on_moderation_id = aom.id").
+		Select(selects.String(), args...).
 		Where("tom.creator_id = ?", claims.ID).
 		Offset(offset).
 		Limit(int(params.Limit))
-
-	if params.Query != nil {
-		query = query.Where("lower(tom.name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
-	}
 
 	if params.PublishingStatus != nil {
 		query = query.Where("tom.publishing_status = ?", params.PublishingStatus)
@@ -101,7 +107,7 @@ func (h handler) GetMyTitlesOnModeration(c *gin.Context) {
 				SELECT g.name FROM genres AS g
 				INNER JOIN title_on_moderation_genres AS tomg ON tomg.genre_id = g.id
 				WHERE tomg.title_on_moderation_id = tom.id
-			))::TEXT[] @> ?::TEXT[]`,
+				))::TEXT[] @> ?::TEXT[]`,
 			pq.Array(params.Genres),
 		)
 	}
@@ -109,23 +115,29 @@ func (h handler) GetMyTitlesOnModeration(c *gin.Context) {
 	if params.Tags != nil {
 		query = query.Where(
 			`(SELECT ARRAY(
-				SELECT tags.name FROM tags
-				INNER JOIN title_on_moderation_tags AS tomt ON tomt.tag_id = tags.id
-				WHERE tomt.title_on_moderation_id = tom.id
-			))::TEXT[] @> ?::TEXT[]`,
+					SELECT tags.name FROM tags
+					INNER JOIN title_on_moderation_tags AS tomt ON tomt.tag_id = tags.id
+					WHERE tomt.title_on_moderation_id = tom.id
+					))::TEXT[] @> ?::TEXT[]`,
 			pq.Array(params.Tags),
 		)
 	}
 
-	if params.Order != "desc" && params.Order != "asc" {
-		params.Order = "desc"
-	}
+	if params.Query != nil {
+		query = query.
+			Where("tom.name % ? OR tom.english_name % ? OR tom.original_name % ?", *params.Query, *params.Query, *params.Query).
+			Order("name_distance, english_name_distance, original_name_distance")
+	} else {
+		if params.Order != "desc" && params.Order != "asc" {
+			params.Order = "asc"
+		}
 
-	switch params.Sort {
-	case "createdAt":
-		query = query.Order(fmt.Sprintf("tom.id %s", params.Order))
-	default:
-		query = query.Order(fmt.Sprintf("tom.name %s", params.Order))
+		switch params.Sort {
+		case "createdAt":
+			query = query.Order(fmt.Sprintf("tom.id %s", params.Order))
+		default:
+			query = query.Order(fmt.Sprintf("tom.name %s", params.Order))
+		}
 	}
 
 	var result []dto.ResponseTitleDTO

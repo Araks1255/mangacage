@@ -58,7 +58,7 @@ func mapEditProfileOnVerificationRequestodyToUser(bindFn func(any) error, userID
 }
 
 func updateProfileOnVerification(db *gorm.DB, user models.User) (code int, err error) {
-	result := db.Table("users").Updates(&user).Where("!verificated")
+	result := db.Table("users").Where("NOT verificated").Updates(&user)
 
 	if result.Error != nil {
 		return 500, result.Error

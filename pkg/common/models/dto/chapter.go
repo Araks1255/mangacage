@@ -15,12 +15,14 @@ type CreateChapterDTO struct { // Тут без тегов, ведь испол�
 	TitleID             *uint
 	TitleOnModerationID *uint
 	TeamID              uint
-	Pages               [][]byte
+	NumberOfPages       int
+	PagesSize           int64
+	DisableCompression  bool
 }
 
 type EditChapterDTO struct {
-	Name        *string `json:"name"`
-	Description *string `json:"description"`
+	Name        *string `json:"name" binding:"omitempty,min=2,max=35"`
+	Description *string `json:"description" binding:"omitempty,max=100"`
 	Volume      *uint   `json:"volume"`
 }
 
@@ -49,10 +51,15 @@ type ResponseChapterDTO struct {
 }
 
 func (c CreateChapterDTO) ToChapterOnModeration(userID uint) models.ChapterOnModeration {
-	numberOfPages := len(c.Pages)
 	var id uint
-	if c.ID != nil {
+	if c.ID != nil && *c.ID != 0 {
 		id = *c.TitleOnModerationID
+	}
+	if c.TitleID != nil && *c.TitleID == 0 {
+		c.TitleID = nil
+	}
+	if c.TitleOnModerationID != nil && *c.TitleOnModerationID == 0 {
+		c.TitleOnModerationID = nil
 	}
 	return models.ChapterOnModeration{
 		Model: gorm.Model{
@@ -64,8 +71,7 @@ func (c CreateChapterDTO) ToChapterOnModeration(userID uint) models.ChapterOnMod
 		TitleID:             c.TitleID,
 		TitleOnModerationID: c.TitleOnModerationID,
 		TeamID:              c.TeamID,
-		NumberOfPages:       &numberOfPages,
-		CreatorID:           userID,
+		CreatorID:           &userID,
 	}
 }
 
@@ -74,7 +80,7 @@ func (c EditChapterDTO) ToChapterOnModeration(userID, existingID uint) models.Ch
 		Name:        c.Name,
 		Description: c.Description,
 		Volume:      c.Volume,
-		CreatorID:   userID,
+		CreatorID:   &userID,
 		ExistingID:  &existingID,
 	}
 }

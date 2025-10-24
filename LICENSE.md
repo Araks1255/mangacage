@@ -99,6 +99,11 @@ The following external libraries and frameworks are included in or used by the P
       – **License:** BSD 3-Clause License  
       – **Link to full text:** https://go.googlesource.com/text/+/refs/heads/master/LICENSE 
 
+   9. **nfnt/resize**
+      – **Repository:** github.com/nfnt/resize
+      – **License:** ISC License
+      – **Link to full text:** https://github.com/nfnt/resize/blob/master/LICENSE
+
 **Note:** If any of these dependencies include or reference further third-party code, you must comply with those sub-licenses as well.
 
 --------------------------------------------------------------------------------

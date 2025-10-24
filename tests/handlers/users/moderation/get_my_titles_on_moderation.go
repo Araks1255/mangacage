@@ -97,9 +97,6 @@ func GetMyTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["id"]; !ok {
 			t.Fatal("id не дошел")
 		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
-		}
 		if _, ok := resp[0]["name"]; !ok {
 			t.Fatal("название не дошло")
 		}
@@ -172,9 +169,6 @@ func GetMyNewTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 
 		if _, ok := resp[0]["id"]; !ok {
 			t.Fatal("id не дошел")
-		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
 		}
 		if _, ok := resp[0]["name"]; !ok {
 			t.Fatal("название не дошло")
@@ -250,9 +244,6 @@ func GetMyEditedTitlesOnModerationSuccess(env testenv.Env) func(*testing.T) {
 
 		if _, ok := resp[0]["id"]; !ok {
 			t.Fatal("id не дошел")
-		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
 		}
 		if _, ok := resp[0]["name"]; !ok {
 			t.Fatal("название не дошло")

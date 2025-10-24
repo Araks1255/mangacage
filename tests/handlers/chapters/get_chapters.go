@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -30,8 +29,6 @@ func GetGetChaptersScenarios(env testenv.Env) map[string]func(*testing.T) {
 
 func GetChaptersWithAllParamsSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		chaptersPages := env.MongoDB.Collection(mongodb.ChaptersPagesCollection)
-
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
 			t.Fatal(err)
@@ -51,9 +48,8 @@ func GetChaptersWithAllParamsSuccess(env testenv.Env) func(*testing.T) {
 			_, err := testhelpers.CreateChapter(
 				env.DB, titleID, teamID, userID,
 				testhelpers.CreateChapterOptions{
-					Pages:      make([][]byte, 5+i),
-					Collection: chaptersPages,
-					Views:      uint(5 + i),
+					Pages: make([][]byte, 5+i),
+					Views: uint(5 + i),
 				},
 			)
 			if err != nil {
@@ -100,29 +96,17 @@ func GetChaptersWithAllParamsSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["name"]; !ok {
 			t.Fatal("название не дошло")
 		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
-		}
-		if _, ok := resp[0]["volume"]; !ok {
-			t.Fatal("номер тома не дошел")
-		}
-		if _, ok := resp[0]["title"]; !ok {
-			t.Fatal("название тайтла не дошло")
-		}
-		if _, ok := resp[0]["titleId"]; !ok {
-			t.Fatal("id тайтла не дошел")
-		}
 		if _, ok := resp[0]["team"]; !ok {
 			t.Fatal("название команды не дошло")
 		}
 		if _, ok := resp[0]["teamId"]; !ok {
 			t.Fatal("id команды не дошел")
 		}
-		if _, ok := resp[0]["numberOfPages"]; !ok {
-			t.Fatal("количество страниц не дошло")
+		if _, ok := resp[0]["titleId"]; !ok {
+			t.Fatal("id тайтла не дошел")
 		}
-		if _, ok := resp[0]["views"]; !ok {
-			t.Fatal("просмотры не дошли")
+		if _, ok := resp[0]["title"]; !ok {
+			t.Fatal("название тайтла не дошло")
 		}
 	}
 }

@@ -70,16 +70,21 @@ func checkUserRightsToDeleteParticipantRole(db *gorm.DB, userID uint) (ok, isUse
 	var userRoles []string
 
 	err = db.Raw(
-		`SELECT r.name FROM roles AS r
-		INNER JOIN user_roles AS ur ON ur.role_id = r.id
-		WHERE ur.user_id = ?`, userID,
+		`SELECT
+			r.name
+		FROM
+			roles AS r
+			INNER JOIN user_roles AS ur ON ur.role_id = r.id
+		WHERE
+			ur.user_id = ?`,
+		userID,
 	).Scan(&userRoles).Error
 
 	if err != nil {
 		return false, false, err
 	}
 
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "vice_team_leader") {
 		return false, false, nil
 	}
 
@@ -122,7 +127,7 @@ func checkDeleteParticipantRoleConflicts(db *gorm.DB, userID, participantID, rol
 	} else {
 		query = `SELECT
 					EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)) AS does_participant_exist,
-					EXISTS(SELECT 1 FROM roles WHERE id = ? AND type = 'team' AND name != 'team_leader' AND name != 'ex_team_leader') AS does_role_exist`
+					EXISTS(SELECT 1 FROM roles WHERE id = ? AND type = 'team' AND name != 'team_leader' AND name != 'vice_team_leader') AS does_role_exist`
 	}
 
 	if err = db.Raw(query, participantID, userID, roleID).Scan(&check).Error; err != nil {

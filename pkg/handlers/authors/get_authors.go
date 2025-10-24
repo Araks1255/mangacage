@@ -3,6 +3,7 @@ package authors
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
@@ -25,21 +26,33 @@ func (h handler) GetAuthors(c *gin.Context) {
 		offset = 0
 	}
 
-	query := h.DB.Table("authors").Select("*").Limit(int(params.Limit)).Offset(offset)
+	var selects strings.Builder
+	args := make([]any, 0, 3)
+
+	selects.WriteString("id, name, english_name, original_name")
 
 	if params.Query != nil {
-		query = query.Where("lower(name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
+		selects.WriteString(",name <-> ? AS name_distance, english_name <-> ? AS english_name_distance, original_name <-> ? AS original_name_distance")
+		args = append(args, *params.Query, *params.Query, *params.Query)
 	}
 
-	if params.Order != "desc" && params.Order != "asc" {
-		params.Order = "desc"
-	}
+	query := h.DB.Table("authors").Select(selects.String(), args...).Limit(int(params.Limit)).Offset(offset)
 
-	switch params.Sort {
-	case "createdAt":
-		query = query.Order(fmt.Sprintf("id %s", params.Order))
-	default:
-		query = query.Order(fmt.Sprintf("name %s", params.Order))
+	if params.Query != nil {
+		query = query.
+			Where("name % ? OR english_name % ? OR original_name % ?", *params.Query, *params.Query, *params.Query).
+			Order("name_distance, english_name_distance, original_name_distance ASC")
+	} else {
+		if params.Order != "desc" && params.Order != "asc" {
+			params.Order = "asc"
+		}
+
+		switch params.Sort {
+		case "createdAt":
+			query = query.Order(fmt.Sprintf("id %s", params.Order))
+		default:
+			query = query.Order(fmt.Sprintf("name %s", params.Order))
+		}
 	}
 
 	var result []dto.ResponseAuthorDTO

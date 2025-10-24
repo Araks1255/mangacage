@@ -3,6 +3,7 @@ package genres
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
@@ -12,7 +13,6 @@ import (
 type getGenresParams struct {
 	dto.CommonParams
 
-	FavoritedBy *uint `form:"favoritedBy" binding:"excluded_with=MyFavorites"`
 	MyFavorites *bool `form:"myFavorites" binding:"excluded_with=FavoritedBy"`
 }
 
@@ -29,18 +29,17 @@ func (h handler) GetGenres(c *gin.Context) {
 		offset = 0
 	}
 
-	query := h.DB.Table("genres AS g").Select("g.*").Limit(int(params.Limit)).Offset(offset)
+	var selects strings.Builder
+	args := make([]any, 0, 1)
+
+	selects.WriteString("g.id, g.name")
 
 	if params.Query != nil {
-		query = query.Where("lower(g.name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
+		selects.WriteString(",g.name <-> ? AS distance")
+		args = append(args, *params.Query)
 	}
 
-	if params.FavoritedBy != nil {
-		query = query.Joins("INNER JOIN user_favorite_genres AS ufg ON ufg.genre_id = g.id").
-			Joins("INNER JOIN users AS u ON ufg.user_id = u.id").
-			Where("u.id = ?", params.FavoritedBy).
-			Where("u.visible")
-	}
+	query := h.DB.Table("genres AS g").Select(selects.String(), args...).Limit(int(params.Limit)).Offset(offset)
 
 	if params.MyFavorites != nil && *params.MyFavorites {
 		claims, ok := c.Get("claims")
@@ -52,15 +51,19 @@ func (h handler) GetGenres(c *gin.Context) {
 			Where("ufg.user_id = ?", claims.(*auth.Claims).ID)
 	}
 
-	if params.Order != "desc" && params.Order != "asc" {
-		params.Order = "desc"
-	}
+	if params.Query != nil {
+		query = query.Where("g.name % ?", *params.Query).Order("distance ASC")
+	} else {
+		if params.Order != "desc" && params.Order != "asc" {
+			params.Order = "asc"
+		}
 
-	switch params.Sort {
-	case "createdAt":
-		query = query.Order(fmt.Sprintf("id %s", params.Order))
-	default:
-		query = query.Order(fmt.Sprintf("name %s", params.Order))
+		switch params.Sort {
+		case "createdAt":
+			query = query.Order(fmt.Sprintf("id %s", params.Order))
+		default:
+			query = query.Order(fmt.Sprintf("name %s", params.Order))
+		}
 	}
 
 	var result []dto.ResponseGenreDTO

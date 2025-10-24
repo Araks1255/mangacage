@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/handlers/titles"
+	"github.com/Araks1255/mangacage/pkg/handlers/titles/translaterequests"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
 	"github.com/Araks1255/mangacage/tests/testenv"
@@ -45,7 +45,7 @@ func CancelTitleTranslateRequestSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil)
+		h := translaterequests.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -101,7 +101,7 @@ func CancelAnotherTeamTitleTranslateRequest(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil)
+		h := translaterequests.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))

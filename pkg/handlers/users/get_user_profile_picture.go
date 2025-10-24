@@ -1,13 +1,10 @@
 package users
 
 import (
-	"errors"
+	"log"
 	"strconv"
 
-	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func (h handler) GetUserProfilePicture(c *gin.Context) {
@@ -17,18 +14,18 @@ func (h handler) GetUserProfilePicture(c *gin.Context) {
 		return
 	}
 
-	var res mongoModels.UserProfilePicture
+	var path *string
 
-	filter := bson.M{"user_id": userID, "visible": true}
-
-	if err := h.UsersProfilePictures.FindOne(c.Request.Context(), filter).Decode(&res); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			c.AbortWithStatusJSON(404, gin.H{"error": "аватарка не найдена"})
-			return
-		}
+	if err := h.DB.Raw("SELECT profile_picture_path FROM users WHERE id = ? AND visible", userID).Scan(&path).Error; err != nil {
+		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.Data(200, "image/jpeg", res.ProfilePicture)
+	if path == nil {
+		c.AbortWithStatusJSON(404, gin.H{"error": "пользователь не найден"})
+		return
+	}
+
+	c.File(*path)
 }

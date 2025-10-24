@@ -13,7 +13,9 @@ type getViewedChaptersParams struct {
 	Page  int `form:"page,default=1"`
 }
 
-func (h handler) GetViewedChapters(c *gin.Context) { // Это получение конкретно истории просмотров. Выбирается самая "недавно прочитанная" глава, находится её тайтл, удаляются все остальные главы из этого тайтла. Так для второй (когда дубликаты уже удалены), третьей и т.д. (не то же самое, что GetChapters с флагом viewed=true)
+// Это получение конкретно истории просмотров. Выбирается самая "недавно прочитанная" глава, находится её тайтл, удаляются все остальные главы из этого тайтла.
+// Так для второй (когда дубликаты из первого тайтла уже удалены), третьей и т.д. (не то же самое, что GetChapters с флагом viewed=true)
+func (h handler) GetViewedChapters(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
 	var params getViewedChaptersParams

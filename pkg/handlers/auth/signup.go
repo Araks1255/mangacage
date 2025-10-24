@@ -7,6 +7,7 @@ import (
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 
 	"github.com/gin-gonic/gin"
 )
@@ -38,8 +39,8 @@ func (h handler) Signup(c *gin.Context) {
 	err = h.DB.Create(&user).Error
 
 	if err != nil {
-		if dbErrors.IsUniqueViolation(err, constraints.UniqUserUserName) {
-			c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже ожидает модерации"})
+		if dbErrors.IsUniqueViolation(err, constraints.UniUsersUserName) {
+			c.AbortWithStatusJSON(409, gin.H{"error": "пользователь с таким именем уже существует"})
 		} else {
 			log.Println(err)
 			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
@@ -48,5 +49,10 @@ func (h handler) Signup(c *gin.Context) {
 	}
 
 	c.JSON(201, gin.H{"success": "ваш аккаунт успешно создан и ожидает верификации"})
-	// Уведомление
+
+	if _, err := h.NotificationsClient.NotifyAboutNewUserOnVerification(
+		c.Request.Context(), &pb.UserOnVerification{ID: uint64(user.ID)},
+	); err != nil {
+		log.Println(err)
+	}
 }

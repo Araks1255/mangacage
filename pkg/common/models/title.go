@@ -19,8 +19,11 @@ type Title struct {
 	TranslatingStatus string `gorm:"type:title_translating_status;default:'free'"`
 	PublishingStatus  string `gorm:"type:title_publishing_status;default:'unknown'"`
 
-	CreatorID uint
+	CreatorID *uint
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
+
+	EditorID *uint
+	Editor   *User `gorm:"foreignKey:EditorID;references:id;constraint:OnDelete:SET NULL"`
 
 	AuthorID uint   `gorm:"not null"`
 	Author   Author `gorm:"foreignKey:AuthorID;references:id;constraint:OnDelete:SET NULL"`
@@ -40,6 +43,8 @@ type Title struct {
 	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 
 	Hidden bool `gorm:"not null;default:false"`
+
+	CoverPath string `gorm:"not null"`
 }
 
 type TitleOnModeration struct {
@@ -60,7 +65,7 @@ type TitleOnModeration struct {
 	ExistingID *uint `gorm:"unique"`
 	Title      Title `gorm:"foreignKey:ExistingID;references:id;constraint:OnDelete:CASCADE"`
 
-	CreatorID uint
+	CreatorID *uint
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
 
 	AuthorID *uint
@@ -73,16 +78,16 @@ type TitleOnModeration struct {
 	Tags   []Tag   `gorm:"many2many:title_on_moderation_tags;constraint:OnDelete:CASCADE"`
 
 	ModeratorID *uint
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
+
+	CoverPath *string
 }
 
 func (TitleOnModeration) TableName() string {
 	return "titles_on_moderation"
 }
 
-func (t TitleOnModeration) ToTitle() Title {
-	title := Title{
-		CreatorID:   t.CreatorID,
+func (t TitleOnModeration) ToTitle() *Title {
+	title := &Title{
 		ModeratorID: t.ModeratorID,
 		Genres:      t.Genres,
 		Tags:        t.Tags,
@@ -119,5 +124,15 @@ func (t TitleOnModeration) ToTitle() Title {
 		title.AuthorID = *t.AuthorID
 	}
 
+	if t.ExistingID == nil {
+		title.CreatorID = t.CreatorID
+	} else {
+		title.EditorID = t.CreatorID
+	}
+
 	return title
+}
+
+func (t *TitleOnModeration) SetID(id uint) {
+	t.ID = id
 }

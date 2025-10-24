@@ -8,6 +8,8 @@ import (
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers/authors"
 	"github.com/gin-gonic/gin"
+	"github.com/Araks1255/mangacage_protos/gen/enums"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 )
 
 func (h handler) AddAuthor(c *gin.Context) {
@@ -46,5 +48,14 @@ func (h handler) AddAuthor(c *gin.Context) {
 	}
 
 	c.JSON(201, gin.H{"success": "автор успешно отправлен на модерацию"})
-	// Уведомление
+	
+	if _, err := h.NotificationsClient.NotifyAboutNewModerationRequest(
+		c.Request.Context(),
+		&pb.ModerationRequest{
+			EntityOnModeration: enums.EntityOnModeration_ENTITY_ON_MODERATION_AUTHOR,
+			ID: uint64(newAuthor.ID),
+		},
+	); err != nil {
+		log.Println(err)
+	}
 }

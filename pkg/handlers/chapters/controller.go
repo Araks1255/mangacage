@@ -1,26 +1,27 @@
 package chapters
 
 import (
+	cpc "github.com/Araks1255/mangacage/internal/workers/chapters_pages_compressor"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
-	pb "github.com/Araks1255/mangacage_protos"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
+
 	"gorm.io/gorm"
 )
 
 type handler struct {
-	DB                  *gorm.DB
-	ChaptersPages       *mongo.Collection
-	NotificationsClient pb.NotificationsClient
+	DB                      *gorm.DB
+	PathToMediaDir          string
+	ChaptersPagesCompressor *cpc.ChaptersPagesCompressor
+	NotificationsClient     pb.SiteNotificationsClient
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, secretKey string, r *gin.Engine) {
-	chapterPagesCollection := client.Database("mangacage").Collection("chapters_pages")
-
+func RegisterRoutes(db *gorm.DB, pathToMediaDir string, compressor *cpc.ChaptersPagesCompressor, notificationsClient pb.SiteNotificationsClient, secretKey string, r *gin.Engine) {
 	h := handler{
-		DB:                  db,
-		ChaptersPages:       chapterPagesCollection,
-		NotificationsClient: notificationsClient,
+		DB:                      db,
+		PathToMediaDir:          pathToMediaDir,
+		ChaptersPagesCompressor: compressor,
+		NotificationsClient:     notificationsClient,
 	}
 
 	api := r.Group("/api")
@@ -28,16 +29,16 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 		chapters := api.Group("/chapters")
 		{
 			chapters.GET("/:id", h.GetChapter)
-			chapters.GET("/", middlewares.AuthOptional(secretKey), h.GetChapters)
+			chapters.GET("", middlewares.AuthOptional(secretKey), h.GetChapters)
 			chapters.GET("/:id/page/:page", h.GetChapterPage)
 
-			chaptersAuth := chapters.Group("/")
+			chaptersAuth := chapters.Group("")
 			chaptersAuth.Use(middlewares.Auth(secretKey))
 			{
-				chaptersForTeamLeaders := chaptersAuth.Group("/")
-				chaptersForTeamLeaders.Use(middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader", "translater"}))
+				chaptersForTeamLeaders := chaptersAuth.Group("")
+				chaptersForTeamLeaders.Use(middlewares.RequireRoles(db, []string{"team_leader", "vice_team_leader", "translater"}))
 				{
-					chaptersForTeamLeaders.POST("/", h.CreateChapter)
+					chaptersForTeamLeaders.POST("", h.CreateChapter)
 					chaptersForTeamLeaders.POST("/:id/edited", h.EditChapter)
 				}
 			}
@@ -45,10 +46,9 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 	}
 }
 
-func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, chaptersPages *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, notificationsClient pb.SiteNotificationsClient) handler {
 	return handler{
 		DB:                  db,
-		ChaptersPages:       chaptersPages,
 		NotificationsClient: notificationsClient,
 	}
 }

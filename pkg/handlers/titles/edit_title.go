@@ -12,7 +12,8 @@ import (
 	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers/titles"
-	pb "github.com/Araks1255/mangacage_protos"
+	"github.com/Araks1255/mangacage_protos/gen/enums"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"gorm.io/gorm"
@@ -24,11 +25,12 @@ func (h handler) EditTitle(c *gin.Context) {
 	var requestBody dto.EditTitleDTO
 
 	if err := c.ShouldBindWith(&requestBody, binding.FormMultipart); err != nil {
+		log.Println(requestBody)
 		c.AbortWithStatusJSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
-	editedTitle, code, err := mapEditTitleParamsToTitleOnModeration(claims.ID, &requestBody, c.Param)
+	editedTitle, code, err := mapEditTitleRequestBodyToTitleOnModeration(claims.ID, &requestBody, c.Param)
 	if err != nil {
 		if code == 500 {
 			log.Println(err)
@@ -50,8 +52,7 @@ func (h handler) EditTitle(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	err = tx.Clauses(helpers.OnExistingIDConflictClause).Create(&editedTitle).Error
-
+	err = helpers.UpsertEntityChanges(tx, editedTitle, *editedTitle.ExistingID)
 	if err != nil {
 		code, err := titles.ParseTitleOnModerationInsertError(err)
 		if code == 500 {
@@ -61,46 +62,56 @@ func (h handler) EditTitle(c *gin.Context) {
 		return
 	}
 
-	if len(requestBody.GenresIDs) != 0 {
-		code, err := titles.UpsertTitleOnModerationGenres(tx, editedTitle.ID, requestBody.GenresIDs)
-		if err != nil {
-			if code == 500 {
-				log.Println(err)
-			}
-			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
-			return
-		}
-	}
-
-	if len(requestBody.TagsIDs) != 0 {
-		code, err := titles.UpsertTitleOnModerationTags(tx, editedTitle.ID, requestBody.TagsIDs)
-		if err != nil {
-			if code == 500 {
-				log.Println(err)
-			}
-			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
-			return
-		}
-	}
-
 	if requestBody.Cover != nil {
-		if err := titles.UpsertTitleOnModerationCover(c.Request.Context(), h.TitlesCovers, requestBody.Cover, editedTitle.ID, claims.ID); err != nil {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		if code, err := titles.CreateTitleOnModerationCover(tx, h.PathToMediaDir, editedTitle.ID, requestBody.Cover); err != nil {
+			if code == 500 {
+				log.Println(err)
+			}
+			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 			return
 		}
+	}
+
+	if code, err = titles.UpsertTitleOnModerationGenres(tx, editedTitle.ID, requestBody.GenresIDs); err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
+	}
+
+	if code, err = titles.UpsertTitleOnModerationTags(tx, editedTitle.ID, requestBody.TagsIDs); err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
 	}
 
 	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "изменения тайтла успешно отправлены на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutTitleOnModeration(c.Request.Context(), &pb.TitleOnModeration{ID: uint64(*editedTitle.ExistingID), New: false}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutNewModerationRequest(
+		c.Request.Context(),
+		&pb.ModerationRequest{
+			EntityOnModeration: enums.EntityOnModeration_ENTITY_ON_MODERATION_TITLE,
+			ID:                 uint64(editedTitle.ID),
+		},
+	); err != nil {
 		log.Println(err)
 	}
 }
 
-func mapEditTitleParamsToTitleOnModeration(userID uint, body *dto.EditTitleDTO, paramFn func(string) string) (res *models.TitleOnModeration, code int, err error) {
+func mapEditTitleRequestBodyToTitleOnModeration(
+	userID uint,
+	body *dto.EditTitleDTO,
+	paramFn func(string) string,
+) (
+	res *models.TitleOnModeration,
+	code int,
+	err error,
+) {
 	if body.Cover != nil && body.Cover.Size > 2<<20 {
 		return nil, 400, errors.New("превышен максимальный размер обложки (2мб)")
 	}
@@ -110,7 +121,7 @@ func mapEditTitleParamsToTitleOnModeration(userID uint, body *dto.EditTitleDTO, 
 		return nil, 400, errors.New("указан невалидный id тайтла")
 	}
 
-	ok, err := utils.HasAnyNonEmptyFields(body, "AuthorID")
+	ok, err := utils.HasAnyNonEmptyFields(body)
 	if err != nil {
 		return nil, 500, err
 	}
@@ -119,9 +130,7 @@ func mapEditTitleParamsToTitleOnModeration(userID uint, body *dto.EditTitleDTO, 
 		return nil, 400, errors.New("запрос должен содержать как минимум 1 изменяемый параметр")
 	}
 
-	titleOnModeration := body.ToTitleOnModeration(userID, uint(titleID))
-
-	return &titleOnModeration, 0, nil
+	return body.ToTitleOnModeration(userID, uint(titleID)), 0, nil
 }
 
 func checkEditTitleConflicts(db *gorm.DB, title models.TitleOnModeration, userID uint) (code int, err error) {

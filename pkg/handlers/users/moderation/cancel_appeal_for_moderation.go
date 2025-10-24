@@ -6,15 +6,10 @@ import (
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 var allowedEntities = map[string]struct{}{
-	"titles":   {},
-	"chapters": {},
-	"teams":    {},
 	"authors":  {},
 	"genres":   {},
 	"tags":     {},
@@ -36,56 +31,20 @@ func (h handler) CancelAppealForModeration(c *gin.Context) {
 		return
 	}
 
-	tx := h.DB.Begin()
-	defer utils.RollbackOnPanic(tx)
-	defer tx.Rollback()
+	query := fmt.Sprintf("DELETE FROM %s_on_moderation WHERE id = ? AND creator_id = ?", desiredEntity)
 
-	var entity struct {
-		ID         uint
-		ExistingID uint
-	}
+	result := h.DB.Exec(query, entityID, claims.ID)
 
-	query := fmt.Sprintf("DELETE FROM %s_on_moderation WHERE id = ? AND creator_id = ? RETURNING *", desiredEntity) // На этом моменте entity уже проверенно, так что её можно подставлять прям так
-
-	if err := tx.Raw(query, entityID, claims.ID).Scan(&entity).Error; err != nil {
+	if result.Error != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
-	if entity.ID == 0 {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено вашей заявки на модерацию"})
+	if result.RowsAffected == 0 {
+		c.AbortWithStatusJSON(404, gin.H{"error": "заявка на модерацию не найдена среди оставленных вами"})
 		return
 	}
-
-	switch desiredEntity {
-	case "titles":
-		filter := bson.M{"title_on_moderation_id": entityID}
-		_, err = h.TitlesCovers.DeleteOne(c.Request.Context(), filter)
-
-	case "teams":
-		filter := bson.M{"team_on_moderation_id": entityID}
-		_, err = h.TeamsCovers.DeleteOne(c.Request.Context(), filter)
-
-	case "chapters":
-		if entity.ExistingID == 0 {
-			filter := bson.M{"chapter_on_moderation_id": entityID}
-
-			if res, err := h.ChaptersPages.DeleteOne(c.Request.Context(), filter); res.DeletedCount == 0 {
-				log.Println(err)
-				c.AbortWithStatusJSON(500, gin.H{"error": "произошла ошибка при удалении страниц новой главы на модерации"})
-				return
-			}
-		}
-	}
-
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	tx.Commit()
 
 	c.JSON(200, gin.H{"success": "заявка на модерацию успешно отменена"})
 }

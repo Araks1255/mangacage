@@ -10,7 +10,7 @@ type User struct {
 	UserName      string `gorm:"unique;not null"`
 	Password      string `gorm:"not null"`
 	AboutYourself *string
-	TgUserID      *int64
+	TgUserID      *int64 `gorm:"unique"`
 
 	Visible     bool `gorm:"not null;default:false"`
 	Verificated bool `gorm:"not null;default:false"`
@@ -25,6 +25,10 @@ type User struct {
 	FavoriteTitles   []Title   `gorm:"many2many:user_favorite_titles;constraint:OnDelete:CASCADE"`
 	FavoriteChapters []Chapter `gorm:"many2many:user_favorite_chapters;constraint:OnDelete:CASCADE"`
 	FavoriteGenres   []Genre   `gorm:"many2many:user_favorite_genres;constraint:OnDelete:CASCADE"`
+
+	ModeratorID *uint
+
+	ProfilePicturePath *string
 }
 
 type UserOnModeration struct {
@@ -35,13 +39,17 @@ type UserOnModeration struct {
 
 	ExistingID *uint `gorm:"unique"`
 	Existing   *User `gorm:"foreignKey:ExistingID;references:id;constraint:OnDelete:CASCADE"`
+
+	ModeratorID *uint
+
+	ProfilePicturePath *string
 }
 
 func (UserOnModeration) TableName() string {
 	return "users_on_moderation"
 }
 
-func (u UserOnModeration) ToUser() User {
+func (u UserOnModeration) ToUser() *User {
 	var user User
 
 	if u.UserName != nil {
@@ -51,5 +59,9 @@ func (u UserOnModeration) ToUser() User {
 		user.AboutYourself = u.AboutYourself
 	}
 
-	return user
+	return &user
+}
+
+func (u *UserOnModeration) SetID(id uint) {
+	u.ID = id
 }

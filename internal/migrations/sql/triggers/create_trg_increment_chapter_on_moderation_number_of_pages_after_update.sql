@@ -1,0 +1,4 @@
+CREATE OR REPLACE TRIGGER trg_increment_chapter_on_moderation_number_of_pages_after_update
+AFTER UPDATE OF chapter_on_moderation_id ON pages
+FOR EACH ROW
+EXECUTE FUNCTION increment_chapter_on_moderation_number_of_pages()

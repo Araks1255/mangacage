@@ -4,8 +4,9 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     UPDATE titles SET
-    number_of_chapters = number_of_chapters + 1
-    WHERE id = NEW.title_id;
+        number_of_chapters = number_of_chapters + 1
+    WHERE
+        id = NEW.title_id;
     RETURN NEW;
 END;
 $$;

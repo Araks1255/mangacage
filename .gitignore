@@ -1,12 +1,13 @@
 /pkg/common/envs
 /internal/seeder/seed_entities.go
-/templates
+/internal/seeder/genres.go
+/internal/seeder/tags.go
 /html
 /static
 /go.mod
 /go.sum
-/.vscode
 /test_data
 /.env
 /GEMINI.md
-/changes.txt
+/examples
+/tests

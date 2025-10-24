@@ -11,32 +11,35 @@ import (
 
 type CreateTeamDTO struct {
 	ID          *uint                 `form:"id"`
-	Name        string                `form:"name" binding:"required"`
-	Description *string               `form:"description" binding:"required"`
+	Name        string                `form:"name" binding:"required,min=2,max=35"`
+	Description *string               `form:"description" binding:"omitempty,max=400"`
 	Cover       *multipart.FileHeader `form:"cover" binding:"required"`
 }
 
 type EditTeamDTO struct {
-	Name        *string               `form:"name"`
-	Description *string               `form:"description"`
+	Name        *string               `form:"name" binding:"omitempty,min=2,max=35"`
+	Description *string               `form:"description" binding:"omitempty,max=400"`
 	Cover       *multipart.FileHeader `form:"cover"`
 }
 
 type ResponseTeamDTO struct {
-	ID          uint       `json:"id"`
-	CreatedAt   *time.Time `json:"createdAt,omitempty"`
-	Name        *string    `json:"name"`
-	Description *string    `json:"description,omitempty"`
-	Existing    *string    `json:"existing,omitempty"`
-	ExistingID  *uint      `json:"existingId,omitempty"`
+	ID                   uint       `json:"id"`
+	CreatedAt            *time.Time `json:"createdAt,omitempty"`
+	Name                 *string    `json:"name"`
+	Description          *string    `json:"description,omitempty"`
+	NumberOfParticipants *uint      `json:"numberOfParticipants,omitempty"`
+	Existing             *string    `json:"existing,omitempty"`
+	ExistingID           *uint      `json:"existingId,omitempty"`
 }
 
-func (t CreateTeamDTO) ToTeamOnModeration(userID uint) models.TeamOnModeration {
+func (t CreateTeamDTO) ToTeamOnModeration(userID uint) *models.TeamOnModeration {
 	var id uint
+
 	if t.ID != nil {
 		id = *t.ID
 	}
-	return models.TeamOnModeration{
+
+	return &models.TeamOnModeration{
 		Model: gorm.Model{
 			ID: id,
 		},
@@ -46,8 +49,8 @@ func (t CreateTeamDTO) ToTeamOnModeration(userID uint) models.TeamOnModeration {
 	}
 }
 
-func (t EditTeamDTO) ToTeamOnModeration(userID, existingID uint) models.TeamOnModeration {
-	return models.TeamOnModeration{
+func (t EditTeamDTO) ToTeamOnModeration(userID, existingID uint) *models.TeamOnModeration {
+	return &models.TeamOnModeration{
 		Name:        t.Name,
 		Description: t.Description,
 		CreatorID:   userID,

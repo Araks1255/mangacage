@@ -1,32 +1,27 @@
 package moderation
 
 import (
-	"errors"
 	"log"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func (h handler) GetMyProfilePictureOnModeration(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	var result mongoModels.UserOnModerationProfilePicture
+	var path *string
 
-	filter := bson.M{"creator_id": claims.ID}
-
-	if err := h.ProfilePictures.FindOne(c.Request.Context(), filter).Decode(&result); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			c.AbortWithStatusJSON(404, gin.H{"error": "у вас нет изменений аватарки на модерации"})
-			return
-		}
+	if err := h.DB.Raw("SELECT profile_picture_path FROM users_on_moderation WHERE existing_id = ?", claims.ID).Scan(&path).Error; err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.Data(200, "image/jpeg", result.ProfilePicture)
+	if path == nil {
+		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено аватарки ваших изменений профиля"})
+		return
+	}
+
+	c.File(*path)
 }

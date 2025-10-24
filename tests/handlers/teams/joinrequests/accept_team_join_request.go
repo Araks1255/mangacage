@@ -58,10 +58,10 @@ func AcceptTeamJoinRequestSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/teams/my/join-requests/:id/accept", h.AcceptTeamJoinRequest)
 
 		url := fmt.Sprintf("/teams/my/join-requests/%d/accept", requestID)
@@ -82,10 +82,10 @@ func AcceptTeamJoinRequestSuccess(env testenv.Env) func(*testing.T) {
 
 func AcceptTeamJoinRequestByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/teams/my/join-requests/:id/accept", h.AcceptTeamJoinRequest)
 
 		req := httptest.NewRequest("POST", "/teams/my/join-requests/18/accept", nil)
@@ -106,10 +106,10 @@ func AcceptTeamJoinRequestByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/teams/my/join-requests/:id/accept", h.AcceptTeamJoinRequest)
 
 		req := httptest.NewRequest("POST", "/teams/my/join-requests/18/accept", nil)
@@ -158,10 +158,10 @@ func AcceptTeamJoinRequestToAnotherTeam(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/teams/my/join-requests/:id/accept", h.AcceptTeamJoinRequest)
 
 		url := fmt.Sprintf("/teams/my/join-requests/%d/accept", requestID)
@@ -189,10 +189,10 @@ func AcceptTeamJoinRequestWithWrongRequestId(env testenv.Env) func(*testing.T) {
 
 		requestID := 9223372036854775807
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/teams/my/join-requests/:id/accept", h.AcceptTeamJoinRequest)
 
 		url := fmt.Sprintf("/teams/my/join-requests/%d/accept", requestID)
@@ -220,10 +220,10 @@ func AcceptTeamJoinRequestWithInvalidRequestId(env testenv.Env) func(*testing.T)
 
 		invalidRequestID := "$_$"
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/teams/my/join-requests/:id/accept", h.AcceptTeamJoinRequest)
 
 		url := fmt.Sprintf("/teams/my/join-requests/%s/accept", invalidRequestID)

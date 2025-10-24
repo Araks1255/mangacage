@@ -3,6 +3,7 @@ package users
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
@@ -27,34 +28,45 @@ func (h handler) GetUsers(c *gin.Context) {
 		offset = 0
 	}
 
-	query := h.DB.Table("users AS u").
-		Select(
-			`u.*, ARRAY(
-				SELECT r.name FROM roles AS r
-				INNER JOIN user_roles AS ur ON ur.role_id = r.id
-				WHERE ur.user_id = u.id AND r.type = 'team'
-			) AS roles`,
-		).
-		Limit(int(params.Limit)).Offset(offset)
+	var selects strings.Builder
+	args := make([]any, 0, 1)
+
+	selects.WriteString(
+		`u.*, ARRAY(
+			SELECT r.name FROM roles AS r
+			INNER JOIN user_roles AS ur ON ur.role_id = r.id
+			WHERE ur.user_id = u.id AND r.type = 'team'
+		) AS roles`,
+	)
 
 	if params.Query != nil {
-		query = query.Where("lower(u.user_name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query)).Where("visible")
+		selects.WriteString(",u.user_name <-> ? AS distance")
+		args = append(args, *params.Query)
 	}
+
+	query := h.DB.Table("users AS u").
+		Select(selects.String(), args...).
+		Limit(int(params.Limit)).Offset(offset)
 
 	if params.TeamID != nil {
 		query = query.Where("u.team_id = ?", params.TeamID)
+	} else {
+		query = query.Where("visible")
 	}
 
 	if params.Order != "desc" && params.Order != "asc" {
 		params.Order = "desc"
 	}
 
-	switch params.Sort {
-	case "createdAt":
-		query = query.Order(fmt.Sprintf("u.id %s", params.Order))
-
-	default:
-		query = query.Order(fmt.Sprintf("u.user_name %s", params.Order))
+	if params.Query != nil {
+		query = query.Where("user_name % ?", *params.Query).Order("distance ASC")
+	} else {
+		switch params.Sort {
+		case "createdAt":
+			query = query.Order(fmt.Sprintf("u.id %s", params.Order))
+		default:
+			query = query.Order(fmt.Sprintf("u.user_name %s", params.Order))
+		}
 	}
 
 	var result []dto.ResponseUserDTO

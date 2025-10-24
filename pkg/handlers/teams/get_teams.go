@@ -3,6 +3,7 @@ package teams
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
@@ -10,6 +11,9 @@ import (
 
 type getTeamParams struct {
 	dto.CommonParams
+	TranslatingTitleID       *uint `form:"translatingTitleId"`
+	NumberOfParticipantsFrom *uint `form:"numberOfParticipantsFrom"`
+	NumberOfParticipantsTo   *uint `form:"numberOfParticipantsTo"`
 }
 
 func (h handler) GetTeams(c *gin.Context) {
@@ -25,21 +29,43 @@ func (h handler) GetTeams(c *gin.Context) {
 		offset = 0
 	}
 
-	query := h.DB.Table("teams").Select("*").Limit(int(params.Limit)).Offset(offset)
+	var selects strings.Builder
+	args := make([]any, 0, 1)
+
+	selects.WriteString("t.id, t.name")
 
 	if params.Query != nil {
-		query = query.Where("lower(name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
+		selects.WriteString(",t.name <-> ? AS distance")
+		args = append(args, *params.Query)
 	}
 
-	if params.Order != "desc" && params.Order != "asc" {
-		params.Order = "desc"
+	query := h.DB.Table("teams AS t").Select(selects.String(), args...).Limit(int(params.Limit)).Offset(offset)
+
+	if params.NumberOfParticipantsFrom != nil {
+		query = query.Where("t.number_of_participants >= ?", params.NumberOfParticipantsFrom)
+	}
+	if params.NumberOfParticipantsTo != nil {
+		query = query.Where("t.number_of_participants <= ?", params.NumberOfParticipantsTo)
 	}
 
-	switch params.Sort {
-	case "createdAt":
-		query = query.Order(fmt.Sprintf("id %s", params.Order))
-	default:
-		query = query.Order(fmt.Sprintf("name %s", *params.Query))
+	if params.TranslatingTitleID != nil {
+		query = query.Joins("INNER JOIN title_teams AS tt ON tt.team_id = t.id").
+			Where("tt.title_id = ?", *params.TranslatingTitleID)
+	}
+
+	if params.Query != nil {
+		query = query.Where("t.name % ?", *params.Query).Order("distance ASC")
+	} else {
+		if params.Order != "desc" && params.Order != "asc" {
+			params.Order = "asc"
+		}
+
+		switch params.Sort {
+		case "createdAt":
+			query = query.Order(fmt.Sprintf("t.id %s", params.Order))
+		default:
+			query = query.Order(fmt.Sprintf("t.name %s", params.Order))
+		}
 	}
 
 	var result []dto.ResponseTeamDTO

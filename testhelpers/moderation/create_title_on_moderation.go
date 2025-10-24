@@ -33,7 +33,7 @@ func CreateTitleOnModeration(db *gorm.DB, userID uint, opts ...CreateTitleOnMode
 		Name:         &name,
 		EnglishName:  &name,
 		OriginalName: &name,
-		CreatorID:    userID,
+		CreatorID:    &userID,
 	}
 
 	if len(opts) != 0 {

@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func RequireRoles(db *gorm.DB, roles []string) gin.HandlerFunc { // Я вообще хотел вынести роли в jwt токен, но так подумал, что не хочу, чтобы пользователь, которого сняли с роли заместителя лидера команды мог продолжать пользоваться своими привелегиями до рефреша токена. С бд всё-таки гораздо безопаснее.
+func RequireRoles(db *gorm.DB, roles []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims := c.MustGet("claims").(*auth.Claims)
 

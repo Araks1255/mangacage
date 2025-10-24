@@ -16,15 +16,14 @@ type GenreOnModeration struct {
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraints:OnDelete:SET NULL"`
 
 	ModeratorID *uint
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 func (GenreOnModeration) TableName() string {
 	return "genres_on_moderation"
 }
 
-func (g GenreOnModeration) ToGenre() Genre {
-	return Genre{
+func (g GenreOnModeration) ToGenre() *Genre {
+	return &Genre{
 		Name:        g.Name,
 		ModeratorID: g.ModeratorID,
 	}

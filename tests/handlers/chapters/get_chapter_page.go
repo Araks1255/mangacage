@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
 	"github.com/Araks1255/mangacage/testhelpers"
 	"github.com/Araks1255/mangacage/tests/testenv"
@@ -47,7 +46,7 @@ func GetChapterPageSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		chapterID, err := testhelpers.CreateChapter(env.DB, titleID, teamID, userID, testhelpers.CreateChapterOptions{Pages: pages, Collection: chaptersPages})
+		chapterID, err := testhelpers.CreateChapter(env.DB, titleID, teamID, userID, testhelpers.CreateChapterOptions{Pages: pages})
 		if err != nil {
 			t.Fatal(err)
 		}

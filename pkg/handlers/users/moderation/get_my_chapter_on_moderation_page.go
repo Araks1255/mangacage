@@ -1,15 +1,11 @@
 package moderation
 
 import (
-	"errors"
 	"log"
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func (h handler) GetMyChapterOnModerationPage(c *gin.Context) {
@@ -27,27 +23,29 @@ func (h handler) GetMyChapterOnModerationPage(c *gin.Context) {
 		return
 	}
 
-	filter := bson.M{"chapter_on_moderation_id": chapterOnModerationID, "creator_id": claims.ID}
-	projection := bson.M{"pages": bson.M{"$slice": []int{numberOfPage, 1}}}
+	var path *string
 
-	var result struct {
-		Pages [][]byte `bson:"pages"`
-	}
+	err = h.DB.Raw(
+		`SELECT
+			p.path
+		FROM
+			pages AS p
+			INNER JOIN chapters_on_moderation AS com ON com.id = p.chapter_on_moderation_id
+		WHERE
+			com.id = ? AND com.creator_id = ? AND number = ?`,
+		chapterOnModerationID, claims.ID, numberOfPage,
+	).Scan(&path).Error
 
-	if err = h.ChaptersPages.FindOne(c.Request.Context(), filter, options.FindOne().SetProjection(projection)).Decode(&result); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			c.AbortWithStatusJSON(404, gin.H{"error": "страница не найдена"})
-			return
-		}
+	if err != nil {
 		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(500, gin.H{"error":err.Error()})
 		return
 	}
 
-	if len(result.Pages) == 0 || result.Pages[0] == nil {
-		c.AbortWithStatusJSON(404, gin.H{"error": "страница главы на модерации не найдена"})
+	if path == nil {
+		c.AbortWithStatusJSON(404, gin.H{"error":"страница главы на модерации не найдена"})
 		return
 	}
 
-	c.Data(200, "image/jpeg", result.Pages[0])
+	c.File(*path)
 }

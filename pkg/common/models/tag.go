@@ -16,15 +16,14 @@ type TagOnModeration struct {
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraints:OnDelete:SET NULL"`
 
 	ModeratorID *uint
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 func (TagOnModeration) TableName() string {
 	return "tags_on_moderation"
 }
 
-func (t TagOnModeration) ToTag() Tag {
-	return Tag{
+func (t TagOnModeration) ToTag() *Tag {
+	return &Tag{
 		Name:        t.Name,
 		ModeratorID: t.ModeratorID,
 	}

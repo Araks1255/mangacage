@@ -3,54 +3,48 @@ package chapters
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"mime/multipart"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
+
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	dbUtils "github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
-	pb "github.com/Araks1255/mangacage_protos"
+	"github.com/Araks1255/mangacage_protos/gen/enums"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+type counterReader struct {
+	reader io.Reader
+	count  int64
+}
+
+func (cr *counterReader) Read(p []byte) (n int, err error) {
+	n, err = cr.reader.Read(p)
+	cr.count += int64(n)
+	return n, err
+}
 
 func (h handler) CreateChapter(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	contentType := c.Request.Header.Get("Content-Type")
-	if !strings.HasPrefix(contentType, "multipart/form-data") {
-		c.AbortWithStatusJSON(400, gin.H{"error": "тело запроса должно иметь тип multipart/form-data"})
-		return
-	}
-
-	reader, err := c.Request.MultipartReader()
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	var requestBody dto.CreateChapterDTO
-
-	code, err := parseCreateChapterBody(reader, &requestBody)
-	if err != nil {
-		if code == 500 {
-			log.Println(err)
-		}
-		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
-		return
-	}
-
-	code, err = checkCreateChapterConflicts(h.DB, &requestBody, claims.ID)
+	reader, code, err := getRequestMultipartReader(c.Request.Header.Get, c.Request.MultipartReader)
 	if err != nil {
 		if code == 500 {
 			log.Println(err)
@@ -63,9 +57,34 @@ func (h handler) CreateChapter(c *gin.Context) {
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
+	requestBody, tmpuuid, pages, code, err := parseCreateChapterBodyAndCreatePages(c.Request.Context(), reader, h.PathToMediaDir)
+
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+
+		if err = removeTempPagesFolder(h.PathToMediaDir, tmpuuid); err != nil {
+			log.Printf("не удалось удалить страницы главы на ошибке\nuuid главы: %s\nошибка: %s", tmpuuid, err.Error())
+		}
+
+		return
+	}
+
+	code, err = checkCreateChapterConflicts(tx, requestBody, claims.ID)
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
+	}
+
 	chapter := requestBody.ToChapterOnModeration(claims.ID)
 
-	err = tx.Clauses(helpers.OnIDConflictClause).Create(&chapter).Error
+	err = helpers.UpsertEntityOnModeration(tx, &chapter, chapter.ID)
 
 	if err != nil {
 		code, err := parseCreateChapterError(err)
@@ -76,8 +95,37 @@ func (h handler) CreateChapter(c *gin.Context) {
 		return
 	}
 
-	err = insertChapterOnModerationPages(c.Request.Context(), h.ChaptersPages, requestBody.Pages, chapter.ID, claims.ID)
-	if err != nil {
+	errChan := make(chan error, 2)
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		errChan <- createPagesMeta(tx, pages, h.PathToMediaDir, chapter.ID)
+	}()
+	go func() {
+		defer wg.Done()
+		errChan <- replaceChapterUUIDWithID(h.PathToMediaDir, tmpuuid, chapter.ID)
+	}()
+
+	wg.Wait()
+	close(errChan)
+
+	for err := range errChan {
+		if err != nil {
+			log.Println(err)
+			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+
+			if err := removePagesFolder(h.PathToMediaDir, chapter.ID, tmpuuid); err != nil {
+				log.Printf("не удалось удалить страницы главы на ошибке\nid главы: %d\nвременный uuid: %s\nошибка: %s", chapter.ID, tmpuuid, err.Error())
+			}
+
+			return
+		}
+	}
+
+	if err := addPagesDirectoryPathToChapterOnModeration(tx, chapter.ID, h.PathToMediaDir); err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
@@ -87,85 +135,235 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "глава успешно отправлена на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutChapterOnModeration(c.Request.Context(), &pb.ChapterOnModeration{ID: uint64(chapter.ID), New: true}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutNewModerationRequest(
+		c.Request.Context(),
+		&pb.ModerationRequest{
+			EntityOnModeration: enums.EntityOnModeration_ENTITY_ON_MODERATION_CHAPTER,
+			ID:                 uint64(chapter.ID),
+		},
+	); err != nil {
 		log.Println(err)
+	}
+
+	if float64(requestBody.PagesSize)/float64(requestBody.NumberOfPages<<20) > 1 {
+		h.ChaptersPagesCompressor.EnqueueChapterOnModerationID(chapter.ID)
 	}
 }
 
-func parseCreateChapterBody(r *multipart.Reader, body *dto.CreateChapterDTO) (code int, err error) {
-	body.Pages = make([][]byte, 0, 45)
+func getRequestMultipartReader(getHeaderFn func(string) string, getReaderFn func() (*multipart.Reader, error)) (reader *multipart.Reader, code int, err error) {
+	contentType := getHeaderFn("Content-Type")
+
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
+		return nil, 400, errors.New("тело запроса должно иметь тип multipart/form-data")
+	}
+
+	reader, err = getReaderFn()
+
+	if err != nil {
+		return nil, 500, err
+	}
+
+	return reader, 0, nil
+}
+
+func parseCreateChapterBodyAndCreatePages(
+	ctx context.Context,
+	r *multipart.Reader,
+	pathToMediaDir string,
+) (
+	requestBody *dto.CreateChapterDTO,
+	tmpuuid string,
+	pages []models.Page,
+	code int,
+	err error,
+) {
+	var (
+		body        dto.CreateChapterDTO
+		usedNumbers = make(map[uint]struct{}, 40)
+	)
+	pages = make([]models.Page, 0, 40)
+	tmpuuid = uuid.NewString()
+Loop:
 	for {
-		part, err := r.NextPart()
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			part, err := r.NextPart()
 
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return 500, err
-		}
-
-		data, err := io.ReadAll(part)
-		if err != nil {
-			return 500, err
-		}
-
-		switch part.FormName() {
-		case "name":
-			body.Name = string(data)
-
-		case "id":
-			id, err := strconv.ParseUint(string(data), 10, 64)
+			if err == io.EOF {
+				break Loop
+			}
 			if err != nil {
-				return 400, err
+				return nil, "", nil, 500, err
 			}
-			idUint := uint(id)
-			body.ID = &idUint
 
-		case "volume":
-			volume, err := strconv.ParseUint(string(data), 10, 64)
+			limitReader := io.LimitReader(part, 5<<20+1)
+
+			if strings.HasPrefix(part.FormName(), "page") {
+				fieldName := []rune(part.FormName())
+
+				body.NumberOfPages++
+
+				if body.NumberOfPages == 1500 {
+					return nil, "", nil, 400, errors.New("превышен лимит страниц (1500)")
+				}
+
+				number, err := strconv.ParseUint(string(fieldName[4:]), 10, 32)
+				if err != nil {
+					return nil, "", nil, 400, errors.New("неверный формат имени поля страницы. именование должно быть вида page1, page2...")
+				}
+
+				if _, ok := usedNumbers[uint(number)]; ok {
+					return nil, "", nil, 400, errors.New("номера страниц не должны повторяться")
+				}
+
+				if part.FileName() == "" {
+					return nil, "", nil, 400, errors.New("в поле страницы отправлен не файл")
+				}
+
+				if err := os.MkdirAll(fmt.Sprintf("%s/chapters_on_moderation/%s", pathToMediaDir, tmpuuid), 0644); err != nil {
+					return nil, "", nil, 500, err
+				}
+
+				tempFile, err := os.CreateTemp(fmt.Sprintf("%s/chapters_on_moderation/%s/", pathToMediaDir, tmpuuid), "*.tmp")
+				if err != nil {
+					return nil, "", nil, 500, err
+				}
+
+				counterLimitReader := counterReader{reader: limitReader}
+				counterLimitTeeReader := io.TeeReader(&counterLimitReader, tempFile)
+
+				_, format, err := image.DecodeConfig(counterLimitTeeReader)
+				if err != nil {
+					tempFile.Close()
+					return nil, "", nil, 400, errors.New("в поле страницы отправлено не фото (разрешенные форматы: jpg, png)")
+				}
+
+				if _, err := io.Copy(io.Discard, counterLimitTeeReader); err != nil {
+					tempFile.Close()
+					return nil, "", nil, 500, err
+				}
+
+				body.PagesSize += counterLimitReader.count
+
+				if body.PagesSize > 135<<20 {
+					tempFile.Close()
+					return nil, "", nil, 400, errors.New("превышен максимальный размер главы (135мб)")
+				}
+
+				if counterLimitReader.count > 5<<20 {
+					tempFile.Close()
+					return nil, "", nil, 400, errors.New("превышен максимальный размер одной страницы (5мб)")
+				}
+
+				tempFile.Close()
+
+				if err := os.Rename(tempFile.Name(), fmt.Sprintf("%s/chapters_on_moderation/%s/%d.%s", pathToMediaDir, tmpuuid, number, format)); err != nil {
+					return nil, "", nil, 500, err
+				}
+
+				pages = append(pages, models.Page{Number: uint(number), Format: format})
+
+				usedNumbers[uint(number)] = struct{}{}
+
+				continue
+			}
+
+			data, err := io.ReadAll(limitReader)
 			if err != nil {
-				return 400, err
-			}
-			body.Volume = uint(volume)
-
-		case "titleId":
-			id, err := strconv.ParseUint(string(data), 10, 64)
-			if err != nil {
-				return 400, err
-			}
-			idUint := uint(id)
-			body.TitleID = &idUint
-
-		case "titleOnModerationId":
-			id, err := strconv.ParseUint(string(data), 10, 64)
-			if err != nil {
-				return 400, err
-			}
-			idUint := uint(id)
-			body.TitleOnModerationID = &idUint
-
-		case "description":
-			description := string(data)
-			body.Description = &description
-
-		case "pages":
-			if len(data) > 1<<20 {
-				return 400, errors.New("превышен максимальный размер страницы (1мб)")
+				return nil, "", nil, 500, err
 			}
 
-			body.Pages = append(body.Pages, data)
+			switch part.FormName() {
+			case "name":
+				body.Name = string(data)
+				if len([]rune(body.Name)) > 35 {
+					return nil, "", nil, 400, errors.New("превышена максимальная длина названия (35 символов)")
+				}
 
-			if len(body.Pages) > 230 {
-				return 400, errors.New("превышено максимальное количество страниц (230)")
+			case "id":
+				id, err := strconv.ParseUint(string(data), 10, 64)
+				if err != nil {
+					return nil, "", nil, 400, err
+				}
+				idUint := uint(id)
+				body.ID = &idUint
+
+			case "volume":
+				volume, err := strconv.ParseUint(string(data), 10, 64)
+				if err != nil {
+					return nil, "", nil, 400, err
+				}
+				body.Volume = uint(volume)
+
+			case "titleId":
+				id, err := strconv.ParseUint(string(data), 10, 64)
+				if err != nil {
+					return nil, "", nil, 400, err
+				}
+				idUint := uint(id)
+				body.TitleID = &idUint
+
+			case "titleOnModerationId":
+				id, err := strconv.ParseUint(string(data), 10, 64)
+				if err != nil {
+					return nil, "", nil, 400, err
+				}
+				idUint := uint(id)
+				body.TitleOnModerationID = &idUint
+
+			case "description":
+				description := string(data)
+				if len([]rune(description)) > 100 {
+					return nil, "", nil, 400, errors.New("превышена максимальная длина описания (100 символов)")
+				}
+				body.Description = &description
+
+			case "disableCompression":
+				body.DisableCompression, err = strconv.ParseBool(string(data))
+				if err != nil {
+					return nil, "", nil, 400, err
+				}
+
+			default:
+				return nil, "", nil, 400, errors.New("отправлено неизвестное поле. поля страниц именуются в формате page1, page2...")
 			}
 		}
 	}
 
-	return 0, nil
+	averagePageSize := float64(body.PagesSize) / float64(body.NumberOfPages<<20)
+
+	if body.DisableCompression && averagePageSize > 1 {
+		return nil, "", nil, 400, errors.New("превышен максимальный средний размер страницы для режима без сжатия (1мб)")
+	}
+
+	if averagePageSize > 3.5 {
+		return nil, "", nil, 400, errors.New("превышен максимальный средний размер страницы (3.5мб)")
+	}
+
+	return &body, tmpuuid, pages, 0, nil
+}
+
+func removeTempPagesFolder(pathToMediaDir, tmpuuid string) error {
+	return os.RemoveAll(fmt.Sprintf("%s/chapters_on_moderation/%s", pathToMediaDir, tmpuuid))
+}
+
+func removePagesFolder(pathToMediaDir string, chapterOnModerationID uint, tmpuuid string) error {
+	err := os.RemoveAll(fmt.Sprintf("%s/chapters_on_moderation/%d", pathToMediaDir, chapterOnModerationID))
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return os.RemoveAll(fmt.Sprintf("%s/chapters_on_moderation/%s", pathToMediaDir, tmpuuid))
+		}
+		return err
+	}
+
+	return nil
 }
 
 func checkCreateChapterConflicts(db *gorm.DB, parsedBody *dto.CreateChapterDTO, userID uint) (code int, err error) {
-	if parsedBody.Name == "" || len(parsedBody.Pages) == 0 {
+	if parsedBody.Name == "" || parsedBody.NumberOfPages == 0 || parsedBody.Volume == 0 || (parsedBody.TitleID == nil && parsedBody.TitleOnModerationID == nil) {
 		return 400, errors.New("в запросе недостаточно данных")
 	}
 
@@ -174,7 +372,7 @@ func checkCreateChapterConflicts(db *gorm.DB, parsedBody *dto.CreateChapterDTO, 
 	}
 
 	if parsedBody.ID != nil {
-		isOwner, err := helpers.CheckEntityOnModerationOwnership(db, "titles", *parsedBody.ID, userID)
+		isOwner, err := helpers.CheckEntityOnModerationOwnership(db, "chapters", *parsedBody.ID, userID)
 		if err != nil {
 			return 500, err
 		}
@@ -239,7 +437,7 @@ func checkCreateChapterConflicts(db *gorm.DB, parsedBody *dto.CreateChapterDTO, 
 		}
 
 		if !check.TitleOnModerationNew {
-			return 409, errors.New("не пытайтесь добавить том в изменения тайтла. просто добавьте их в уже существующий тайтл")
+			return 409, errors.New("не пытайтесь добавить главу в изменения тайтла. просто добавьте ее в уже существующий тайтл")
 		}
 
 		parsedBody.TeamID = *check.UserTeamID
@@ -260,14 +458,24 @@ func parseCreateChapterError(err error) (code int, parsedError error) {
 	return 500, err
 }
 
-func insertChapterOnModerationPages(ctx context.Context, collection *mongo.Collection, pages [][]byte, chapterOnModerationID, userID uint) error {
-	filter := bson.M{"chapter_on_moderation_id": chapterOnModerationID}
-	update := bson.M{"$set": bson.M{"pages": pages, "creator_id": userID}}
-	opts := options.Update().SetUpsert(true)
+func addPagesDirectoryPathToChapterOnModeration(db *gorm.DB, id uint, pathToMediaDir string) error {
+	return db.Exec(
+		"UPDATE chapters_on_moderation SET pages_dir_path = ? WHERE id = ?",
+		fmt.Sprintf("%s/chapters_on_moderation/%d", pathToMediaDir, id), id,
+	).Error
+}
 
-	if _, err := collection.UpdateOne(ctx, filter, update, opts); err != nil {
-		return err
+func replaceChapterUUIDWithID(pathToMediaDir, tmpuuid string, id uint) error {
+	oldPath := fmt.Sprintf("%s/chapters_on_moderation/%s", pathToMediaDir, tmpuuid)
+	newPath := fmt.Sprintf("%s/chapters_on_moderation/%d", pathToMediaDir, id)
+	return os.Rename(oldPath, newPath)
+}
+
+func createPagesMeta(db *gorm.DB, pages []models.Page, pathToMediaDir string, chapterOnModerationID uint) error {
+	for i := 0; i < len(pages); i++ {
+		path := fmt.Sprintf("%s/chapters_on_moderation/%d/%d.%s", pathToMediaDir, chapterOnModerationID, pages[i].Number, pages[i].Format)
+		pages[i].ChapterOnModerationID = &chapterOnModerationID
+		pages[i].Path = path
 	}
-
-	return nil
+	return db.Create(&pages).Error
 }

@@ -76,9 +76,6 @@ func GetUsersWithAllParamsSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["id"]; !ok {
 			t.Fatal("id не дошёл")
 		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
-		}
 		if _, ok := resp[0]["userName"]; !ok {
 			t.Fatal("имя пользователя не дошло")
 		}

@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/handlers/titles"
+	"github.com/Araks1255/mangacage/pkg/handlers/titles/translaterequests"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
 	"github.com/Araks1255/mangacage/tests/testenv"
@@ -43,7 +43,7 @@ func TranslateFreeTitleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil)
+		h := translaterequests.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -103,7 +103,7 @@ func TranslateTitleWithTranslateRequestSuccess(env testenv.Env) func(*testing.T)
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil)
+		h := translaterequests.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -128,7 +128,7 @@ func TranslateTitleWithTranslateRequestSuccess(env testenv.Env) func(*testing.T)
 
 		var check bool
 		if err := env.DB.Raw(
-			"SELECT EXISTS(SELECT 1 FROM title_translate_requests WHERE title_id = ? AND team_id = ?)",
+			"SELECT EXISTS(SELECT 1 FROM titles_translate_requests WHERE title_id = ? AND team_id = ?)",
 			titleID, teamID,
 		).Scan(&check).Error; err != nil {
 			t.Fatal(err)
@@ -165,7 +165,7 @@ func TranslateAlreadyTranslatingTitle(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil)
+		h := translaterequests.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -215,7 +215,7 @@ func TranslateTitleWithAlreadySentRequest(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil)
+		h := translaterequests.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -252,7 +252,7 @@ func TranslateTitleTwice(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := titles.NewHandler(env.DB, nil, nil)
+		h := translaterequests.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))

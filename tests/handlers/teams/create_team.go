@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -33,7 +32,7 @@ func GetCreateTeamScenarios(env testenv.Env) map[string]func(*testing.T) {
 
 func CreateTeamSuccess(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		teamsOnModerationCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
+		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
 
 		userID, err := testhelpers.CreateUser(env.DB)
 		if err != nil {
@@ -64,7 +63,7 @@ func CreateTeamSuccess(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, teamsOnModerationCovers)
+		h := teams.NewHandler(env.DB, teamsCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -91,7 +90,9 @@ func CreateTeamSuccess(env testenv.Env) func(*testing.T) {
 
 func CreateTeamUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := teams.NewHandler(env.DB, nil)
+		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
+
+		h := teams.NewHandler(env.DB, teamsCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -148,7 +149,9 @@ func CreateChapterByUserThatAlreadyInTeam(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil)
+		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
+
+		h := teams.NewHandler(env.DB, teamsCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -208,7 +211,9 @@ func CreateTeamByUserThatAlredyHasTeamOnModeration(env testenv.Env) func(*testin
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil)
+		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
+
+		h := teams.NewHandler(env.DB, teamsCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -280,7 +285,9 @@ func CreateTeamWithTheSameNameAsTeamOnModeration(env testenv.Env) func(*testing.
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil)
+		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
+
+		h := teams.NewHandler(env.DB, teamsCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -347,7 +354,9 @@ func CreateTeamWithTheSameNameAsTeam(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil)
+		teamsCovers := env.MongoDB.Collection(mongodb.TeamsCoversCollection)
+
+		h := teams.NewHandler(env.DB, teamsCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -402,7 +411,7 @@ func CreateTeamWithoutName(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, teamsOnModerationCovers)
+		h := teams.NewHandler(env.DB, teamsOnModerationCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -448,7 +457,7 @@ func CreateTeamWithoutCover(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, teamsOnModerationCovers)
+		h := teams.NewHandler(env.DB, teamsOnModerationCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -503,7 +512,7 @@ func CreateTeamWithTooLargeCover(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, teamsOnModerationCovers)
+		h := teams.NewHandler(env.DB, teamsOnModerationCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

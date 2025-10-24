@@ -36,7 +36,7 @@ func GetTeamSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/teams/:id", h.GetTeam)
@@ -73,7 +73,7 @@ func GetTeamWithWrongId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		teamID := 9223372036854775807
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/teams/:id", h.GetTeam)
@@ -95,7 +95,7 @@ func GetTeamWithInvalidId(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		invalidTeamID := "!_!"
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/teams/:id", h.GetTeam)

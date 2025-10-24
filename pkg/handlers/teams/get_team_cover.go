@@ -1,15 +1,10 @@
 package teams
 
 import (
-	"errors"
 	"log"
 	"strconv"
 
-	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
-
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func (h handler) GetTeamCover(c *gin.Context) {
@@ -19,19 +14,18 @@ func (h handler) GetTeamCover(c *gin.Context) {
 		return
 	}
 
-	filter := bson.M{"team_id": teamID}
+	var path *string
 
-	var result mongoModels.TeamCover
-
-	if err := h.TeamsCovers.FindOne(c.Request.Context(), filter).Decode(&result); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			c.AbortWithStatusJSON(404, gin.H{"error": "команда не найдена"})
-			return
-		}
+	if err := h.DB.Raw("SELECT cover_path FROM teams WHERE id = ?", teamID).Scan(&path).Error; err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.Data(200, "image/jpeg", result.Cover)
+	if path == nil {
+		c.AbortWithStatusJSON(404, gin.H{"error": "команда не найдена"})
+		return
+	}
+
+	c.File(*path)
 }

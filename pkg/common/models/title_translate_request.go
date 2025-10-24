@@ -12,4 +12,10 @@ type TitleTranslateRequest struct {
 
 	TitleID uint  `gorm:"not null"`
 	Title   Title `gorm:"foreignKey:TitleID;references:id;constraint:OnDelete:CASCADE"`
+
+	ModeratorID *uint
+}
+
+func (TitleTranslateRequest) TableName() string {
+	return "titles_translate_requests"
 }

@@ -5,10 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func (h handler) GetMyTitleOnModerationCover(c *gin.Context) {
@@ -20,19 +17,20 @@ func (h handler) GetMyTitleOnModerationCover(c *gin.Context) {
 		return
 	}
 
-	var result mongoModels.TitleOnModerationCover
+	var path *string
 
-	filter := bson.M{"title_on_moderation_id": titleOnModerationID, "creator_id": claims.ID}
+	err = h.DB.Raw("SELECT cover_path FROM titles_on_moderation WHERE id = ? AND creator_id = ?", titleOnModerationID, claims.ID).Scan(&path).Error
 
-	if err := h.TitlesCovers.FindOne(c.Request.Context(), filter).Decode(&result); err != nil {
-		if err == mongo.ErrNoDocuments {
-			c.AbortWithStatusJSON(404, gin.H{"error": "обложка тайтла на модерации не найдена"})
-			return
-		}
+	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.Data(200, "image/jpeg", result.Cover)
+	if path == nil {
+		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено обложки тайтла на модерации"})
+		return
+	}
+
+	c.File(*path)
 }

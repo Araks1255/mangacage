@@ -1,22 +1,21 @@
 package testhelpers
 
 import (
-	"context"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 
-	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
-	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
 
 type CreateTeamOptions struct {
-	Description string
-	Cover       []byte
-	Collection  *mongo.Collection
-	ModeratorID uint
+	Description    string
+	Cover          []byte
+	PathToMediaDir string
+	ModeratorID    uint
 }
 
 func CreateTeam(db *gorm.DB, creatorID uint, opts ...CreateTeamOptions) (uint, error) {
@@ -26,49 +25,43 @@ func CreateTeam(db *gorm.DB, creatorID uint, opts ...CreateTeamOptions) (uint, e
 
 	team := models.Team{
 		Name:      uuid.New().String(),
-		CreatorID: creatorID,
+		CreatorID: &creatorID,
+	}
+
+	if len(opts) != 0 {
+		if opts[0].Description != "" {
+			team.Description = opts[0].Description
+		}
+		if opts[0].ModeratorID != 0 {
+			team.ModeratorID = &opts[0].ModeratorID
+		}
 	}
 
 	tx := db.Begin()
-	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	if len(opts) == 0 {
-		if result := tx.Create(&team); result.Error != nil {
-			return 0, result.Error
-		}
-		tx.Commit()
-		return team.ID, nil
-	}
-
-	if opts[0].Description != "" {
-		team.Description = opts[0].Description
-	}
-	if opts[0].ModeratorID != 0 {
-		team.ModeratorID = &opts[0].ModeratorID
-	}
-
-	if result := tx.Create(&team); result.Error != nil {
-		return 0, result.Error
-	}
-
-	if opts[0].Cover == nil && opts[0].Collection == nil {
-		tx.Commit()
-		return team.ID, nil
-	}
-
-	if opts[0].Collection == nil {
-		return 0, errors.New("Передана обложка, но не передана коллекция")
-	}
-
-	teamCover := mongoModels.TeamCover{
-		TeamID:    team.ID,
-		CreatorID: creatorID,
-		Cover:     opts[0].Cover,
-	}
-
-	if _, err := opts[0].Collection.InsertOne(context.Background(), teamCover); err != nil {
+	if err := db.Create(&team).Error; err != nil {
 		return 0, err
+	}
+
+	if len(opts) != 0 && len(opts[0].Cover) != 0 {
+		if opts[0].PathToMediaDir == "" {
+			return 0, errors.New("не передана директория для сохранения медиафайлов")
+		}
+
+		team.CoverPath = fmt.Sprintf("%s/teams/%d.jpg", opts[0].PathToMediaDir, team.ID)
+
+		if err := os.MkdirAll(filepath.Dir(team.CoverPath), 0644); err != nil {
+			return 0, err
+		}
+
+		if err := os.WriteFile(team.CoverPath, opts[0].Cover, 0644); err != nil {
+			return 0, err
+		}
+
+		if err := tx.Updates(&team).Error; err != nil {
+			return 0, err
+		}
 	}
 
 	tx.Commit()

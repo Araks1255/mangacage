@@ -1,12 +1,14 @@
 package participants
 
 import (
+	"errors"
 	"log"
-	"slices"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
+	"github.com/Araks1255/mangacage/pkg/handlers/helpers/teams"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func (h handler) LeaveTeam(c *gin.Context) {
@@ -16,83 +18,116 @@ func (h handler) LeaveTeam(c *gin.Context) {
 	defer utils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	var teamID *uint
+	teamID, teamLeader, newNumberOfTeamParticipants, code, err := leaveTeam(tx, claims.ID)
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
+		return
+	}
 
-	if err := tx.Raw("SELECT team_id FROM users WHERE id = ?", claims.ID).Scan(&teamID).Error; err != nil {
+	if teamLeader {
+		if newNumberOfTeamParticipants == 0 {
+			err = deleteTeam(tx, teamID)
+		} else {
+			err = teams.TransferTeamLeaderRole(tx, teamID)
+		}
+	}
+
+	if err != nil {
 		log.Println(err)
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	if teamID == nil {
-		c.AbortWithStatusJSON(409, gin.H{"error": "вы не состоите в команде перевода"})
-		return
-	}
-
-	var userRoles []string
-	tx.Raw(
-		`SELECT r.name FROM roles AS r
-		INNER JOIN user_roles AS ur ON r.id = ur.role_id
-		WHERE ur.user_id = ?`, claims.ID,
-	).Scan(&userRoles)
-
-	if slices.Contains(userRoles, "team_leader") { // Если юзер лидер команды
-		var numberOfParticipants int64
-
-		if err := tx.Raw("SELECT COUNT(*) FROM users WHERE team_id = ?", teamID).Scan(&numberOfParticipants).Error; err != nil { // Считаем сколько участников
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-			return
-		}
-
-		if numberOfParticipants > 1 { // Если есть кто-то кроме него
-			result := tx.Exec( // Берём рандомного участника его команды и назначаем лидером
-				`INSERT INTO user_roles (user_id, role_id)
-				SELECT
-					(SELECT id FROM users WHERE team_id = ? AND id != ? LIMIT 1),
-					(SELECT id FROM roles WHERE name = 'team_leader')`,
-				teamID, claims.ID,
-			)
-
-			if result.Error != nil {
-				log.Println(result.Error)
-				c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-				return
-			}
-
-			if result.RowsAffected == 0 {
-				c.AbortWithStatusJSON(500, gin.H{"error": "не удалось назначить роль лидера команды другому участнику"})
-				return
-			}
-		}
-	}
-
-	result := tx.Exec("UPDATE users SET team_id = null WHERE id = ?", claims.ID)
-
-	if result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-		return
-	}
-
-	if result.RowsAffected == 0 {
-		c.AbortWithStatusJSON(500, gin.H{"error": "не удалось исключить вас из команды"})
-		return
-	}
-
-	if result := tx.Exec(
-		`DELETE FROM user_roles AS ur
-		USING roles AS r WHERE ur.role_id = r.id
-		AND ur.user_id = ?
-		AND r.type = 'team'`,
-		claims.ID,
-	); result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
 		return
 	}
 
 	tx.Commit()
 
 	c.JSON(200, gin.H{"success": "вы успешно покинули команду перевода"})
+}
+
+func leaveTeam(db *gorm.DB, userID uint) (teamID uint, teamLeader bool, newNumberOfTeamParticipants int64, code int, err error) {
+	var user struct {
+		ID                          *uint
+		TeamID                      *uint
+		TeamLeader                  bool
+		NewNumberOfTeamParticipants *int64
+	}
+
+	query :=
+		`WITH user AS (
+			SELECT
+				EXISTS(
+					SELECT
+						1
+					FROM
+						users AS u
+						INNER JOIN user_roles AS ur ON ur.user_id = u.id
+						INNER JOIN roles AS r ON r.id = ur.role_id
+					WHERE
+						u.id = ? AND r.name = 'team_leader'
+				) AS team_leader,
+				team_id
+			FROM
+				users
+			WHERE
+				id = ?
+		),
+		team AS (
+			SELECT
+				COUNT(DISTINCT users.id) - 1 AS new_number_of_team_participants 
+			FROM
+				teams AS t
+				INNER JOIN users AS u ON t.id = u.team_id
+			WHERE
+				u.id = ?
+			GROUP BY
+				t.id
+		),
+		delete_team_roles AS (
+			DELETE FROM
+				user_roles AS ur
+			USING
+				roles AS r
+			WHERE
+				r.id = ur.role_id
+			AND
+				ur.user_id = ?
+			AND
+				r.type = 'team'
+		)
+		UPDATE
+			users
+		SET
+			team_id = NULL
+		WHERE
+			id = ?
+		RETURNING
+			id,
+			(SELECT team_id FROM user), 
+			(SELECT team_leader FROM user),
+			(SELECT new_number_of_team_participants FROM team)`
+
+	if err := db.Raw(query, userID, userID, userID, userID).Scan(&user).Error; err != nil {
+		return 0, false, 0, 500, err
+	}
+
+	if user.ID == nil {
+		return 0, false, 0, 409, errors.New("ваш аккаунт не найден в базе данных")
+	}
+
+	if user.TeamID == nil {
+		return 0, false, 0, 409, errors.New("вы не состоите в команде перевода")
+	}
+
+	if user.NewNumberOfTeamParticipants == nil {
+		zero := int64(0)
+		user.NewNumberOfTeamParticipants = &zero
+	}
+
+	return *user.TeamID, user.TeamLeader, *user.NewNumberOfTeamParticipants, 0, nil
+}
+
+func deleteTeam(db *gorm.DB, id uint) error {
+	return db.Exec("DELETE FROM teams WHERE id = ?", id).Error
 }

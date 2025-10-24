@@ -49,10 +49,10 @@ func DeclineTeamJoinRequestSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.DELETE("/teams/my/join-requests/:id", h.DeclineTeamJoinRequest)
 
 		url := fmt.Sprintf("/teams/my/join-requests/%d", requestID)
@@ -76,10 +76,10 @@ func DeclineTeamJoinRequestSuccess(env testenv.Env) func(*testing.T) {
 
 func DeclineTeamJoinRequestByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.DELETE("/teams/my/join-requests/:id", h.DeclineTeamJoinRequest)
 
 		req := httptest.NewRequest("DELETE", "/teams/my/join-requests/18", nil)
@@ -100,10 +100,10 @@ func DeclineTeamJoinRequestByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.DELETE("/teams/my/join-requests/:id", h.DeclineTeamJoinRequest)
 
 		req := httptest.NewRequest("DELETE", "/teams/my/join-requests/18", nil)
@@ -155,10 +155,10 @@ func DeclineTeamJoinRequestToAnotherTeam(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.DELETE("/teams/my/join-requests/:id", h.DeclineTeamJoinRequest)
 
 		url := fmt.Sprintf("/teams/my/join-requests/%d", requestID)
@@ -198,10 +198,10 @@ func DeclineTeamJoinRequestWithWrongRequestId(env testenv.Env) func(*testing.T) 
 
 		requestID := 9223372036854775807
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.DELETE("/teams/my/join-requests/:id", h.DeclineTeamJoinRequest)
 
 		url := fmt.Sprintf("/teams/my/join-requests/%d", requestID)
@@ -232,10 +232,10 @@ func DeclineTeamJoinRequestWithInvalidRequestId(env testenv.Env) func(*testing.T
 
 		invalidRequestID := ":o"
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.DELETE("/teams/my/join-requests/:id", h.DeclineTeamJoinRequest)
 
 		url := fmt.Sprintf("/teams/my/join-requests/%s", invalidRequestID)

@@ -1,43 +1,66 @@
 package moderation
 
 import (
+	"errors"
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
-	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
+	"gorm.io/gorm"
 )
 
 func (h handler) CancelAppealForProfileChanges(c *gin.Context) {
 	claims := c.MustGet("claims").(*auth.Claims)
 
-	tx := h.DB.Begin()
-	defer utils.RollbackOnPanic(tx)
-	defer tx.Rollback()
-
-	var profileChangesID *uint
-
-	if err := tx.Raw("DELETE FROM users_on_moderation WHERE existing_id = ? RETURNING id", claims.ID).Scan(&profileChangesID).Error; err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+	profilePicturePath, code, err := deleteProfileChanges(h.DB, claims.ID)
+	if err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
-	if profileChangesID == nil {
-		c.AbortWithStatusJSON(404, gin.H{"error": "не найдено изменений вашего профиля на модерации"})
-		return
+	c.JSON(200, gin.H{"success": "заявка на модерацию изменений профиля успешно отменена"})
+
+	if profilePicturePath != nil {
+		if err := deleteProfileChangesProfilePicture(*profilePicturePath); err != nil {
+			log.Println(err)
+		}
+	}
+}
+
+func deleteProfileChanges(db *gorm.DB, existingID uint) (profilePicturePath *string, code int, err error) {
+	var res struct {
+		ID                 *uint
+		ProfilePicturePath *string
 	}
 
-	filter := bson.M{"user_on_moderation_id": *profileChangesID}
+	err = db.Raw(
+		`DELETE FROM
+			users_on_moderation
+		WHERE
+			existing_id = ?
+		RETURNING
+			id, profile_picture_path`,
+	).Scan(&res).Error
 
-	if _, err := h.ProfilePictures.DeleteOne(c.Request.Context(), filter); err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
-		return
+	if err != nil {
+		return nil, 500, err
 	}
 
-	tx.Commit()
+	if res.ID == nil {
+		return nil, 404, errors.New("не найдено ваших изменений профиля")
+	}
 
-	c.JSON(200, gin.H{"success": "обращение на модерацию изменений профиля успешно отменено"})
+	return res.ProfilePicturePath, 0, nil
+}
+
+func deleteProfileChangesProfilePicture(path string) error {
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("ошибка при удалении аватарки изменений профиля\nпуть: %s\nошибка: %s", path, err.Error())
+	}
+	return nil
 }

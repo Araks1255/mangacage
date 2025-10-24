@@ -14,10 +14,10 @@ import (
 
 func GetLeaveTeamScenarios(env testenv.Env) map[string]func(*testing.T) {
 	return map[string]func(*testing.T){
-		"success": LeaveTeamSuccess(env),
-		"by team leader success": LeaveTeamByTeamLeaderSuccess(env),
+		"success":                     LeaveTeamSuccess(env),
+		"by team leader success":      LeaveTeamByTeamLeaderSuccess(env),
 		"by only team leader success": LeaveTeamWithOnlyTeamLeaderSuccess(env),
-		"with no team": LeaveTeamWithNoTeam(env),
+		"with no team":                LeaveTeamWithNoTeam(env),
 	}
 }
 
@@ -37,7 +37,7 @@ func LeaveTeamSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -97,7 +97,7 @@ func LeaveTeamByTeamLeaderSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -155,7 +155,7 @@ func LeaveTeamWithOnlyTeamLeaderSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -181,7 +181,7 @@ func LeaveTeamWithOnlyTeamLeaderSuccess(env testenv.Env) func(*testing.T) {
 
 func LeaveTeamByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -205,7 +205,7 @@ func LeaveTeamWithNoTeam(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

@@ -25,8 +25,8 @@ func GetAddRoleToParticipantScenarios(env testenv.Env) map[string]func(*testing.
 		"no role id":                               AddRoleToParticipantWithNoRoleId(env),
 		"wrong participant id":                     AddRoleToParticipantWithWrongParticipantId(env),
 		"wrong role id":                            AddRoleToParticipantWithWrongRoleId(env),
-		"role of team leader by ex team leader":    AddRoleOfTeamLeaderToParticipantByExTeamLeader(env),
-		"role of ex team leader by ex team leader": AddRoleOfExTeamLeaderByExTeamLeader(env),
+		"role of team leader by ex team leader":    AddRoleOfTeamLeaderToParticipantByViceTeamLeader(env),
+		"role of ex team leader by ex team leader": AddRoleOfViceTeamLeaderByViceTeamLeader(env),
 		"participant from another team":            AddRoleToParticipantFromAnotherTeam(env),
 	}
 }
@@ -58,7 +58,7 @@ func AddRoleToParticipantSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -120,7 +120,7 @@ func AddRoleOfTeamLeaderToParticipantSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -157,7 +157,7 @@ func AddRoleOfTeamLeaderToParticipantSuccess(env testenv.Env) func(*testing.T) {
 
 func AddRoleToParticipantByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -182,7 +182,7 @@ func AddRoleToParticipantByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -216,7 +216,7 @@ func AddRoleToParticipantWithInvalidParticipantId(env testenv.Env) func(*testing
 
 		invalidParticipantID := "*-*"
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -251,7 +251,7 @@ func AddRoleToParticipantWithInvalidRoleId(env testenv.Env) func(*testing.T) {
 
 		invalidRoleID := "^_^/"
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -292,7 +292,7 @@ func AddRoleToParticipantWithNoRoleId(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -344,7 +344,7 @@ func AddRoleToParticipantWithWrongParticipantId(env testenv.Env) func(*testing.T
 
 		wrongParticipantID := 9223372036854775807
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -400,7 +400,7 @@ func AddRoleToParticipantWithWrongRoleId(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -435,19 +435,19 @@ func AddRoleToParticipantWithWrongRoleId(env testenv.Env) func(*testing.T) {
 	}
 }
 
-func AddRoleOfTeamLeaderToParticipantByExTeamLeader(env testenv.Env) func(*testing.T) {
+func AddRoleOfTeamLeaderToParticipantByViceTeamLeader(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		exTeamLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"ex_team_leader"}})
+		ViceTeamLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"vice_team_leader"}})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		teamID, err := testhelpers.CreateTeam(env.DB, exTeamLeaderID)
+		teamID, err := testhelpers.CreateTeam(env.DB, ViceTeamLeaderID)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if err := testhelpers.AddUserToTeam(env.DB, exTeamLeaderID, teamID); err != nil {
+		if err := testhelpers.AddUserToTeam(env.DB, ViceTeamLeaderID, teamID); err != nil {
 			t.Fatal(err)
 		}
 
@@ -462,7 +462,7 @@ func AddRoleOfTeamLeaderToParticipantByExTeamLeader(env testenv.Env) func(*testi
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -481,7 +481,7 @@ func AddRoleOfTeamLeaderToParticipantByExTeamLeader(env testenv.Env) func(*testi
 		req := httptest.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
 
-		cookie, err := testhelpers.CreateCookieWithToken(exTeamLeaderID, env.SecretKey)
+		cookie, err := testhelpers.CreateCookieWithToken(ViceTeamLeaderID, env.SecretKey)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -497,19 +497,19 @@ func AddRoleOfTeamLeaderToParticipantByExTeamLeader(env testenv.Env) func(*testi
 	}
 }
 
-func AddRoleOfExTeamLeaderByExTeamLeader(env testenv.Env) func(*testing.T) {
+func AddRoleOfViceTeamLeaderByViceTeamLeader(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		exTeamLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"ex_team_leader"}})
+		ViceTeamLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"vice_team_leader"}})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		teamID, err := testhelpers.CreateTeam(env.DB, exTeamLeaderID)
+		teamID, err := testhelpers.CreateTeam(env.DB, ViceTeamLeaderID)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if err := testhelpers.AddUserToTeam(env.DB, exTeamLeaderID, teamID); err != nil {
+		if err := testhelpers.AddUserToTeam(env.DB, ViceTeamLeaderID, teamID); err != nil {
 			t.Fatal(err)
 		}
 
@@ -518,20 +518,20 @@ func AddRoleOfExTeamLeaderByExTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		var roleOfExTeamLeaderID uint
-		env.DB.Raw("SELECT id FROM roles WHERE name = 'ex_team_leader'").Scan(&roleOfExTeamLeaderID)
-		if roleOfExTeamLeaderID == 0 {
+		var roleOfViceTeamLeaderID uint
+		env.DB.Raw("SELECT id FROM roles WHERE name = 'vice_team_leader'").Scan(&roleOfViceTeamLeaderID)
+		if roleOfViceTeamLeaderID == 0 {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.POST("/teams/my/participants/:id/roles", h.AddRoleToParticipant)
 
 		body := map[string]uint{
-			"roleId": roleOfExTeamLeaderID,
+			"roleId": roleOfViceTeamLeaderID,
 		}
 
 		jsonBody, err := json.Marshal(body)
@@ -543,7 +543,7 @@ func AddRoleOfExTeamLeaderByExTeamLeader(env testenv.Env) func(*testing.T) {
 		req := httptest.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
 
-		cookie, err := testhelpers.CreateCookieWithToken(exTeamLeaderID, env.SecretKey)
+		cookie, err := testhelpers.CreateCookieWithToken(ViceTeamLeaderID, env.SecretKey)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -591,7 +591,7 @@ func AddRoleToParticipantFromAnotherTeam(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

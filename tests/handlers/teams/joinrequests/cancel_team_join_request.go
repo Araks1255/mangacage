@@ -39,7 +39,7 @@ func CancelTeamJoinRequestSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -63,7 +63,7 @@ func CancelTeamJoinRequestSuccess(env testenv.Env) func(*testing.T) {
 
 func CancelTeamJoinRequestByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -102,7 +102,7 @@ func CancelTeamJoinRequestFromAnotherUser(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -136,7 +136,7 @@ func CancelTeamJoinRequestWithWrongRequestId(env testenv.Env) func(*testing.T) {
 
 		requestID := 9223372036854775807
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -170,7 +170,7 @@ func CancelTeamJoinRequestWithInvalidRequestId(env testenv.Env) func(*testing.T)
 
 		requestID := "*_*"
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

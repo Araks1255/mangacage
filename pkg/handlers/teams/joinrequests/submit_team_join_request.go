@@ -10,6 +10,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/common/models"
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -44,7 +45,21 @@ func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 	}
 
 	c.JSON(201, gin.H{"success": "заявка на вступление в команду успешно отправлена"})
-	// Уведомление лидеру
+
+	var message string
+	if joinRequest.IntroductoryMessage != nil {
+		message = *joinRequest.IntroductoryMessage
+	}
+
+	if _, err := h.NotificationsCLient.NotifyAboutSubmittedTeamJoinRequest(
+		c.Request.Context(), &pb.TeamJoinRequest{
+			TeamID:      uint64(joinRequest.TeamID),
+			CandidateID: uint64(joinRequest.CandidateID),
+			Message:     message,
+		},
+	); err != nil {
+		log.Println(err)
+	}
 }
 
 func mapSubmitTeamJoinRequestBodyIntoTeamJoinRequest(

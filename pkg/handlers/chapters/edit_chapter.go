@@ -13,7 +13,8 @@ import (
 	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
-	pb "github.com/Araks1255/mangacage_protos"
+	"github.com/Araks1255/mangacage_protos/gen/enums"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -40,7 +41,7 @@ func (h handler) EditChapter(c *gin.Context) {
 		return
 	}
 
-	err = tx.Clauses(helpers.OnExistingIDConflictClause).Create(&chapter).Error
+	err = helpers.UpsertEntityChanges(tx, chapter, *chapter.ExistingID)
 
 	if err != nil {
 		code, err := parseChapterEditError(err)
@@ -55,7 +56,13 @@ func (h handler) EditChapter(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "изменения главы успешно отправлены на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutChapterOnModeration(c.Request.Context(), &pb.ChapterOnModeration{ID: uint64(*chapter.ExistingID), New: false}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutNewModerationRequest(
+		c.Request.Context(),
+		&pb.ModerationRequest{
+			EntityOnModeration: enums.EntityOnModeration_ENTITY_ON_MODERATION_CHAPTER,
+			ID:                 uint64(chapter.ID),
+		},
+	); err != nil {
 		log.Println(err)
 	}
 }

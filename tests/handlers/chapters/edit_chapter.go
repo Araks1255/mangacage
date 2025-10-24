@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -77,7 +76,7 @@ func EditChapterSuccess(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersPages)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters/:id/edited", h.EditChapter)
 
 		url := fmt.Sprintf("/chapters/%d/edited", chapterID)
@@ -105,7 +104,7 @@ func EditChapterByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters/:id/edited", h.EditChapter)
 
 		req := httptest.NewRequest("POST", "/chapters/18/edited", nil)
@@ -129,7 +128,7 @@ func EditChapterByNonTeamLeader(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters/:id/edited", h.EditChapter)
 
 		req := httptest.NewRequest("POST", "/chapters/18/edited", nil)
@@ -174,7 +173,7 @@ func EditChapterByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*test
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters/:id/edited", h.EditChapter)
 
 		url := fmt.Sprintf("/chapters/%d/edited", chapterID)
@@ -223,7 +222,7 @@ func EditChapterWithWrongVolumeId(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters/:id/edited", h.EditChapter)
 
 		url := fmt.Sprintf("/chapters/%d/edited", chapterID)
@@ -294,7 +293,7 @@ func EditChapterByAddingTheSameNameAsChapterOnModeration(env testenv.Env) func(*
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters/:id/edited", h.EditChapter)
 
 		url := fmt.Sprintf("/chapters/%d/edited", existingChapter1ID)
@@ -383,7 +382,7 @@ func EditChapterByAddingTheSameNameAsChapter(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters/:id/edited", h.EditChapter)
 
 		url := fmt.Sprintf("/chapters/%d/edited", editableChapterID)
@@ -418,7 +417,7 @@ func EditChapterWithInvalidChapterId(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters/:id/edited", h.EditChapter)
 
 		url := fmt.Sprintf("/chapters/%s/edited", invalidChapterID)
@@ -462,7 +461,7 @@ func EditChapterWithoutEditableParameters(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters/:id/edited", h.EditChapter)
 
 		url := fmt.Sprintf("/chapters/%d/edited", chapterID)
@@ -495,7 +494,7 @@ func EditChapterWithWrongContentType(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters/:id/edited", h.EditChapter)
 
 		req := httptest.NewRequest("POST", "/chapters/18/edited", nil)

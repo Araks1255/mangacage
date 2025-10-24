@@ -11,6 +11,8 @@ import (
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers/teams"
+	"github.com/Araks1255/mangacage_protos/gen/enums"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"gorm.io/gorm"
@@ -26,11 +28,7 @@ func (h handler) CreateTeam(c *gin.Context) {
 		return
 	}
 
-	tx := h.DB.Begin()
-	defer dbUtils.RollbackOnPanic(tx)
-	defer tx.Rollback()
-
-	code, err := checkCreateTeamConflicts(tx, requestBody, claims.ID)
+	code, err := checkCreateTeamConflicts(h.DB, requestBody, claims.ID)
 	if err != nil {
 		if code == 500 {
 			log.Println(err)
@@ -39,9 +37,13 @@ func (h handler) CreateTeam(c *gin.Context) {
 		return
 	}
 
+	tx := h.DB.Begin()
+	defer dbUtils.RollbackOnPanic(tx)
+	defer tx.Rollback()
+
 	newTeam := requestBody.ToTeamOnModeration(claims.ID)
 
-	err = tx.Clauses(helpers.OnIDConflictClause).Create(&newTeam).Error
+	err = helpers.UpsertEntityOnModeration(tx, newTeam, newTeam.ID)
 
 	if err != nil {
 		code, err := parseCreateTeamError(err)
@@ -52,17 +54,27 @@ func (h handler) CreateTeam(c *gin.Context) {
 		return
 	}
 
-	err = teams.UpsertTeamOnModerationCover(c.Request.Context(), h.TeamsCovers, requestBody.Cover, newTeam.ID, claims.ID)
-	if err != nil {
-		log.Println(err)
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+	if code, err := teams.CreateTeamOnModerationCover(tx, h.PathToMediaDir, newTeam.ID, requestBody.Cover); err != nil {
+		if code == 500 {
+			log.Println(err)
+		}
+		c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 		return
 	}
 
 	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "команда успешно отправлена на модерацию"})
-	// Уведомление
+
+	if _, err := h.NotificationsClient.NotifyAboutNewModerationRequest(
+		c.Request.Context(),
+		&pb.ModerationRequest{
+			EntityOnModeration: enums.EntityOnModeration_ENTITY_ON_MODERATION_TEAM,
+			ID:                 uint64(newTeam.ID),
+		},
+	); err != nil {
+		log.Println(err)
+	}
 }
 
 func checkCreateTeamConflicts(db *gorm.DB, requestBody dto.CreateTeamDTO, userID uint) (code int, err error) {

@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams"
 	"github.com/Araks1255/mangacage/testhelpers"
 	"github.com/Araks1255/mangacage/tests/testenv"
@@ -40,7 +39,7 @@ func GetTeamCoverSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := teams.NewHandler(env.DB, teamsCovers)
+		h := teams.NewHandler(env.DB, teamsCovers, nil)
 
 		r := gin.New()
 		r.GET("/teams/:id/cover", h.GetTeamCover)
@@ -67,7 +66,7 @@ func GetTeamCoverWithWrongTeamId(env testenv.Env) func(*testing.T) {
 
 		teamID := 9223372036854775807
 
-		h := teams.NewHandler(env.DB, teamsCovers)
+		h := teams.NewHandler(env.DB, teamsCovers, nil)
 
 		r := gin.New()
 		r.GET("/teams/:id/cover", h.GetTeamCover)
@@ -90,7 +89,7 @@ func GetTeamCoverWithInvalidTeamId(env testenv.Env) func(*testing.T) {
 
 		invalidTeamID := "8)"
 
-		h := teams.NewHandler(env.DB, teamsCovers)
+		h := teams.NewHandler(env.DB, teamsCovers, nil)
 
 		r := gin.New()
 		r.GET("/teams/:id/cover", h.GetTeamCover)

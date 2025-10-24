@@ -38,7 +38,7 @@ func GetMyTeamJoinRequestsSuccess(env testenv.Env) func(*testing.T) {
 			}
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -92,7 +92,7 @@ func GetMyTeamJoinRequestsSuccess(env testenv.Env) func(*testing.T) {
 
 func GetMyTeamJoinRequestsByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -116,7 +116,7 @@ func GetMyTeamJoinRequestsWithNoJoinRequests(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

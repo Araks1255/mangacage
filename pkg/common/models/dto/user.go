@@ -11,18 +11,18 @@ import (
 
 type CreateUserDTO struct {
 	UserName      string  `json:"userName" binding:"required"`
-	Password      string  `json:"password" binding:"required"`
-	AboutYourself *string `json:"aboutYourself"`
+	Password      string  `json:"password" binding:"required,min=8"`
+	AboutYourself *string `json:"aboutYourself" binding:"omitempty,max=900"`
 }
 
 type EditUserOnVerificationDTO struct {
 	UserName      *string `json:"userName"`
-	AboutYourself *string `json:"aboutYourself"`
+	AboutYourself *string `json:"aboutYourself" binding:"omitempty,max=900"`
 }
 
 type EditUserDTO struct {
 	UserName       *string               `form:"userName"`
-	AboutYourself  *string               `form:"aboutYourself"`
+	AboutYourself  *string               `form:"aboutYourself" binding:"omitempty,max=900"`
 	ProfilePicture *multipart.FileHeader `form:"profilePicture"`
 }
 
@@ -32,7 +32,9 @@ type ResponseUserDTO struct {
 
 	UserName      string  `json:"userName"`
 	AboutYourself *string `json:"aboutYourself,omitempty"`
-	Visible       bool
+
+	Visible     bool
+	Verificated bool `json:"verificated,omitempty"`
 
 	Team   *string `json:"team,omitempty"`
 	TeamID *uint   `json:"teamId,omitempty"`
@@ -64,8 +66,8 @@ func (u EditUserOnVerificationDTO) ToUser(id uint) models.User {
 	return user
 }
 
-func (u EditUserDTO) ToUserOnModeration(existingID uint) models.UserOnModeration {
-	return models.UserOnModeration{
+func (u EditUserDTO) ToUserOnModeration(existingID uint) *models.UserOnModeration {
+	return &models.UserOnModeration{
 		UserName:      u.UserName,
 		AboutYourself: u.AboutYourself,
 		ExistingID:    &existingID,

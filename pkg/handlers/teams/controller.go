@@ -2,22 +2,23 @@ package teams
 
 import (
 	"github.com/Araks1255/mangacage/pkg/middlewares"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
+
 	"gorm.io/gorm"
 )
 
 type handler struct {
-	DB          *gorm.DB
-	TeamsCovers *mongo.Collection
+	DB                  *gorm.DB
+	PathToMediaDir string
+	NotificationsClient pb.SiteNotificationsClient
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.Engine) {
-	teamsCoversCollection := client.Database("mangacage").Collection("teams_covers")
-
+func RegisterRoutes(db *gorm.DB, pathToMediaDir string, notificationsClient pb.SiteNotificationsClient, secretKey string, r *gin.Engine) {
 	h := handler{
-		DB:          db,
-		TeamsCovers: teamsCoversCollection,
+		DB:                  db,
+		PathToMediaDir: pathToMediaDir,
+		NotificationsClient: notificationsClient,
 	}
 
 	rolesRequired := []string{"team_leader"}
@@ -43,9 +44,9 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, secretKey string, r *gin.
 	}
 }
 
-func NewHandler(db *gorm.DB, teamsCovers *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, notificationsClient pb.SiteNotificationsClient) handler {
 	return handler{
-		DB:          db,
-		TeamsCovers: teamsCovers,
+		DB:                  db,
+		NotificationsClient: notificationsClient,
 	}
 }

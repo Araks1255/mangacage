@@ -7,7 +7,7 @@ import (
 )
 
 type CreateTitleTranslateRequestDTO struct {
-	Message *string `json:"message"`
+	Message *string `json:"message" binding:"omitempty,max=100"`
 	TeamID  uint    `json:"teamId" binding:"required"`
 	TitleID uint    `json:"titleId" binding:"required"`
 }

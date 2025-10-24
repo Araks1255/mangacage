@@ -9,24 +9,28 @@ import (
 	"gorm.io/gorm"
 )
 
-func UpsertTitleOnModerationTags(db *gorm.DB, titleOnModerationID uint, tagsIDs []uint) (code int, err error) {
-	err = db.Exec("DELETE FROM title_on_moderation_tags WHERE title_on_moderation_id = ?", titleOnModerationID).Error
-	if err != nil {
-		return 500, err
+func UpsertTitleOnModerationTags(db *gorm.DB, id uint, tagsIDs []uint) (code int, err error) {
+	if len(tagsIDs) == 0 {
+		return 0, nil
 	}
 
-	err = db.Exec(
-		`INSERT INTO title_on_moderation_tags (title_on_moderation_id, tag_id)
-		SELECT ?, UNNEST(?::BIGINT[])`,
-		titleOnModerationID, pq.Array(tagsIDs),
-	).Error
+	query :=
+		`WITH delete_tags AS (
+			DELETE FROM
+				title_on_moderation_tags
+			WHERE
+				title_on_moderation_id = ?
+		)
+		INSERT INTO
+			title_on_moderation_tags (title_on_moderation_id, tag_id)
+		SELECT
+			?, UNNEST(?::BIGINT[])`
 
-	if err != nil {
+	if err := db.Exec(query, id, id, pq.Array(tagsIDs)).Error; err != nil {
 		if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleOnModerationTagsTag) {
-			return 404, errors.New("теги не найдены")
-		} else {
-			return 500, err
+			return 400, errors.New("тег не найден")
 		}
+		return 500, err
 	}
 
 	return 0, nil

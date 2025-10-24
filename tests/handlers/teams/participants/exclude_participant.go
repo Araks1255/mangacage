@@ -43,7 +43,7 @@ func ExcludeParticipantSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -91,7 +91,7 @@ func ExcludeParticipantWithInvalidId(env testenv.Env) func(*testing.T) {
 
 		invalidParticipantID := "}._.{"
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -134,7 +134,7 @@ func ExcludeParticipantWithWrongId(env testenv.Env) func(*testing.T) {
 
 		participantID := 9223372036854775807
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -185,7 +185,7 @@ func ExcludeParticipantFromAnotherTeam(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -226,7 +226,7 @@ func ExcludeYourself(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))

@@ -3,15 +3,14 @@ package migrations
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
 
-func Migrate(ctx context.Context, db *gorm.DB, mongoDB *mongo.Database) error {
+func Migrate(ctx context.Context, db *gorm.DB, pathToMediaDir string) error {
 	if err := gormMigrate(db); err != nil {
 		return err
 	}
-	if err := mongoMigrate(ctx, mongoDB); err != nil {
+	if err := fsMigrate(pathToMediaDir); err != nil {
 		return err
 	}
 	return nil

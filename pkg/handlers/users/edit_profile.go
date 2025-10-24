@@ -1,10 +1,16 @@
 package users
 
 import (
-	"context"
+	"bytes"
 	"errors"
+	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
+	"io"
 	"log"
 	"mime/multipart"
+	"os"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
@@ -13,12 +19,10 @@ import (
 	"github.com/Araks1255/mangacage/pkg/common/utils"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
 	"github.com/Araks1255/mangacage/pkg/handlers/helpers"
-	pb "github.com/Araks1255/mangacage_protos"
+	"github.com/Araks1255/mangacage_protos/gen/enums"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"gorm.io/gorm"
 )
 
@@ -32,7 +36,7 @@ func (h handler) EditProfile(c *gin.Context) {
 		return
 	}
 
-	code, err := checkEditProfileConflicts(h.DB, requestBody, claims.ID)
+	code, err := checkEditProfileConflicts(h.DB, requestBody)
 	if err != nil {
 		if code == 500 {
 			log.Println(err)
@@ -41,13 +45,13 @@ func (h handler) EditProfile(c *gin.Context) {
 		return
 	}
 
-	editedProfile := requestBody.ToUserOnModeration(claims.ID)
-
 	tx := h.DB.Begin()
 	defer dbUtils.RollbackOnPanic(tx)
 	defer tx.Rollback()
 
-	err = tx.Clauses(helpers.OnExistingIDConflictClause).Create(&editedProfile).Error
+	editedProfile := requestBody.ToUserOnModeration(claims.ID)
+
+	err = helpers.UpsertEntityChanges(tx, editedProfile, *editedProfile.ExistingID)
 
 	if err != nil {
 		if dbErrors.IsUniqueViolation(err, constraints.UniqUserOnModerationUserName) {
@@ -59,10 +63,11 @@ func (h handler) EditProfile(c *gin.Context) {
 	}
 
 	if requestBody.ProfilePicture != nil {
-		err = upsertProfilePicture(c.Request.Context(), h.UsersProfilePictures, requestBody.ProfilePicture, editedProfile.ID, claims.ID)
-		if err != nil {
-			log.Println(err)
-			c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		if code, err := createUserProfilePicture(tx, h.PathToMediaDir, editedProfile.ID, requestBody.ProfilePicture); err != nil {
+			if code == 500 {
+				log.Println(err)
+			}
+			c.AbortWithStatusJSON(code, gin.H{"error": err.Error()})
 			return
 		}
 	}
@@ -71,15 +76,18 @@ func (h handler) EditProfile(c *gin.Context) {
 
 	c.JSON(201, gin.H{"success": "изменения профиля успешно отправлены на модерацию"})
 
-	if _, err := h.NotificationsClient.NotifyAboutUserOnModeration(c.Request.Context(), &pb.User{
-		ID:  uint64(*editedProfile.ExistingID),
-		New: false,
-	}); err != nil {
+	if _, err := h.NotificationsClient.NotifyAboutNewModerationRequest(
+		c.Request.Context(),
+		&pb.ModerationRequest{
+			EntityOnModeration: enums.EntityOnModeration_ENTITY_ON_MODERATION_PROFILE_CHANGES,
+			ID:                 uint64(editedProfile.ID),
+		},
+	); err != nil {
 		log.Println(err)
 	}
 }
 
-func checkEditProfileConflicts(db *gorm.DB, requestBody dto.EditUserDTO, userID uint) (code int, err error) {
+func checkEditProfileConflicts(db *gorm.DB, requestBody dto.EditUserDTO) (code int, err error) {
 	ok, err := utils.HasAnyNonEmptyFields(&requestBody)
 	if err != nil {
 		return 500, err
@@ -103,19 +111,58 @@ func checkEditProfileConflicts(db *gorm.DB, requestBody dto.EditUserDTO, userID 
 	return 0, nil
 }
 
-func upsertProfilePicture(ctx context.Context, collection *mongo.Collection, pictureFileHeader *multipart.FileHeader, userOnModerationID, userID uint) error {
-	profilePicture, err := utils.ReadMultipartFile(pictureFileHeader, 2<<20)
+func createUserProfilePicture(db *gorm.DB, pathToMediaDir string, id uint, profilePicture *multipart.FileHeader) (code int, err error) {
+	if profilePicture == nil {
+		return 0, nil
+	}
+
+	file, err := profilePicture.Open()
 	if err != nil {
-		return err
+		return 500, err
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return 500, err
 	}
 
-	filter := bson.M{"user_on_moderation_id": userOnModerationID}
-	update := bson.M{"$set": bson.M{"profilePicture": profilePicture, "creator_id": userID}}
-	opts := options.Update().SetUpsert(true)
-
-	if _, err := collection.UpdateOne(ctx, filter, update, opts); err != nil {
-		return err
+	_, format, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return 400, errors.New("ошибка при декодировании файла. скорее всего, было отправлено не фото")
 	}
 
-	return nil
+	path := fmt.Sprintf("%s/users_on_moderation/%d.%s", pathToMediaDir, id, format)
+
+	var oldPath *string
+
+	if err := db.Raw("SELECT profile_picture_path FROM users_on_moderation WHERE id = ?", id).Scan(&oldPath).Error; err != nil {
+		log.Printf("ошибка при получении старого пути к аватарке изменений профиля\nid изменений профиля: %d\nошибка: %s", id, err.Error())
+		return 500, err // Я бы не хотел возвращать здесь ошибку, так как запрос не такой уж и важный, но postgres всё равно блокирует транзакцию при ошибке
+	}
+
+	result := db.Exec("UPDATE users_on_moderation SET profile_picture_path = ? WHERE id = ?", path, id)
+
+	if result.Error != nil {
+		return 500, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return 500, errors.New("не удалось добавить путь к аватарке изменений профиля")
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return 500, err
+	}
+
+	if oldPath != nil && *oldPath != path {
+		if err := os.Remove(*oldPath); err != nil {
+			log.Printf(
+				"не удалось удалить старый файл с аватаркой изменений профиля\nid изменений профиля: %d\nпуть: %s\nошибка: %s",
+				id, *oldPath, err.Error(),
+			)
+		}
+	}
+
+	return 0, nil
 }

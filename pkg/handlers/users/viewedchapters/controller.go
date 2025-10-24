@@ -17,6 +17,7 @@ func RegisterRoutes(db *gorm.DB, secretKey string, r *gin.Engine) {
 	viewedChapters.Use(middlewares.Auth(secretKey))
 	{
 		viewedChapters.DELETE("/:id", h.DeleteViewedChapter)
+		viewedChapters.DELETE("by-title/:id", h.DeleteViewedChaptersByTitle)
 		viewedChapters.POST("/:id", h.CreateViewedChapter)
 		viewedChapters.GET("/", h.GetViewedChapters)
 	}

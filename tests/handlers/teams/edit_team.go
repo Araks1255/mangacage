@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/teams"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -71,7 +70,7 @@ func EditTeamSuccess(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, teamsCovers)
+		h := teams.NewHandler(env.DB, teamsCovers, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -98,7 +97,7 @@ func EditTeamSuccess(env testenv.Env) func(*testing.T) {
 
 func EditTeamByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -122,7 +121,7 @@ func EditTeamByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -162,7 +161,7 @@ func EditTeamWithNoEditableParameters(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -209,7 +208,7 @@ func EditTeamWithTooLargeCover(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -275,7 +274,7 @@ func EditTeamByAddingTheSameNameAsTeam(env testenv.Env) func(*testing.T) {
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))
@@ -356,7 +355,7 @@ func EditTeamByAddingTheSameNameAsTeamOnModeration(env testenv.Env) func(*testin
 
 		writer.Close()
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader"}))

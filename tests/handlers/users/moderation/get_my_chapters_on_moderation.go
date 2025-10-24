@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/users/moderation"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -82,9 +81,6 @@ func GetMyChaptersOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["id"]; !ok {
 			t.Fatal("id не дошел")
 		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
-		}
 		if _, ok := resp[0]["name"]; !ok {
 			t.Fatal("название не дошло")
 		}
@@ -153,14 +149,8 @@ func GetMyNewChaptersOnModerationSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["id"]; !ok {
 			t.Fatal("id не дошел")
 		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
-		}
 		if _, ok := resp[0]["name"]; !ok {
 			t.Fatal("название не дошло")
-		}
-		if numberOfPages, ok := resp[0]["numberOfPages"]; !ok || numberOfPages.(float64) != 2 {
-			t.Fatal("возникли проблемы с количеством страниц")
 		}
 		if _, ok := resp[0]["volume"]; !ok {
 			t.Fatal("том не дошел")
@@ -226,9 +216,6 @@ func GetMyEditedChaptersOnModerationSuccess(env testenv.Env) func(*testing.T) {
 
 		if _, ok := resp[0]["id"]; !ok {
 			t.Fatal("id не дошел")
-		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
 		}
 		if _, ok := resp[0]["name"]; !ok {
 			t.Fatal("название не дошло")

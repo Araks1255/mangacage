@@ -13,11 +13,11 @@ import (
 
 type CreateTitleDTO struct {
 	ID           *uint  `form:"id"` // Для upsert
-	Name         string `form:"name" binding:"required"`
-	EnglishName  string `form:"englishName" binding:"required"`
-	OriginalName string `form:"originalName" binding:"required"`
+	Name         string `form:"name" binding:"required,min=2,max=200"`
+	EnglishName  string `form:"englishName" binding:"required,min=2,max=200"`
+	OriginalName string `form:"originalName" binding:"required,min=2,max=200"`
 
-	Description   *string `form:"description"`
+	Description   *string `form:"description" binding:"max=800"`
 	AgeLimit      int     `form:"ageLimit" binding:"required"`
 	YearOfRelease int     `form:"yearOfRelease" binding:"required"`
 	Type          string  `form:"type" binding:"required"`
@@ -36,11 +36,11 @@ type CreateTitleDTO struct {
 }
 
 type EditTitleDTO struct {
-	Name         *string `form:"name"`
-	EnglishName  *string `form:"englishName"`
-	OriginalName *string `form:"originalName"`
+	Name         *string `form:"name" binding:"omitempty,min=2,max=200"`
+	EnglishName  *string `form:"englishName" binding:"omitempty,min=2,max=200"`
+	OriginalName *string `form:"originalName" binding:"omitempty,min=2,max=200"`
 
-	Description   *string `form:"description"`
+	Description   *string `form:"description" binding:"omitempty,min=2,max=800"`
 	AgeLimit      *int    `form:"ageLimit"`
 	YearOfRelease *int    `form:"yearOfRelease"`
 	Type          *string `form:"type"`
@@ -94,19 +94,24 @@ type ResponseTitleDTO struct {
 	ExistingID *uint   `json:"existingId,omitempty"`
 
 	NumberOfViewedChapters *int64 `json:"numberOfViewedChapters,omitempty"`
-	UserRate               *int   `json:"userRate,omitempty"`
 	NumberOfChapters       *int64 `json:"numberOfChapters,omitempty"`
+
+	UserRate       *int  `json:"userRate,omitempty"`
+	FavoritedByMe  *bool `json:"favoritedByMe,omitempty"`
+	MySubscription *bool `json:"mySubscription,omitempty"`
 }
 
-func (t CreateTitleDTO) ToTitleOnModeration(creatorID uint) models.TitleOnModeration {
+func (t CreateTitleDTO) ToTitleOnModeration(creatorID uint) *models.TitleOnModeration {
 	formatedOriginalName := norm.NFC.String(t.OriginalName)
+
 	var id uint
 	if t.ID != nil {
 		id = *t.ID
 	}
-	return models.TitleOnModeration{
+
+	return &models.TitleOnModeration{
 		Model:                gorm.Model{ID: id},
-		CreatorID:            creatorID,
+		CreatorID:            &creatorID,
 		Name:                 &t.Name,
 		EnglishName:          &t.EnglishName,
 		OriginalName:         &formatedOriginalName,
@@ -121,13 +126,14 @@ func (t CreateTitleDTO) ToTitleOnModeration(creatorID uint) models.TitleOnModera
 	}
 }
 
-func (t EditTitleDTO) ToTitleOnModeration(creatorID, existingID uint) models.TitleOnModeration {
+func (t EditTitleDTO) ToTitleOnModeration(creatorID, existingID uint) *models.TitleOnModeration {
 	if t.OriginalName != nil {
 		formatedOriginalName := norm.NFC.String(*t.OriginalName)
 		t.OriginalName = &formatedOriginalName
 	}
-	return models.TitleOnModeration{
-		CreatorID:         creatorID,
+
+	return &models.TitleOnModeration{
+		CreatorID:         &creatorID,
 		Name:              t.Name,
 		EnglishName:       t.EnglishName,
 		OriginalName:      t.OriginalName,

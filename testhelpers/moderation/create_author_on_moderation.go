@@ -11,7 +11,7 @@ func CreateAuthorOnModeration(db *gorm.DB, userID uint) (uint, error) {
 		Name:         uuid.New().String(),
 		EnglishName:  uuid.New().String(),
 		OriginalName: uuid.New().String(),
-		CreatorID:    userID,
+		CreatorID:    &userID,
 	}
 
 	if err := db.Create(&author).Error; err != nil {

@@ -4,13 +4,17 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1
-        FROM title_teams
-        WHERE title_id = OLD.title_id
+        SELECT
+            1
+        FROM
+            title_teams
+        WHERE
+            title_id = OLD.title_id
     ) THEN
-         UPDATE titles
-        SET translating_status = 'free'
-        WHERE id = OLD.title_id;
+        UPDATE titles SET
+            translating_status = 'free'
+        WHERE
+            id = OLD.title_id;
     END IF;
 
     RETURN OLD;

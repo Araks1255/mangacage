@@ -95,7 +95,7 @@ func AddAuthorWithTheSameNameAsAuthor(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := authors.NewHandler(env.DB, nil)
+		h := authors.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -148,7 +148,7 @@ func AddAuthorWithTheSameNameAsAuthorOnModeration(env testenv.Env) func(*testing
 			t.Fatal(err)
 		}
 
-		h := authors.NewHandler(env.DB, nil)
+		h := authors.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

@@ -1,28 +1,23 @@
 package titles
 
 import (
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
-	pb "github.com/Araks1255/mangacage_protos"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
+
 	"gorm.io/gorm"
 )
 
 type handler struct {
 	DB                  *gorm.DB
-	TitlesCovers        *mongo.Collection
-	NotificationsClient pb.NotificationsClient
+	PathToMediaDir      string
+	NotificationsClient pb.SiteNotificationsClient
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, secretKey string, r *gin.Engine) {
-	mongoDB := client.Database("mangacage")
-
-	titlesCoversCollection := mongoDB.Collection(mongodb.TitlesCoversCollection)
-
+func RegisterRoutes(db *gorm.DB, pathToMediaDir string, notificationsClient pb.SiteNotificationsClient, secretKey string, r *gin.Engine) {
 	h := handler{
 		DB:                  db,
-		TitlesCovers:        titlesCoversCollection,
+		PathToMediaDir:      pathToMediaDir,
 		NotificationsClient: notificationsClient,
 	}
 
@@ -35,7 +30,8 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 		titlesAuth := titles.Group("/")
 		titlesAuth.Use(middlewares.Auth(secretKey))
 		{
-			titlesAuth.POST("/:id/subscriptions", h.SubscribeToTitle)
+			titlesAuth.POST("/:id/subscribe", h.SubscribeToTitle)
+			titlesAuth.DELETE("/:id/unsubscribe", h.UnSubscribeFromTitle)
 			titlesAuth.POST("/", h.CreateTitle)
 
 			rates := titlesAuth.Group("/:id/rate")
@@ -44,37 +40,14 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 				rates.DELETE("/", h.DeleteTitleRate)
 			}
 
-			titlesForTeamLeaders := titlesAuth.Group("/:id")
-			titlesForTeamLeaders.Use(middlewares.RequireRoles(db, []string{"team_leader"}))
-			{
-				titlesForTeamLeaders.PATCH("/translate", h.TranslateTitle)
-				titlesForTeamLeaders.DELETE("/quit-translating", h.QuitTranslatingTitle)
-				// titlesForTeamLeaders.DELETE("/", h.DeleteTitle)
-			}
-
-			titlesForExTeamLeaders := titlesAuth.Group("/:id")
-			titlesForExTeamLeaders.Use(middlewares.RequireRoles(db, []string{"team_leader", "ex_team_leader"}))
-			{
-				titlesForExTeamLeaders.POST("/edited", h.EditTitle)
-			}
-
-			translateRequests := titlesAuth.Group("/translate-requests")
-			{
-				translateRequests.GET("/", h.GetTitleTranslateRequests)
-				translateRequests.DELETE(
-					"/:id",
-					middlewares.RequireRoles(db, []string{"team_leader"}),
-					h.CancelTitleTranslateRequest,
-				)
-			}
+			titlesAuth.POST("/:id/edited", middlewares.RequireRoles(db, []string{"team_leader"}), h.EditTitle)
 		}
 	}
 }
 
-func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, titlesCovers *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, notificationsClient pb.SiteNotificationsClient) handler {
 	return handler{
 		DB:                  db,
-		TitlesCovers:        titlesCovers,
 		NotificationsClient: notificationsClient,
 	}
 }

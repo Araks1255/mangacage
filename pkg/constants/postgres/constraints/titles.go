@@ -14,4 +14,6 @@ const (
 
 	FkTitleRatesTitle = "fk_title_rates_title"
 	UniqTitleRate     = "uniq_title_rate"
+
+	UniTitlesOnModerationExistingId = "uni_titles_on_moderation_existing_id"
 )

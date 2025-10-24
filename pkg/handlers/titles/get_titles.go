@@ -3,11 +3,11 @@ package titles
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
-	"github.com/lib/pq"
 )
 
 type GetTitlesParams struct {
@@ -20,14 +20,18 @@ type GetTitlesParams struct {
 	AuthorID *uint `form:"authorId"`
 	TeamID   *uint `form:"teamId"`
 
-	YearFrom     *int `form:"yearFrom"`
-	YearTo       *int `form:"yearTo"`
+	YearFrom *int `form:"yearFrom"`
+	YearTo   *int `form:"yearTo"`
+
 	AgeLimitFrom *int `form:"ageLimitFrom"`
 	AgeLimitTo   *int `form:"ageLimitTo"`
-	ViewsFrom    *int `form:"viewsFrom"`
-	ViewsTo      *int `form:"viewsTo"`
-	RateFrom     *int `form:"rateFrom"`
-	RateTo       *int `form:"rateTo"`
+
+	ViewsFrom *int `form:"viewsFrom"`
+	ViewsTo   *int `form:"viewsTo"`
+
+	RateFrom *int `form:"rateFrom"`
+	RateTo   *int `form:"rateTo"`
+
 	ChaptersFrom *int `form:"chaptersFrom"`
 	ChaptersTo   *int `form:"chaptersTo"`
 
@@ -36,6 +40,7 @@ type GetTitlesParams struct {
 
 	FavoritedBy *uint `form:"favoritedBy" binding:"excluded_with=MyFavorites"`
 	MyFavorites *bool `form:"myFavorites" binding:"excluded_with=FavoritedBy"`
+	Hidden      *bool `form:"hidden"`
 }
 
 func (h handler) GetTitles(c *gin.Context) {
@@ -51,18 +56,19 @@ func (h handler) GetTitles(c *gin.Context) {
 		offset = 0
 	}
 
-	query := h.DB.Table("titles AS t").
-		Select("t.*, a.name AS author").
-		Where("NOT t.hidden").
-		Joins("INNER JOIN authors AS a ON a.id = t.author_id").
-		Limit(int(params.Limit)).Offset(offset)
+	var selects strings.Builder
+	args := make([]any, 0, 3)
+
+	selects.WriteString("t.id, t.name")
 
 	if params.Query != nil {
-		query = query.Where(
-			"lower(t.name) ILIKE lower(?) OR lower(t.english_name) ILIKE lower(?) OR t.original_name ILIKE ?",
-			fmt.Sprintf("%%%s%%", *params.Query), fmt.Sprintf("%%%s%%", *params.Query), fmt.Sprintf("%%%s%%", *params.Query),
-		)
+		selects.WriteString(",t.name <-> ? AS name_distance, t.english_name <-> ? AS english_name_distance, t.original_name <-> ? AS original_name_distance")
+		args = append(args, *params.Query, *params.Query, *params.Query)
 	}
+
+	query := h.DB.Table("titles AS t").
+		Select(selects.String(), args...).
+		Limit(int(params.Limit)).Offset(offset)
 
 	if params.PublishingStatus != nil {
 		query = query.Where("t.publishing_status = ?", params.PublishingStatus)
@@ -91,14 +97,29 @@ func (h handler) GetTitles(c *gin.Context) {
 			Where("u.visible")
 	}
 
-	if params.MyFavorites != nil && *params.MyFavorites {
-		claims, ok := c.Get("claims")
-		if !ok {
-			c.AbortWithStatusJSON(401, gin.H{"error": "получение избранного доступно только авторизованным пользователям"})
-			return
-		}
+	claims, ok := c.Get("claims")
+
+	if ok && params.MyFavorites != nil && *params.MyFavorites {
 		query = query.Joins("INNER JOIN user_favorite_titles AS uft ON uft.title_id = t.id").
 			Where("uft.user_id = ?", claims.(*auth.Claims).ID)
+	}
+
+	if ok && params.Hidden != nil && *params.Hidden {
+		query = query.Where(
+			`EXISTS(
+					SELECT
+						1
+					FROM
+						user_roles AS ur
+						INNER JOIN roles AS r ON r.id = ur.role_id
+					WHERE
+						ur.user_id = ? AND r.name = 'admin'
+				)`,
+			claims.(*auth.Claims).ID,
+		).
+			Where("t.hidden")
+	} else {
+		query = query.Where("NOT t.hidden")
 	}
 
 	if params.YearFrom != nil {
@@ -122,48 +143,72 @@ func (h handler) GetTitles(c *gin.Context) {
 		query = query.Where("t.views <= ?", params.ViewsTo)
 	}
 
+	if params.ChaptersFrom != nil {
+		query = query.Where("t.number_of_chapters >= ?", params.ChaptersFrom)
+	}
+	if params.ChaptersTo != nil {
+		query = query.Where("t.number_of_chapters <= ?", params.ChaptersTo)
+	}
+
 	if params.RateFrom != nil {
-		query = query.Where("t.sum_of_rates/t.number_of_rates::FLOAT >= ?::FLOAT", params.RateFrom)
+		query = query.Where(
+			`CASE
+				WHEN t.number_of_rates = 0 THEN 0
+				ELSE t.sum_of_rates / t.number_of_rates::FLOAT
+			END
+				>= ?::FLOAT`,
+			params.RateFrom,
+		)
 	}
+
 	if params.RateTo != nil {
-		query = query.Where("t.sum_of_rates/t.number_of_rates::FLOAT <= ?::FLOAT", params.RateTo)
-	}
-
-	if params.Order != "desc" && params.Order != "asc" {
-		params.Order = "desc"
-	}
-
-	switch params.Sort {
-	case "views":
-		query = query.Order(fmt.Sprintf("t.views %s", params.Order))
-
-	case "createdAt":
-		query = query.Order(fmt.Sprintf("t.id %s", params.Order))
-
-	default:
-		query = query.Order("t.name DESC")
-	}
-
-	if params.Genres != nil {
 		query = query.Where(
-			`(SELECT ARRAY(
-				SELECT g.name FROM genres AS g
-				INNER JOIN title_genres AS tg ON tg.genre_id = g.id
-				WHERE tg.title_id = t.id
-			))::TEXT[] @> ?::TEXT[]`,
-			pq.Array(params.Genres),
+			`CASE
+				WHEN t.number_of_rates = 0 THEN 0
+				ELSE t.sum_of_rates / t.number_of_rates::FLOAT
+			END
+				<= ?::FLOAT`,
+			params.RateTo,
 		)
 	}
 
-	if params.Tags != nil {
-		query = query.Where(
-			`(SELECT ARRAY(
-				SELECT tags.name FROM tags
-				INNER JOIN title_tags AS tt ON tt.tag_id = tags.id
-				WHERE tt.title_id = t.id
-			))::TEXT[] @> ?::TEXT[]`,
-			pq.Array(params.Tags),
-		)
+	if params.Query != nil {
+		query = query.
+			Where("t.name % ? OR t.english_name % ? OR t.original_name % ?", *params.Query, *params.Query, *params.Query).
+			Order("name_distance, english_name_distance, original_name_distance ASC")
+	} else {
+		if params.Order != "desc" && params.Order != "asc" {
+			params.Order = "asc"
+		}
+
+		switch params.Sort {
+		case "views":
+			query = query.Order(fmt.Sprintf("t.views %s", params.Order))
+
+		case "createdAt":
+			query = query.Order(fmt.Sprintf("t.id %s", params.Order))
+
+		default:
+			query = query.Order(fmt.Sprintf("t.name %s", params.Order))
+		}
+	}
+
+	if len(params.Genres) != 0 || len(params.Tags) != 0 {
+		query = query.Group("t.id")
+	}
+
+	if len(params.Genres) != 0 {
+		query = query.Joins("INNER JOIN title_genres AS tg ON tg.title_id = t.id").
+			Joins("INNER JOIN genres AS g ON g.id = tg.genre_id").
+			Where("g.name IN ?", params.Genres).
+			Having("COUNT(g.id) = ?", len(params.Genres))
+	}
+
+	if len(params.Tags) != 0 {
+		query = query.Joins("INNER JOIN title_tags AS tt ON tt.title_id = t.id").
+			Joins("INNER JOIN tags ON tags.id = tt.tag_id").
+			Where("tags.name IN ?", params.Tags).
+			Having("COUNT(tags.id) = ?", len(params.Tags))
 	}
 
 	var result []dto.ResponseTitleDTO

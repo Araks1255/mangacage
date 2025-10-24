@@ -1,19 +1,18 @@
 package auth
 
 import (
-	pb "github.com/Araks1255/mangacage_protos"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
 
 type handler struct {
 	DB                  *gorm.DB
-	NotificationsClient pb.NotificationsClient
+	NotificationsClient pb.SiteNotificationsClient
 	SecretKey           string
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, secretKey string, r *gin.Engine) {
+func RegisterRoutes(db *gorm.DB,  notificationsClient pb.SiteNotificationsClient, secretKey string, r *gin.Engine) {
 	h := handler{
 		DB:                  db,
 		NotificationsClient: notificationsClient,

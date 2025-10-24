@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/titles"
 	"github.com/Araks1255/mangacage/testhelpers"
 	"github.com/Araks1255/mangacage/tests/testenv"
@@ -40,7 +39,7 @@ func GetTitleCoverSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		titleID, err := testhelpers.CreateTitle(env.DB, userID, authorID, testhelpers.CreateTitleOptions{Cover: cover, Collection: titlesCovers})
+		titleID, err := testhelpers.CreateTitle(env.DB, userID, authorID, testhelpers.CreateTitleOptions{Cover: cover})
 		if err != nil {
 			t.Fatal(err)
 		}

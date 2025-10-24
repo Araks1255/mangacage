@@ -3,6 +3,7 @@ package moderation
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
@@ -38,22 +39,22 @@ func (h handler) GetMyChaptersOnModeration(c *gin.Context) {
 		offset = 0
 	}
 
-	query := h.DB.Table("chapters_on_moderation AS com").
-		Select(
-			`com.*, c.name AS existing,
-			t.name AS title, tom.name AS title_on_moderation, teams.name AS team`,
-		).
-		Joins("LEFT JOIN chapters AS c ON com.existing_id = c.id").
-		Joins("LEFT JOIN titles AS t ON com.title_id = t.id").
-		Joins("INNER JOIN teams ON teams.id = com.team_id").
-		Joins("LEFT JOIN titles_on_moderation AS tom ON com.title_on_moderation_id = tom.id").
-		Where("com.creator_id = ?", claims.ID).
-		Offset(offset).
-		Limit(int(params.Limit))
+	var selects strings.Builder
+	args := make([]any, 0, 1)
+
+	selects.WriteString("com.id, com.name, com.title_id, com.title_on_moderation_id, com.team_id, teams.name AS team")
 
 	if params.Query != nil {
-		query = query.Where("lower(com.name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
+		selects.WriteString(",com.name <-> ? AS distance")
+		args = append(args, *params.Query)
 	}
+
+	query := h.DB.Table("chapters_on_moderation AS com").
+		Select(selects.String(), args...).
+		Where("com.creator_id = ?", claims.ID).
+		Joins("LEFT JOIN teams ON com.team_id = teams.id").
+		Offset(offset).
+		Limit(int(params.Limit))
 
 	if params.ModerationType == "new" {
 		query = query.Where("com.existing_id IS NULL")
@@ -74,23 +75,27 @@ func (h handler) GetMyChaptersOnModeration(c *gin.Context) {
 	}
 
 	if params.TitleID != nil {
-		query = query.Where("t.id = ?", params.TitleID)
+		query = query.Where("com.title_id = ?", params.TitleID)
 	}
 	if params.TitleOnModerationID != nil {
-		query = query.Where("tom.id = ?", params.TitleOnModerationID)
+		query = query.Where("com.title_on_moderation_id = ?", params.TitleOnModerationID)
 	}
 
-	if params.Order != "desc" && params.Order != "asc" {
-		params.Order = "desc"
-	}
+	if params.Query != nil {
+		query = query.Where("com.name % ?", *params.Query).Order("distance ASC")
+	} else {
+		if params.Order != "desc" && params.Order != "asc" {
+			params.Order = "asc"
+		}
 
-	switch params.Sort {
-	case "createdAt":
-		query = query.Order(fmt.Sprintf("com.id %s", params.Order))
-	case "numberOfPages":
-		query = query.Order(fmt.Sprintf("com.number_of_pages %s", params.Order))
-	default:
-		query = query.Order(fmt.Sprintf("com.name %s", params.Order))
+		switch params.Sort {
+		case "createdAt":
+			query = query.Order(fmt.Sprintf("com.id %s", params.Order))
+		case "numberOfPages":
+			query = query.Order(fmt.Sprintf("com.number_of_pages %s", params.Order))
+		default:
+			query = query.Order(fmt.Sprintf("com.name %s", params.Order))
+		}
 	}
 
 	var result []dto.ResponseChapterDTO

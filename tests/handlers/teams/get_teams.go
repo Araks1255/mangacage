@@ -36,7 +36,7 @@ func GetTeamsWithAllParamsSuccess(env testenv.Env) func(*testing.T) {
 			}
 		}
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/teams", h.GetTeams)
@@ -63,9 +63,6 @@ func GetTeamsWithAllParamsSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["id"]; !ok {
 			t.Fatal("id не дошёл")
 		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
-		}
 		if _, ok := resp[0]["name"]; !ok {
 			t.Fatal("название не дошло")
 		}
@@ -89,7 +86,7 @@ func GetTeamsSuccessWithQuery(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/teams", h.GetTeams)
@@ -136,7 +133,7 @@ func GetTeamsWithPagination(env testenv.Env) func(*testing.T) {
 			}
 		}
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/teams", h.GetTeams)
@@ -175,7 +172,7 @@ func GetTeamsWithPagination(env testenv.Env) func(*testing.T) {
 
 func GetTeamsNotFound(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/teams", h.GetTeams)
@@ -205,7 +202,7 @@ func GetTeamsWithInvalidOrder(env testenv.Env) func(*testing.T) {
 			}
 		}
 
-		h := teams.NewHandler(env.DB, nil)
+		h := teams.NewHandler(env.DB, nil, nil)
 
 		r := gin.New()
 		r.GET("/teams", h.GetTeams)

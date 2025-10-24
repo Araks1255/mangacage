@@ -20,16 +20,16 @@ func GetDeleteParticipantRoleScenarios(env testenv.Env) map[string]func(*testing
 		"self role success":                     DeleteSelfRoleSuccess(env),
 		"unauthorized":                          DeleteParticipantRoleByUnauthorizedUser(env),
 		"non team leader":                       DeleteParticipantRoleByNonTeamLeader(env),
-		"self ex team leader role":              DeleteSelfExTeamLeaderRoleByExTeamLeader(env),
+		"self ex team leader role":              DeleteSelfViceTeamLeaderRoleByViceTeamLeader(env),
 		"invalid participant id":                DeleteParticipantRoleWithInvalidParticipantId(env),
 		"invalid role id":                       DeleteParticipantRoleWithInvalidRoleId(env),
 		"wrong participant id":                  DeleteParticipantRoleWithWrongParticipantId(env),
 		"wrong role id":                         DeleteParticipantRoleWithWrongRoleId(env),
 		"role does not exist":                   DeleteParticipantRoleThatDoesNotExist(env),
 		"self team leader role":                 DeleteSelfTeamLeaderRole(env),
-		"team leader role by ex team leader":    DeleteTeamLeaderRoleByExTeamLeader(env),
+		"team leader role by ex team leader":    DeleteTeamLeaderRoleByViceTeamLeader(env),
 		"participant from another team":         DeleteParticipantFromAnotherTeamRole(env),
-		"ex team leader role by ex team leader": DeleteParticipantExTeamLeaderRoleByExTeamLeader(env),
+		"ex team leader role by ex team leader": DeleteParticipantViceTeamLeaderRoleByViceTeamLeader(env),
 	}
 }
 
@@ -60,7 +60,7 @@ func DeleteParticipantRoleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -117,7 +117,7 @@ func DeleteSelfRoleSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -154,7 +154,7 @@ func DeleteSelfRoleSuccess(env testenv.Env) func(*testing.T) {
 
 func DeleteParticipantRoleByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -178,7 +178,7 @@ func DeleteParticipantRoleByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -224,7 +224,7 @@ func DeleteSelfRoleByNonTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -259,9 +259,9 @@ func DeleteSelfRoleByNonTeamLeader(env testenv.Env) func(*testing.T) {
 	}
 }
 
-func DeleteSelfExTeamLeaderRoleByExTeamLeader(env testenv.Env) func(*testing.T) {
+func DeleteSelfViceTeamLeaderRoleByViceTeamLeader(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		exLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"ex_team_leader"}})
+		exLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"vice_team_leader"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -275,20 +275,20 @@ func DeleteSelfExTeamLeaderRoleByExTeamLeader(env testenv.Env) func(*testing.T) 
 			t.Fatal(err)
 		}
 
-		var exTeamLeaderRoleID uint
-		env.DB.Raw("SELECT id FROM roles WHERE name = 'ex_team_leader'").Scan(&exTeamLeaderRoleID)
-		if exTeamLeaderRoleID == 0 {
+		var ViceTeamLeaderRoleID uint
+		env.DB.Raw("SELECT id FROM roles WHERE name = 'vice_team_leader'").Scan(&ViceTeamLeaderRoleID)
+		if ViceTeamLeaderRoleID == 0 {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.DELETE("/teams/my/participants/:id/roles", h.DeleteParticipantRole)
 
 		body := map[string]uint{
-			"roleId": exTeamLeaderRoleID,
+			"roleId": ViceTeamLeaderRoleID,
 		}
 
 		jsonBody, err := json.Marshal(body)
@@ -325,7 +325,7 @@ func DeleteParticipantRoleWithInvalidParticipantId(env testenv.Env) func(*testin
 
 		invalidParticipantID := "X_X"
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -360,7 +360,7 @@ func DeleteParticipantRoleWithInvalidRoleId(env testenv.Env) func(*testing.T) {
 
 		invalidRoleID := "I_I"
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -412,7 +412,7 @@ func DeleteParticipantRoleWithWrongParticipantId(env testenv.Env) func(*testing.
 
 		participantID := 9223372036854775807
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -470,7 +470,7 @@ func DeleteParticipantRoleWithWrongRoleId(env testenv.Env) func(*testing.T) {
 
 		roleID := 9223372036854775807
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -532,7 +532,7 @@ func DeleteParticipantRoleThatDoesNotExist(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -567,9 +567,9 @@ func DeleteParticipantRoleThatDoesNotExist(env testenv.Env) func(*testing.T) {
 	}
 }
 
-func DeleteParticipantExTeamLeaderRoleByExTeamLeader(env testenv.Env) func(*testing.T) {
+func DeleteParticipantViceTeamLeaderRoleByViceTeamLeader(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		leaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"ex_team_leader"}})
+		leaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"vice_team_leader"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -583,25 +583,25 @@ func DeleteParticipantExTeamLeaderRoleByExTeamLeader(env testenv.Env) func(*test
 			t.Fatal(err)
 		}
 
-		participantID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"ex_team_leader"}, TeamID: teamID})
+		participantID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"vice_team_leader"}, TeamID: teamID})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		var exTeamLeaderRoleID uint
-		env.DB.Raw("SELECT id FROM roles WHERE name = 'ex_team_leader'").Scan(&exTeamLeaderRoleID)
-		if exTeamLeaderRoleID == 0 {
+		var ViceTeamLeaderRoleID uint
+		env.DB.Raw("SELECT id FROM roles WHERE name = 'vice_team_leader'").Scan(&ViceTeamLeaderRoleID)
+		if ViceTeamLeaderRoleID == 0 {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
 		r.DELETE("/teams/my/participants/:id/roles", h.DeleteParticipantRole)
 
 		body := map[string]uint{
-			"roleId": exTeamLeaderRoleID,
+			"roleId": ViceTeamLeaderRoleID,
 		}
 
 		jsonBody, err := json.Marshal(body)
@@ -651,7 +651,7 @@ func DeleteSelfTeamLeaderRole(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -686,9 +686,9 @@ func DeleteSelfTeamLeaderRole(env testenv.Env) func(*testing.T) {
 	}
 }
 
-func DeleteTeamLeaderRoleByExTeamLeader(env testenv.Env) func(*testing.T) {
+func DeleteTeamLeaderRoleByViceTeamLeader(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		exLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"ex_team_leader"}})
+		exLeaderID, err := testhelpers.CreateUser(env.DB, testhelpers.CreateUserOptions{Roles: []string{"vice_team_leader"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -713,7 +713,7 @@ func DeleteTeamLeaderRoleByExTeamLeader(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -780,7 +780,7 @@ func DeleteParticipantFromAnotherTeamRole(env testenv.Env) func(*testing.T) {
 			t.Fatal("не удалось получить роль")
 		}
 
-		h := participants.NewHandler(env.DB)
+		h := participants.NewHandler(env.DB, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

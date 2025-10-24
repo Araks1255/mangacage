@@ -61,11 +61,11 @@ func ParseTitleTeamInsertError(err error) (code int, formatedErr error) {
 }
 
 func ParseTitleTranslateRequestInsertError(err error) (code int, formatedErr error) {
-	if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleTranslateRequestTitle) {
+	if dbErrors.IsForeignKeyViolation(err, constraints.FkTitlesTranslateRequestTitle) {
 		return 404, errors.New("тайтл не найден")
 	}
 
-	if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleTranslateRequestTeam) {
+	if dbErrors.IsForeignKeyViolation(err, constraints.FkTitlesTranslateRequestTeam) {
 		return 404, errors.New("команда не найдена") // мало ли
 	}
 

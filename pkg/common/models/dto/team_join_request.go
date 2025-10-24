@@ -7,7 +7,7 @@ import (
 )
 
 type CreateTeamJoinRequestDTO struct {
-	IntroductoryMessage *string `json:"introductoryMessage"`
+	IntroductoryMessage *string `json:"introductoryMessage" binding:"omitempty,max=100"`
 	RoleID              *uint   `json:"roleId"`
 }
 

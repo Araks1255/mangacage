@@ -9,24 +9,28 @@ import (
 	"gorm.io/gorm"
 )
 
-func UpsertTitleOnModerationGenres(db *gorm.DB, titleOnModerationID uint, genresIDs []uint) (code int, err error) {
-	err = db.Exec("DELETE FROM title_on_moderation_genres WHERE title_on_moderation_id = ?", titleOnModerationID).Error
-	if err != nil {
-		return 500, err
+func UpsertTitleOnModerationGenres(db *gorm.DB, id uint, genresIDs []uint) (code int, err error) {
+	if len(genresIDs) == 0 {
+		return 0, nil
 	}
 
-	err = db.Exec(
-		`INSERT INTO title_on_moderation_genres (title_on_moderation_id, genre_id)
-		SELECT ?, UNNEST(?::BIGINT[])`,
-		titleOnModerationID, pq.Array(genresIDs),
-	).Error
+	query :=
+		`WITH delete_genres AS (
+			DELETE FROM
+				title_on_moderation_genres
+			WHERE
+				title_on_moderation_id = ?
+		)
+		INSERT INTO
+			title_on_moderation_genres (title_on_moderation_id, genre_id)
+		SELECT
+			?, UNNEST(?::BIGINT[])`
 
-	if err != nil {
+	if err := db.Exec(query, id, id, pq.Array(genresIDs)).Error; err != nil {
 		if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleOnModerationGenresGenre) {
-			return 404, errors.New("жанры не найдены")
-		} else {
-			return 500, err
+			return 400, errors.New("жанр не найден")
 		}
+		return 500, err
 	}
 
 	return 0, nil

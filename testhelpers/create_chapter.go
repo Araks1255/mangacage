@@ -1,25 +1,25 @@
 package testhelpers
 
 import (
-	"context"
 	"errors"
+	"fmt"
+	"os"
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
-	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
 
 type CreateChapterOptions struct {
-	Pages       [][]byte
-	Collection  *mongo.Collection
-	Views       uint
-	ModeratorID uint
-	Volume      uint
+	Pages          [][]byte
+	PathToMediaDir string
+	Views          uint
+	ModeratorID    uint
+	Volume         uint
 }
 
+// только jpg
 func CreateChapter(db *gorm.DB, titleID, teamID, creatorID uint, opts ...CreateChapterOptions) (uint, error) {
 	if len(opts) > 1 {
 		return 0, errors.New("Объектов опций не может быть больше одного")
@@ -27,7 +27,7 @@ func CreateChapter(db *gorm.DB, titleID, teamID, creatorID uint, opts ...CreateC
 
 	chapter := models.Chapter{
 		Name:      uuid.New().String(),
-		CreatorID: creatorID,
+		CreatorID: &creatorID,
 		TeamID:    teamID,
 		TitleID:   titleID,
 	}
@@ -60,17 +60,37 @@ func CreateChapter(db *gorm.DB, titleID, teamID, creatorID uint, opts ...CreateC
 		return chapter.ID, nil
 	}
 
-	if opts[0].Collection == nil {
-		return 0, errors.New("Переданы страницы, но не передана коллекция")
+	if opts[0].PathToMediaDir == "" {
+		return 0, errors.New("не передана директория сохранения медиафайлов")
 	}
 
-	chapterPages := mongoModels.ChapterPages{
-		ChapterID: chapter.ID,
-		CreatorID: creatorID,
-		Pages:     opts[0].Pages,
+	pages := make([]models.Page, len(opts[0].Pages))
+
+	chapter.PagesDirPath = fmt.Sprintf("%s/chapters/%d", opts[0].PathToMediaDir, chapter.ID)
+
+	if err := os.MkdirAll(chapter.PagesDirPath, 0644); err != nil {
+		return 0, err
 	}
 
-	if _, err := opts[0].Collection.InsertOne(context.Background(), chapterPages); err != nil {
+	for i := 0; i < len(opts[0].Pages); i++ {
+		path := fmt.Sprintf("%s/chapters/%d/%d.jpg", opts[0].PathToMediaDir, chapter.ID, i+1)
+
+		if err := os.WriteFile(path, opts[0].Pages[i], 0644); err != nil {
+			return 0, err
+		}
+
+		pages[i] = models.Page{
+			ChapterID: &chapter.ID,
+			Number:    uint(i) + 1,
+			Path:      path,
+		}
+	}
+
+	if err := tx.Create(pages).Error; err != nil {
+		return 0, err
+	}
+
+	if err := tx.Updates(&chapter).Error; err != nil {
 		return 0, err
 	}
 

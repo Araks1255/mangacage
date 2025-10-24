@@ -3,6 +3,7 @@ package roles
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
 	"github.com/gin-gonic/gin"
@@ -26,21 +27,31 @@ func (h handler) GetRoles(c *gin.Context) {
 		offset = 0
 	}
 
-	query := h.DB.Table("roles").Select("*").Where("type = 'team'").Limit(int(params.Limit)).Offset(offset)
+	var selects strings.Builder
+	args := make([]any, 0, 1)
+
+	selects.WriteString("id, name")
 
 	if params.Query != nil {
-		query = query.Where("lower(name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
+		selects.WriteString(",name <-> ? AS distance")
+		args = append(args, *params.Query)
 	}
 
-	if params.Order != "desc" && params.Order != "asc" {
-		params.Order = "desc"
-	}
+	query := h.DB.Table("roles").Select(selects.String(), args...).Where("type = 'team'").Limit(int(params.Limit)).Offset(offset)
 
-	switch params.Sort {
-	case "createdAt":
-		query = query.Order(fmt.Sprintf("id %s", params.Order))
-	default:
-		query = query.Order(fmt.Sprintf("name %s", params.Order))
+	if params.Query != nil {
+		query = query.Where("name % ?", *params.Query).Order("distance ASC")
+	} else {
+		if params.Order != "desc" && params.Order != "asc" {
+			params.Order = "asc"
+		}
+
+		switch params.Sort {
+		case "createdAt":
+			query = query.Order(fmt.Sprintf("id %s", params.Order))
+		default:
+			query = query.Order(fmt.Sprintf("name %s", params.Order))
+		}
 	}
 
 	var result []dto.ResponseRoleDTO

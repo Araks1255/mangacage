@@ -3,6 +3,7 @@ package chapters
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
@@ -27,6 +28,7 @@ type GetChaptersParams struct {
 	MyCreations *bool `form:"myCreations" binding:"excluded_with=CreatedBy"`
 
 	Viewed *bool `form:"viewed"`
+	Hidden *bool `form:"hidden"`
 }
 
 func (h handler) GetChapters(c *gin.Context) {
@@ -37,11 +39,20 @@ func (h handler) GetChapters(c *gin.Context) {
 		return
 	}
 
+	var selects strings.Builder
+	args := make([]any, 0, 1)
+
+	selects.WriteString("c.id, c.name, t.name AS title, t.id AS title_id, teams.name AS team, teams.id AS team_id")
+
+	if params.Query != nil {
+		selects.WriteString(",c.name <-> ? AS distance")
+		args = append(args, *params.Query)
+	}
+
 	query := h.DB.Table("chapters AS c").
-		Select("c.*, teams.name AS team, t.name AS title").
+		Select(selects.String(), args...).
 		Joins("INNER JOIN titles AS t ON t.id = c.title_id").
-		Joins("LEFT JOIN teams ON c.team_id = teams.id").
-		Where("NOT c.hidden")
+		Joins("LEFT JOIN teams ON c.team_id = teams.id")
 
 	if params.TitleID != nil {
 		query = query.Where("t.id = ?", params.TitleID)
@@ -53,10 +64,6 @@ func (h handler) GetChapters(c *gin.Context) {
 
 	if params.Volume != nil {
 		query = query.Where("c.volume = ?", params.Volume)
-	}
-
-	if params.Query != nil {
-		query = query.Where("lower(c.name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
 	}
 
 	if params.ViewsFrom != nil {
@@ -95,47 +102,63 @@ func (h handler) GetChapters(c *gin.Context) {
 		query = query.Where("c.creator_id = ?", claims.(*auth.Claims).ID)
 	}
 
-	if params.MyFavorites != nil && *params.MyFavorites {
-		claims, ok := c.Get("claims")
-		if !ok {
-			c.AbortWithStatusJSON(401, gin.H{"error": "получение избранного доступно только авторизованным пользователям"})
-			return
+	claims, ok := c.Get("claims")
+
+	if ok {
+		if params.MyFavorites != nil && *params.MyFavorites {
+			query = query.Joins("INNER JOIN user_favorite_chapters AS ufc ON ufc.chapter_id = c.id").
+				Where("ufc.user_id = ?", claims.(*auth.Claims).ID)
 		}
-		query = query.Joins("INNER JOIN user_favorite_chapters AS ufc ON ufc.chapter_id = c.id").
-			Where("ufc.user_id = ?", claims.(*auth.Claims).ID)
-	}
 
-	if params.Viewed != nil && *params.Viewed {
-		claims, ok := c.Get("claims")
-		if !ok {
-			c.AbortWithStatusJSON(401, gin.H{"error": "получение истории чтения глав доступно только авторизованным пользователям"})
-			return
-		}
-		query = query.Joins("INNER JOIN user_viewed_chapters AS uvc ON uvc.chapter_id = c.id").
-			Where("uvc.user_id = ?", claims.(*auth.Claims).ID)
-	}
-
-	if params.Order != "desc" && params.Order != "asc" {
-		params.Order = "desc"
-	}
-
-	switch params.Sort {
-	case "views":
-		query = query.Order(fmt.Sprintf("c.views %s", params.Order))
-
-	case "numberOfPages":
-		query = query.Order(fmt.Sprintf("c.number_of_pages %s", params.Order))
-
-	case "createdAt":
-		query = query.Order(fmt.Sprintf("c.id %s", params.Order))
-
-	case "readedAt":
 		if params.Viewed != nil && *params.Viewed {
-			query = query.Order(fmt.Sprintf("uvc.created_at %s", params.Order))
-			break
+			query = query.Joins("INNER JOIN user_viewed_chapters AS uvc ON uvc.chapter_id = c.id").
+				Where("uvc.user_id = ?", claims.(*auth.Claims).ID)
 		}
-	default:
-		query = query.Order(fmt.Sprintf("c.name %s", params.Order))
+	}
+
+	if ok && params.Hidden != nil && *params.Hidden {
+		query = query.Where(
+			`EXISTS(
+					SELECT
+						1
+					FROM
+						user_roles AS ur
+						INNER JOIN roles AS r ON r.id = ur.role_id
+					WHERE
+						ur.user_id = ? AND r.name = 'admin'
+				)`,
+			claims.(*auth.Claims).ID,
+		).
+			Where("c.hidden")
+	} else {
+		query.Where("NOT c.hidden")
+	}
+
+	if params.Query != nil {
+		query = query.Where("c.name % ?", *params.Query).Order("distance ASC")
+	} else {
+		if params.Order != "desc" && params.Order != "asc" {
+			params.Order = "asc"
+		}
+
+		switch params.Sort {
+		case "views":
+			query = query.Order(fmt.Sprintf("c.views %s", params.Order))
+
+		case "numberOfPages":
+			query = query.Order(fmt.Sprintf("c.number_of_pages %s", params.Order))
+
+		case "createdAt":
+			query = query.Order(fmt.Sprintf("c.id %s", params.Order))
+
+		case "readedAt":
+			if params.Viewed != nil && *params.Viewed {
+				query = query.Order(fmt.Sprintf("uvc.created_at %s", params.Order))
+				break
+			}
+		default:
+			query = query.Order(fmt.Sprintf("c.name %s", params.Order))
+		}
 	}
 
 	offset := (params.Page - 1) * int(params.Limit)

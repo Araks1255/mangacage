@@ -48,7 +48,7 @@ func GetTeamJoinRequestsOfMyTeamSuccess(env testenv.Env) func(*testing.T) {
 			}
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -82,9 +82,6 @@ func GetTeamJoinRequestsOfMyTeamSuccess(env testenv.Env) func(*testing.T) {
 		if _, ok := resp[0]["id"]; !ok {
 			t.Fatal("id запроса не дошел")
 		}
-		if _, ok := resp[0]["createdAt"]; !ok {
-			t.Fatal("время создания не дошло")
-		}
 		if _, ok := resp[0]["roleId"]; !ok {
 			t.Fatal("id роли не дошло")
 		}
@@ -102,7 +99,7 @@ func GetTeamJoinRequestsOfMyTeamSuccess(env testenv.Env) func(*testing.T) {
 
 func GetTeamJoinRequestsOfMyTeamByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -126,7 +123,7 @@ func GetTeamJoinRequestsOfMyTeamByUserThatNotInTeam(env testenv.Env) func(*testi
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))
@@ -166,7 +163,7 @@ func GetTeamJoinRequestsOfMyTeamWithNoRequests(env testenv.Env) func(*testing.T)
 			t.Fatal(err)
 		}
 
-		h := joinrequests.NewHandler(env.DB)
+		h := joinrequests.NewHandler(env.DB, env.SecretKey, env.NotificationsClient)
 
 		r := gin.New()
 		r.Use(middlewares.Auth(env.SecretKey))

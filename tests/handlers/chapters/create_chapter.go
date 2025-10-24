@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/chapters"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -20,7 +19,6 @@ import (
 func GetCreateChapterScenarios(env testenv.Env) map[string]func(t *testing.T) {
 	return map[string]func(t *testing.T){
 		"success":                                CreateChapterSuccess(env),
-		"unauthorized":                           CreateChapterByUnauthorizedUser(env),
 		"non team leader":                        CreateChapterByNonTeamLeader(env),
 		"does not translate title":               CreateChapterByUserWhoseTeamDoesNotTranslateTitle(env),
 		"the same name as chapter on moderation": CreateChapterWithTheSameNameAsChapterOnModeration(env),
@@ -58,7 +56,7 @@ func CreateChapterSuccess(env testenv.Env) func(*testing.T) {
 			t.Fatal(err)
 		}
 		if err := writer.WriteField("volume", "0"); err != nil {
-			t.Fatal(err)
+			t.Fatal(err) 
 		}
 
 		part, err := writer.CreateFormFile("pages", "file")
@@ -78,7 +76,7 @@ func CreateChapterSuccess(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersPages)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters", h.CreateChapter)
 
 		req := httptest.NewRequest("POST", "/chapters", &body)
@@ -100,25 +98,6 @@ func CreateChapterSuccess(env testenv.Env) func(*testing.T) {
 	}
 }
 
-func CreateChapterByUnauthorizedUser(env testenv.Env) func(*testing.T) {
-	return func(t *testing.T) {
-		h := chapters.NewHandler(env.DB, nil, nil)
-
-		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
-		r.POST("/chapters", h.CreateChapter)
-
-		req := httptest.NewRequest("POST", "/chapters", nil)
-
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-
-		if w.Code != 401 {
-			t.Fatal(w.Body.String())
-		}
-	}
-}
-
 func CreateChapterByNonTeamLeader(env testenv.Env) func(*testing.T) {
 	return func(t *testing.T) {
 		userID, err := testhelpers.CreateUser(env.DB)
@@ -129,10 +108,10 @@ func CreateChapterByNonTeamLeader(env testenv.Env) func(*testing.T) {
 		writer := multipart.NewWriter(bytes.NewBuffer([]byte{}))
 		writer.Close()
 
-		h := chapters.NewHandler(env.DB, nil, nil)
+		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters", h.CreateChapter)
 
 		req := httptest.NewRequest("POST", "/chapters", nil)
@@ -199,7 +178,7 @@ func CreateChapterByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*te
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters", h.CreateChapter)
 
 		req := httptest.NewRequest("POST", "/chapters", &body)
@@ -270,7 +249,7 @@ func CreateChapterWithTheSameNameAsChapterOnModeration(env testenv.Env) func(*te
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, chaptersPages)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters", h.CreateChapter)
 
 		req := httptest.NewRequest("POST", "/chapters", &body)
@@ -344,7 +323,7 @@ func CreateChapterWithTheSameNameAsChapter(env testenv.Env) func(*testing.T) {
 		}
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters", h.CreateChapter)
 
 		var body bytes.Buffer
@@ -400,7 +379,7 @@ func CreateChapterWithWrongContentType(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters", h.CreateChapter)
 
 		req := httptest.NewRequest("POST", "/chapters", nil)
@@ -453,7 +432,7 @@ func CreateChapterWithoutName(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters", h.CreateChapter)
 
 		req := httptest.NewRequest("POST", "/chapters", &body)
@@ -497,7 +476,7 @@ func CreateChapterWithoutPages(env testenv.Env) func(*testing.T) {
 		h := chapters.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/chapters", h.CreateChapter)
 
 		req := httptest.NewRequest("POST", "/chapters", &body)

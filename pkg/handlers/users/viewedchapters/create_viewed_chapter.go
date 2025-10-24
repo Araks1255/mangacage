@@ -18,10 +18,14 @@ func (h handler) CreateViewedChapter(c *gin.Context) {
 	}
 
 	err = h.DB.Exec(
-		`INSERT INTO user_viewed_chapters (user_id, chapter_id, created_at)
-		VALUES (?, ?, NOW())
-		ON CONFLICT (user_id, chapter_id) DO UPDATE
-		SET created_at = EXCLUDED.created_at`,
+		`INSERT INTO
+			user_viewed_chapters (user_id, chapter_id, created_at)
+		VALUES
+			(?, ?, NOW())
+		ON CONFLICT
+			(user_id, chapter_id) DO UPDATE
+		SET
+			created_at = EXCLUDED.created_at`,
 		claims.ID, chapterID,
 	).Error
 

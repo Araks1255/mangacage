@@ -7,6 +7,8 @@ import (
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
+	"github.com/Araks1255/mangacage_protos/gen/enums"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
 )
 
@@ -55,9 +57,14 @@ func (h handler) AcceptTeamJoinRequest(c *gin.Context) {
 	response := make(gin.H, 2)
 
 	if teamJoinRequest.RoleID != nil {
-		if err = tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", teamJoinRequest.CandidateID, teamJoinRequest.RoleID).Error; err != nil {
+		err = tx.Exec(
+			"INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE id = ? AND type = 'team' AND name != 'team_leader'",
+			teamJoinRequest.CandidateID, teamJoinRequest.RoleID,
+		).Error
+
+		if err != nil {
 			log.Println(err)
-			response["waring"] = err.Error()
+			response["warning"] = err.Error()
 		}
 	}
 
@@ -72,5 +79,15 @@ func (h handler) AcceptTeamJoinRequest(c *gin.Context) {
 	response["success"] = "пользователь успешно присоединён к вашей команде"
 
 	c.JSON(200, response)
-	// Уведомление кандидату
+
+	if _, err := h.NotificationsCLient.NotifyAboutTeamJoinRequestResponse(
+		c.Request.Context(),
+		&pb.TeamJoinRequestResponse{
+			Result: enums.ResultOfTeamJoinRequest_RESULT_OF_TEAM_JOIN_REQUEST_APPROVED,
+			TeamID: uint64(teamJoinRequest.TeamID),
+			UserID: uint64(teamJoinRequest.CandidateID),
+		},
+	); err != nil {
+		log.Println(err)
+	}
 }

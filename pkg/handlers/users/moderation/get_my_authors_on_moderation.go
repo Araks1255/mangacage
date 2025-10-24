@@ -3,6 +3,7 @@ package moderation
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	"github.com/Araks1255/mangacage/pkg/common/models/dto"
@@ -28,25 +29,37 @@ func (h handler) GetMyAuthorsOnModeration(c *gin.Context) {
 		offset = 0
 	}
 
+	var selects strings.Builder
+	args := make([]any, 0, 3)
+
+	selects.WriteString("id, name, original_name, english_name")
+
+	if params.Query != nil {
+		selects.WriteString(",name <-> ? AS name_distance, english_name <-> ? AS english_name_distance, original_name <-> ? AS original_name_distance")
+		args = append(args, *params.Query, *params.Query, *params.Query)
+	}
+
 	query := h.DB.Table("authors_on_moderation").
-		Select("*").
+		Select(selects.String(), args...).
 		Where("creator_id = ?", claims.ID).
 		Limit(int(params.Limit)).
 		Offset(offset)
 
 	if params.Query != nil {
-		query = query.Where("lower(name) ILIKE lower(?)", fmt.Sprintf("%%%s%%", *params.Query))
-	}
+		query = query.
+			Where("name % ? OR english_name % ? OR original_name % ?", *params.Query, *params.Query, *params.Query).
+			Order("name_distance, english_name_distance, original_name_distance")
+	} else {
+		if params.Order != "desc" && params.Order != "asc" {
+			params.Order = "asc"
+		}
 
-	if params.Order != "desc" && params.Order != "asc" {
-		params.Order = "desc"
-	}
-
-	switch params.Sort {
-	case "createdAt":
-		query = query.Order(fmt.Sprintf("id %s", params.Order))
-	default:
-		query = query.Order(fmt.Sprintf("name %s", params.Order))
+		switch params.Sort {
+		case "createdAt":
+			query = query.Order(fmt.Sprintf("id %s", params.Order))
+		default:
+			query = query.Order(fmt.Sprintf("name %s", params.Order))
+		}
 	}
 
 	var result []dto.ResponseAuthorDTO

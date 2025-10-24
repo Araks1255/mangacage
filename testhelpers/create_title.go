@@ -1,29 +1,30 @@
 package testhelpers
 
 import (
-	"context"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/common/models"
-	mongoModels "github.com/Araks1255/mangacage/pkg/common/models/mongo"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
 
 type CreateTitleOptions struct {
-	Description string
-	Cover       []byte
-	Collection  *mongo.Collection
-	TeamID      uint
-	Views       uint
-	ModeratorID uint
-	Genres      []string
-	Tags        []string
+	Description    string
+	Cover          []byte
+	PathToMediaDir string
+	TeamID         uint
+	Views          uint
+	ModeratorID    uint
+	Genres         []string
+	Tags           []string
 }
 
+// только jpg
 func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptions) (uint, error) {
 	if len(opts) > 1 {
 		return 0, errors.New("Объектов опций не может быть больше одного")
@@ -39,7 +40,7 @@ func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptio
 		YearOfRelease:     1999,
 		Type:              "manga",
 		AuthorID:          authorID,
-		CreatorID:         creatorID,
+		CreatorID:         &creatorID,
 	}
 
 	tx := db.Begin()
@@ -98,17 +99,21 @@ func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptio
 	}
 
 	if opts[0].Cover != nil {
-		if opts[0].Collection == nil { // Мне эта проверка самому не очень нравится, но пока что ничего более логичного не придумал
-			return 0, errors.New("Передана обложка, но не передана коллекция")
+		if opts[0].PathToMediaDir == "" {
+			return 0, errors.New("не передана директория для сохранения медиафайлов")
 		}
 
-		titleCover := mongoModels.TitleCover{
-			TitleID:   title.ID,
-			CreatorID: creatorID,
-			Cover:     opts[0].Cover,
+		title.CoverPath = fmt.Sprintf("%s/titles/%d.jpg", opts[0].PathToMediaDir, title.ID)
+
+		if err := os.MkdirAll(filepath.Dir(title.CoverPath), 0644); err != nil {
+			return 0, err
 		}
 
-		if _, err := opts[0].Collection.InsertOne(context.Background(), titleCover); err != nil {
+		if err := os.WriteFile(title.CoverPath, opts[0].Cover, 0644); err != nil {
+			return 0, err
+		}
+
+		if err := tx.Updates(&title).Error; err != nil {
 			return 0, err
 		}
 	}

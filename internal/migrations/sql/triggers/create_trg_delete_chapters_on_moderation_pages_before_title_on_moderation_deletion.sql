@@ -1,0 +1,4 @@
+CREATE OR REPLACE TRIGGER trg_delete_chapters_on_moderation_pages_after_title_on_moderation_deletion
+BEFORE DELETE ON titles_on_moderation
+FOR EACH ROW
+EXECUTE FUNCTION delete_chapters_on_moderation_pages_after_title_on_moderation_deletion()

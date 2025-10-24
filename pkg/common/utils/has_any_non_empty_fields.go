@@ -16,7 +16,7 @@ func HasAnyNonEmptyFields(structPointer any, skipFields ...string) (bool, error)
 	}
 
 	skip := make(map[string]struct{}, len(skipFields))
-	for i := 0; i < len(skip); i++ {
+	for i := 0; i < len(skipFields); i++ {
 		skip[skipFields[i]] = struct{}{}
 	}
 

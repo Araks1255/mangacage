@@ -15,13 +15,12 @@ func (h handler) GetTeamJoinRequestsOfMyTeam(c *gin.Context) {
 
 	if err := h.DB.Raw(
 		`SELECT
-			tjr.*, r.name AS role, u.user_name AS candidate
+			tjr.id, u.user_name AS candidate
 		FROM
 			team_join_requests AS tjr
-			LEFT JOIN roles AS r ON tjr.role_id = r.id
-			INNER JOIN users AS u ON u.id = tjr.candidate_id AND u.team_id = tjr.team_id
+			INNER JOIN users AS u ON u.id = tjr.candidate_id
 		WHERE
-			u.id = ?`,
+			tjr.team_id = (SELECT team_id FROM users WHERE id = ?)`,
 		claims.ID,
 	).Scan(&requests).Error; err != nil {
 		log.Println(err)

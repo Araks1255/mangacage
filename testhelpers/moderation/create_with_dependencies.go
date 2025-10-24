@@ -4,14 +4,12 @@ import (
 	"errors"
 
 	"github.com/Araks1255/mangacage/testhelpers"
-	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
 )
 
 type CreateChapterOnModerationWithDependenciesOptions struct {
-	Edited     bool
-	Pages      [][]byte
-	Collection *mongo.Collection
+	Edited bool
+	Pages  [][]byte
 }
 
 func CreateChapterOnModerationWithDependencies(db *gorm.DB, userID uint, opts ...CreateChapterOnModerationWithDependenciesOptions) (uint, error) {
@@ -41,7 +39,7 @@ func CreateChapterOnModerationWithDependencies(db *gorm.DB, userID uint, opts ..
 
 		if chapterID != 0 && opts[0].Pages != nil {
 			chapterOnModerationID, err := CreateChapterOnModeration(
-				db, titleID, teamID, userID, CreateChapterOnModerationOptions{ExistingID: chapterID, Pages: opts[0].Pages, Collection: opts[0].Collection},
+				db, titleID, teamID, userID, CreateChapterOnModerationOptions{ExistingID: chapterID, Pages: opts[0].Pages},
 			)
 
 			if err != nil {
@@ -60,7 +58,7 @@ func CreateChapterOnModerationWithDependencies(db *gorm.DB, userID uint, opts ..
 		}
 
 		if opts[0].Pages != nil {
-			chapterOnModerationID, err := CreateChapterOnModeration(db, titleID, teamID, userID, CreateChapterOnModerationOptions{Pages: opts[0].Pages, Collection: opts[0].Collection})
+			chapterOnModerationID, err := CreateChapterOnModeration(db, titleID, teamID, userID, CreateChapterOnModerationOptions{Pages: opts[0].Pages})
 			if err != nil {
 				return 0, err
 			}

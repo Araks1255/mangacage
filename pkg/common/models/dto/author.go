@@ -7,10 +7,10 @@ import (
 )
 
 type CreateAuthorDTO struct {
-	Name         string  `json:"name" binding:"required"`
-	EnglishName  string  `json:"englishName" binding:"required"`
-	OriginalName string  `json:"originalName" binding:"required"`
-	About        *string `json:"about,omitempty"`
+	Name         string  `json:"name" binding:"required,min=2,max=50"`
+	EnglishName  string  `json:"englishName" binding:"required,min=2,max=50"`
+	OriginalName string  `json:"originalName" binding:"required,min=2,max=50"`
+	About        *string `json:"about" binding:"omitempty,max=400"`
 }
 
 type ResponseAuthorDTO struct {
@@ -28,6 +28,6 @@ func (a CreateAuthorDTO) ToAuthorOnModeration(creatorID uint) models.AuthorOnMod
 		EnglishName:  a.EnglishName,
 		OriginalName: formatedOriginalName,
 		About:        a.About,
-		CreatorID:    creatorID,
+		CreatorID:    &creatorID,
 	}
 }

@@ -1,27 +1,24 @@
 package users
 
 import (
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
-	pb "github.com/Araks1255/mangacage_protos"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
+
 	"gorm.io/gorm"
 )
 
 type handler struct {
-	DB                   *gorm.DB
-	UsersProfilePictures *mongo.Collection
-	NotificationsClient  pb.NotificationsClient
+	DB                  *gorm.DB
+	PathToMediaDir      string
+	NotificationsClient pb.SiteNotificationsClient
 }
 
-func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.NotificationsClient, secretKey string, r *gin.Engine) {
-	usersProfilePictures := client.Database("mangacage").Collection(mongodb.UsersProfilePicturesCollection)
-
+func RegisterRoutes(db *gorm.DB, pathToMediaDir string, notificationsClient pb.SiteNotificationsClient, secretKey string, r *gin.Engine) {
 	h := handler{
-		DB:                   db,
-		UsersProfilePictures: usersProfilePictures,
-		NotificationsClient:  notificationsClient,
+		DB:                  db,
+		PathToMediaDir:      pathToMediaDir,
+		NotificationsClient: notificationsClient,
 	}
 
 	users := r.Group("/api/users")
@@ -38,14 +35,14 @@ func RegisterRoutes(db *gorm.DB, client *mongo.Client, notificationsClient pb.No
 			me.POST("/edited", h.EditProfile)
 			me.PATCH("/on-verification", h.EditProfileOnVerification)
 			me.PATCH("/settings", h.ChangeProfileSettings)
+			me.DELETE("/", h.DeleteProfile)
 		}
 	}
 }
 
-func NewHandler(db *gorm.DB, notificationsClient pb.NotificationsClient, usersProfilePictures *mongo.Collection) handler {
+func NewHandler(db *gorm.DB, notificationsClient pb.SiteNotificationsClient) handler {
 	return handler{
-		DB:                   db,
-		NotificationsClient:  notificationsClient,
-		UsersProfilePictures: usersProfilePictures,
+		DB:                  db,
+		NotificationsClient: notificationsClient,
 	}
 }

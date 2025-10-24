@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Araks1255/mangacage/pkg/constants/mongodb"
 	"github.com/Araks1255/mangacage/pkg/handlers/titles"
 	"github.com/Araks1255/mangacage/pkg/middlewares"
 	"github.com/Araks1255/mangacage/testhelpers"
@@ -87,7 +86,7 @@ func EditTitleSuccess(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesCovers)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		url := fmt.Sprintf("/titles/%d/edited", titleID)
@@ -145,7 +144,7 @@ func EditTitleTwiceSuccess(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesCovers)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -206,7 +205,7 @@ func EditTitleByUnauthorizedUser(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		req := httptest.NewRequest("POST", "/titles/18/edited", nil)
@@ -230,7 +229,7 @@ func EditTitleByNonTeamLeader(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		req := httptest.NewRequest("POST", "/titles/18/edited", nil)
@@ -273,7 +272,7 @@ func EditTitleWithoutEditableParams(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		url := fmt.Sprintf("/titles/%d/edited", titleID)
@@ -315,7 +314,7 @@ func EditTitleWithInvalidTitleId(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		url := fmt.Sprintf("/titles/%s/edited", invalidTitleID)
@@ -350,7 +349,7 @@ func EditTitleWithInvalidAuthorId(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -398,7 +397,7 @@ func EditTitleWithInvalidGenresIds(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -447,7 +446,7 @@ func EditTitleWithTooLargeCover(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -501,7 +500,7 @@ func EditTitleByUserWhoseTeamDoesNotTranslateTitle(env testenv.Env) func(*testin
 		h := titles.NewHandler(env.DB, env.NotificationsClient, titlesCovers)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -558,7 +557,7 @@ func EditTitleByAddingTheSameNameAsTitle(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -619,7 +618,7 @@ func EditTitleByAddingTheSameNameAsTitleOnModeration(env testenv.Env) func(*test
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -663,7 +662,7 @@ func EditTitleWithWrongTitleId(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -712,7 +711,7 @@ func EditTitleWithWrongAuthorId(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -767,7 +766,7 @@ func EditTitleWithWrongGenresIds(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -816,7 +815,7 @@ func EditTitleWithWrongType(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer
@@ -863,7 +862,7 @@ func EditTitleWithWrongPublishingStatus(env testenv.Env) func(*testing.T) {
 		h := titles.NewHandler(env.DB, env.NotificationsClient, nil)
 
 		r := gin.New()
-		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "ex_team_leader"}))
+		r.Use(middlewares.Auth(env.SecretKey), middlewares.RequireRoles(env.DB, []string{"team_leader", "vice_team_leader"}))
 		r.POST("/titles/:id/edited", h.EditTitle)
 
 		var body bytes.Buffer

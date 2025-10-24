@@ -5,11 +5,13 @@ import (
 	"log"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/auth"
 	dbErrors "github.com/Araks1255/mangacage/pkg/common/db/errors"
 	"github.com/Araks1255/mangacage/pkg/common/db/utils"
 	"github.com/Araks1255/mangacage/pkg/constants/postgres/constraints"
+	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -86,23 +88,36 @@ func (h handler) AddRoleToParticipant(c *gin.Context) {
 	tx.Commit()
 
 	c.JSON(201, gin.H{"success": "участнику команды успешно добавлена новая роль"})
-	// Уведомление участнику
+
+	if _, err := h.NotificationsClient.NotifyUserAboutNewRole(
+		c.Request.Context(), &pb.NewRole{
+			UserID: uint64(participantID),
+			RoleID: uint64(roleID),
+		},
+	); err != nil {
+		log.Println(err)
+	}
 }
 
 func checkUserRightsToAddRoleToParticipant(db *gorm.DB, userID uint) (ok, isUserTeamLeader bool, err error) {
 	var userRoles []string
 
 	err = db.Raw(
-		`SELECT r.name FROM roles AS r
-		INNER JOIN user_roles AS ur ON ur.role_id = r.id
-		WHERE ur.user_id = ?`, userID,
+		`SELECT
+			r.name
+		FROM
+			roles AS r
+			INNER JOIN user_roles AS ur ON ur.role_id = r.id
+		WHERE
+			ur.user_id = ?`,
+		userID,
 	).Scan(&userRoles).Error
 
 	if err != nil {
 		return false, false, err
 	}
 
-	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "ex_team_leader") {
+	if !slices.Contains(userRoles, "team_leader") && !slices.Contains(userRoles, "vice_team_leader") {
 		return false, false, nil
 	}
 
@@ -136,19 +151,52 @@ func checkAddRoleToParticipantConflicts(db *gorm.DB, userID, participantID, role
 		DoesRoleExist        bool
 	}
 
-	var query string
+	var query strings.Builder
+
+	query.WriteString(
+		`SELECT	EXISTS(
+			SELECT
+				1
+			FROM
+				users
+			WHERE
+				id = ?
+			AND
+				team_id = (SELECT team_id FROM users WHERE id = ?)
+		) AS does_participant_exist,`,
+	)
 
 	if isUserTeamLeader {
-		query = `SELECT
-					EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)) AS does_participant_exist,
-					EXISTS(SELECT 1 FROM roles WHERE id = ? AND type = 'team') AS does_role_exist`
+		query.WriteString(
+			`EXISTS(
+				SELECT
+					1
+				FROM
+					roles
+				WHERE
+					id = ? AND type = 'team'
+			) AS does_role_exist`,
+		)
 	} else { // Это чтобы экс тим лидеры не могли назначать других экс тим лидеров (там дополнительная проверка в существовании роли)
-		query = `SELECT
-					EXISTS(SELECT 1 FROM users WHERE id = ? AND team_id = (SELECT team_id FROM users WHERE id = ?)) AS does_participant_exist,
-					EXISTS(SELECT 1 FROM roles WHERE id = ? AND type = 'team' AND name != 'team_leader' AND name != 'ex_team_leader') AS does_role_exist`
+		query.WriteString(
+			`EXISTS(
+				SELECT
+					1
+				FROM
+					roles
+				WHERE
+					id = ? 
+				AND
+					type = 'team'
+				AND
+					name != 'team_leader'
+				AND
+					name != 'vice_team_leader'
+			) AS does_role_exist`,
+		)
 	}
 
-	if err = db.Raw(query, participantID, userID, roleID).Scan(&check).Error; err != nil {
+	if err = db.Raw(query.String(), participantID, userID, roleID).Scan(&check).Error; err != nil {
 		return 500, err
 	}
 
@@ -168,17 +216,15 @@ func didUserTransferTeamLeaderRole(db *gorm.DB, isTeamLeader bool, roleID uint) 
 		return false, nil
 	}
 
-	var res bool
+	var res *bool
 
-	result := db.Raw("SELECT (SELECT id FROM roles WHERE name = 'team_leader') = ?", roleID).Scan(&res)
-
-	if result.Error != nil {
-		return false, result.Error
+	if err := db.Raw("SELECT (SELECT id FROM roles WHERE name = 'team_leader') = ?", roleID).Scan(&res).Error; err != nil {
+		return false, err
 	}
 
-	if result.RowsAffected == 0 {
+	if res == nil {
 		return false, errors.New("произошла неизвестная ошибка")
 	}
 
-	return res, nil
+	return *res, nil
 }

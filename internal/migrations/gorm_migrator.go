@@ -7,84 +7,45 @@ import (
 	"strings"
 
 	"github.com/Araks1255/mangacage/pkg/common/models"
-
 	"gorm.io/gorm"
 )
 
 func gormMigrate(db *gorm.DB) error {
-	db.Exec(
-		`CREATE TABLE users (
-    		id BIGSERIAL PRIMARY KEY,
-   			user_name TEXT,
-    		team_id BIGINT
-		)`,
-	)
-
-	db.Exec(
-		`CREATE TABLE teams (
-    		id BIGSERIAL PRIMARY KEY,
-    		name TEXT,
-    		creator_id BIGINT,
-    		moderator_id BIGINT
-		)`,
-	)
-
-	sqlTypesDir := "./internal/migrations/sql/types"
-	pathsToScriptsWithTypes := make([]string, 0, 3)
-
-	filepath.WalkDir(sqlTypesDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			panic(err)
-		}
-
-		if !d.IsDir() {
-			if !strings.HasSuffix(d.Name(), ".sql") {
-				panic("в каталоге с sql миграциями не sql файл")
-			}
-
-			pathsToScriptsWithTypes = append(pathsToScriptsWithTypes, path)
-		}
-
-		return nil
-	})
-
-	for i := 0; i < len(pathsToScriptsWithTypes); i++ {
-		scriptWithTypeBytes, err := os.ReadFile(pathsToScriptsWithTypes[i])
-		if err != nil {
-			panic(err)
-		}
-
-		db.Exec(string(scriptWithTypeBytes))
-	}
-
-	err := db.AutoMigrate(
-		&models.Role{},
-		&models.Genre{},
-		&models.Tag{},
-	)
-	if err != nil {
+	if err := createStubTables(db); err != nil {
 		return err
 	}
 
-	if err = db.AutoMigrate(&models.User{}); err != nil {
+	if err := executeSQLScripts(db, "./internal/migrations/sql/extensions"); err != nil {
+		return err
+	}
+	if err := executeSQLScripts(db, "./internal/migrations/sql/types"); err != nil {
 		return err
 	}
 
-	if err = db.AutoMigrate(&models.Team{}); err != nil {
+	if err := db.AutoMigrate(&models.Role{}, &models.Genre{}, &models.Tag{}); err != nil {
 		return err
 	}
 
-	if err = db.AutoMigrate(
-		&models.Author{},
-		&models.Title{},
-		&models.Chapter{},
-	); err != nil {
+	if err := db.AutoMigrate(&models.User{}); err != nil {
+		return err
+	}
+	if err := db.AutoMigrate(&models.Team{}); err != nil {
 		return err
 	}
 
-	if err = db.AutoMigrate(
-		&models.TitleOnModeration{},
-		&models.ChapterOnModeration{},
+	if err := db.AutoMigrate(&models.Author{}); err != nil {
+		return err
+	}
+
+	if err := db.AutoMigrate(&models.Title{}); err != nil {
+		return err
+	}
+
+	if err := db.AutoMigrate(&models.Chapter{}); err != nil {
+		return err
+	}
+
+	if err := db.AutoMigrate(
 		&models.UserOnModeration{},
 		&models.TeamOnModeration{},
 		&models.GenreOnModeration{},
@@ -94,7 +55,18 @@ func gormMigrate(db *gorm.DB) error {
 		return err
 	}
 
-	if err = db.AutoMigrate(
+	if err := db.AutoMigrate(&models.TitleOnModeration{}); err != nil {
+		return err
+	}
+	if err := db.AutoMigrate(&models.ChapterOnModeration{}); err != nil {
+		return err
+	}
+
+	if err := db.AutoMigrate(&models.Page{}); err != nil {
+		return err
+	}
+
+	if err := db.AutoMigrate(
 		&models.TeamJoinRequest{},
 		&models.TitleTranslateRequest{},
 		&models.UserViewedChapter{},
@@ -103,39 +75,63 @@ func gormMigrate(db *gorm.DB) error {
 		return err
 	}
 
-	sqlDir := "./internal/migrations/sql"
-	pathsToScripts := make([]string, 0, 20)
-
-	filepath.WalkDir(sqlDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			panic(err)
-		}
-
-		if d.IsDir() && d.Name() == "types" {
-			return fs.SkipDir
-		}
-
-		if !d.IsDir() {
-			if !strings.HasSuffix(d.Name(), ".sql") {
-				panic("в каталоге с sql миграциями не sql файл")
-			}
-
-			pathsToScripts = append(pathsToScripts, path)
-		}
-
-		return nil
-	})
-
-	for i := 0; i < len(pathsToScripts); i++ {
-		scriptBytes, err := os.ReadFile(pathsToScripts[i])
-		if err != nil {
-			panic(err)
-		}
-
-		if err := db.Exec(string(scriptBytes)).Error; err != nil {
-			panic(err)
-		}
+	if err := executeSQLScripts(db, "./internal/migrations/sql", "extensions", "types"); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+func createStubTables(db *gorm.DB) error {
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS users (id BIGSERIAL PRIMARY KEY)`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS teams (id BIGSERIAL PRIMARY KEY)`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS authors_on_moderation (id BIGSERIAL PRIMARY KEY)`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS chapters_on_moderation (id BIGSERIAL PRIMARY KEY)`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS genres_on_moderation (id BIGSERIAL PRIMARY KEY)`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS tags_on_moderation (id BIGSERIAL PRIMARY KEY)`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS teams_on_moderation (id BIGSERIAL PRIMARY KEY)`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS titles_on_moderation (id BIGSERIAL PRIMARY KEY)`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS users_on_moderation (id BIGSERIAL PRIMARY KEY)`).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func executeSQLScripts(db *gorm.DB, rootDir string, ignoreDirsNames ...string) error {
+	return filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		for i := 0; i < len(ignoreDirsNames); i++ {
+			if d.IsDir() && d.Name() == ignoreDirsNames[i] {
+				return fs.SkipDir
+			}
+		}
+		if !d.IsDir() && strings.HasSuffix(d.Name(), ".sql") {
+			scriptBytes, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			if err := db.Exec(string(scriptBytes)).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
