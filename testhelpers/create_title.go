@@ -105,11 +105,11 @@ func CreateTitle(db *gorm.DB, creatorID, authorID uint, opts ...CreateTitleOptio
 
 		title.CoverPath = fmt.Sprintf("%s/titles/%d.jpg", opts[0].PathToMediaDir, title.ID)
 
-		if err := os.MkdirAll(filepath.Dir(title.CoverPath), 0644); err != nil {
+		if err := os.MkdirAll(filepath.Dir(title.CoverPath), 0755); err != nil {
 			return 0, err
 		}
 
-		if err := os.WriteFile(title.CoverPath, opts[0].Cover, 0644); err != nil {
+		if err := os.WriteFile(title.CoverPath, opts[0].Cover, 0755); err != nil {
 			return 0, err
 		}
 

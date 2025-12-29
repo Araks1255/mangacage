@@ -10,14 +10,14 @@ import (
 
 type handler struct {
 	DB                  *gorm.DB
-	PathToMediaDir string
+	PathToMediaDir      string
 	NotificationsClient pb.SiteNotificationsClient
 }
 
 func RegisterRoutes(db *gorm.DB, pathToMediaDir string, notificationsClient pb.SiteNotificationsClient, secretKey string, r *gin.Engine) {
 	h := handler{
 		DB:                  db,
-		PathToMediaDir: pathToMediaDir,
+		PathToMediaDir:      pathToMediaDir,
 		NotificationsClient: notificationsClient,
 	}
 
@@ -28,6 +28,7 @@ func RegisterRoutes(db *gorm.DB, pathToMediaDir string, notificationsClient pb.S
 		teams.GET("/:id/cover", h.GetTeamCover)
 		teams.GET("/:id/", h.GetTeam)
 		teams.GET("/", h.GetTeams)
+		teams.GET("/most-active", h.GetMostActiveTeams)
 
 		teamsAuth := teams.Group("/")
 		teamsAuth.Use(middlewares.Auth(secretKey))

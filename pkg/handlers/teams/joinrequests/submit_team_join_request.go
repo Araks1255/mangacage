@@ -44,7 +44,7 @@ func (h handler) SubmitTeamJoinRequest(c *gin.Context) {
 		return
 	}
 
-	c.JSON(201, gin.H{"success": "заявка на вступление в команду успешно отправлена"})
+	c.JSON(201, gin.H{"success": "заявка на вступление в команду успешно отправлена", "id": joinRequest.ID})
 
 	var message string
 	if joinRequest.IntroductoryMessage != nil {

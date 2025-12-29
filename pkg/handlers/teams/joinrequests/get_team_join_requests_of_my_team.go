@@ -15,7 +15,7 @@ func (h handler) GetTeamJoinRequestsOfMyTeam(c *gin.Context) {
 
 	if err := h.DB.Raw(
 		`SELECT
-			tjr.id, u.user_name AS candidate
+			tjr.id, tjr.candidate_id, u.user_name AS candidate
 		FROM
 			team_join_requests AS tjr
 			INNER JOIN users AS u ON u.id = tjr.candidate_id

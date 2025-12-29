@@ -15,7 +15,6 @@ type Team struct {
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:SET NULL"`
 
 	ModeratorID *uint
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 
 	EditorID *uint
 	Editor   *User `gorm:"foreignKey:EditorID;references:id;constraint:OnDelete:SET NULL"`
@@ -31,7 +30,7 @@ type TeamOnModeration struct {
 	ExistingID *uint `gorm:"unique"`
 	Team       *Team `gorm:"foreignKey:ExistingID;references:id;constraint:OnDelete:CASCADE"`
 
-	CreatorID uint  `gorm:"unique;not null"`
+	CreatorID uint  `gorm:"not null"` // Уникальность этого столбца вынесена в сырой sql скрипт, потому-что gorm её устанавливать отказывался
 	Creator   *User `gorm:"foreignKey:CreatorID;references:id;constraint:OnDelete:CASCADE"`
 
 	ModeratorID *uint

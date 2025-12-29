@@ -9,7 +9,6 @@ import (
 	"github.com/Araks1255/mangacage/internal/migrations"
 	"github.com/Araks1255/mangacage/internal/seeder"
 	cpc "github.com/Araks1255/mangacage/internal/workers/chapters_pages_compressor"
-	rl "github.com/Araks1255/mangacage/pkg/logging/rotate_logger"
 	"github.com/Araks1255/mangacage/pkg/common/db"
 	"github.com/Araks1255/mangacage/pkg/handlers/auth"
 	"github.com/Araks1255/mangacage/pkg/handlers/authors"
@@ -27,6 +26,7 @@ import (
 	"github.com/Araks1255/mangacage/pkg/handlers/users/moderation"
 	"github.com/Araks1255/mangacage/pkg/handlers/users/viewedchapters"
 	"github.com/Araks1255/mangacage/pkg/handlers/views"
+	rl "github.com/Araks1255/mangacage/pkg/logging/rotate_logger"
 	pb "github.com/Araks1255/mangacage_protos/gen/site_notifications"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -45,6 +45,7 @@ func main() {
 	dbUrl := viper.Get("DB_URL").(string)
 	pathToMediaDir := viper.Get("PATH_TO_MEDIA_DIR").(string)
 	pathToLogsDir := viper.Get("PATH_TO_LOGS_DIR").(string)
+	host := viper.Get("HOST").(string)
 
 	rotateLogger, err := rl.NewRotateLogger(pathToLogsDir)
 	if err != nil {
@@ -97,13 +98,13 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	auth.RegisterRoutes(db, notificationsClient, secretKey, router)
+	auth.RegisterRoutes(db, notificationsClient, secretKey, host, router)
 	titles.RegisterRoutes(db, pathToMediaDir, notificationsClient, secretKey, router)
 	teams.RegisterRoutes(db, pathToMediaDir, notificationsClient, secretKey, router)
 	joinrequests.RegisterRoutes(db, secretKey, notificationsClient, router)
 	participants.RegisterRoutes(db, secretKey, notificationsClient, router)
 	chapters.RegisterRoutes(db, pathToMediaDir, chaptersPagesCompressor, notificationsClient, secretKey, router)
-	users.RegisterRoutes(db, pathToMediaDir, notificationsClient, secretKey, router)
+	users.RegisterRoutes(db, pathToMediaDir, notificationsClient, secretKey, host, router)
 	views.RegisterRoutes(db, router, secretKey)
 	favorites.RegisterRoutes(db, secretKey, router)
 	moderation.RegisterRoutes(db, secretKey, router)

@@ -55,7 +55,7 @@ func CreateTitleOnModerationCover(db *gorm.DB, pathToMediaDir string, id uint, c
 		return 500, fmt.Errorf("не удалось добавить путь к обложке тайтла на модерации\nid тайтла на модерации: %d", id)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0755); err != nil {
 		return 500, err
 	}
 

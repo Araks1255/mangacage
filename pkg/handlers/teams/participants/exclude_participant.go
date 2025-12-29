@@ -51,18 +51,7 @@ func (h handler) ExcludeParticipant(c *gin.Context) {
 		return
 	}
 
-	result = tx.Exec(
-		`DELETE FROM user_roles AS ur
-		USING roles AS r WHERE ur.role_id = r.id
-		AND ur.user_id = ? AND r.type = 'team'`,
-		participantID,
-	)
-
-	if result.Error != nil {
-		log.Println(result.Error)
-		c.AbortWithStatusJSON(500, gin.H{"error": result.Error.Error()})
-		return
-	}
+	// Логика удаления командных ролей вынесена в триггер
 
 	tx.Commit()
 

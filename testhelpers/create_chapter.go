@@ -68,14 +68,14 @@ func CreateChapter(db *gorm.DB, titleID, teamID, creatorID uint, opts ...CreateC
 
 	chapter.PagesDirPath = fmt.Sprintf("%s/chapters/%d", opts[0].PathToMediaDir, chapter.ID)
 
-	if err := os.MkdirAll(chapter.PagesDirPath, 0644); err != nil {
+	if err := os.MkdirAll(chapter.PagesDirPath, 0755); err != nil {
 		return 0, err
 	}
 
 	for i := 0; i < len(opts[0].Pages); i++ {
 		path := fmt.Sprintf("%s/chapters/%d/%d.jpg", opts[0].PathToMediaDir, chapter.ID, i+1)
 
-		if err := os.WriteFile(path, opts[0].Pages[i], 0644); err != nil {
+		if err := os.WriteFile(path, opts[0].Pages[i], 0755); err != nil {
 			return 0, err
 		}
 

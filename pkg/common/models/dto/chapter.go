@@ -16,8 +16,13 @@ type CreateChapterDTO struct { // Тут без тегов, ведь испол�
 	TitleOnModerationID *uint
 	TeamID              uint
 	NumberOfPages       int
-	PagesSize           int64
-	DisableCompression  bool
+
+	WebtoonMode        bool
+	DisableCompression bool
+	NeedsCompression   bool
+
+	PagesSize       int64
+	PagesResolution int64
 }
 
 type EditChapterDTO struct {
@@ -33,7 +38,8 @@ type ResponseChapterDTO struct {
 	Name          *string `json:"name"`
 	Description   *string `json:"description,omitempty"`
 	NumberOfPages *int    `json:"numberOfPages,omitempty"`
-	Volume        uint    `json:"volume"`
+	Volume        *uint   `json:"volume,omitempty"`
+	WebtoonMode   bool    `json:"webtoonMode"`
 
 	Title   *string `json:"title,omitempty"`
 	TitleID *uint   `json:"titleId,omitempty"`
@@ -72,6 +78,7 @@ func (c CreateChapterDTO) ToChapterOnModeration(userID uint) models.ChapterOnMod
 		TitleOnModerationID: c.TitleOnModerationID,
 		TeamID:              c.TeamID,
 		CreatorID:           &userID,
+		WebtoonMode:         c.WebtoonMode,
 	}
 }
 

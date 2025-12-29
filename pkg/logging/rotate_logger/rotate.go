@@ -12,7 +12,7 @@ func (rl *RotateLogger) rotate() {
 
 	newFileName := fmt.Sprintf("%s/%s.log", rl.dir, time.Now().Format(time.DateOnly))
 
-	newFile, err := os.OpenFile(newFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	newFile, err := os.OpenFile(newFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0755)
 
 	if err != nil {
 		rl.mu.Unlock()

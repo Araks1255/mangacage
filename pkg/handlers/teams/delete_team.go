@@ -37,7 +37,7 @@ func deleteTeam(db *gorm.DB, userID uint) (code int, err error) {
 			WHERE
 				u.id = ? AND r.name = 'team_leader'
 		)
-		DELETE FROM teams WHERE id = (SELECT id FROM user_team_id)`,
+		DELETE FROM teams WHERE id = (SELECT id FROM user_team_id)`, // Логика удаления командных ролей вынесена в триггер
 		userID,
 	)
 

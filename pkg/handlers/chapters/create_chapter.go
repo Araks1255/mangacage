@@ -133,7 +133,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "глава успешно отправлена на модерацию"})
+	c.JSON(201, gin.H{"success": "глава успешно отправлена на модерацию", "id": chapter.ID})
 
 	if _, err := h.NotificationsClient.NotifyAboutNewModerationRequest(
 		c.Request.Context(),
@@ -145,7 +145,7 @@ func (h handler) CreateChapter(c *gin.Context) {
 		log.Println(err)
 	}
 
-	if float64(requestBody.PagesSize)/float64(requestBody.NumberOfPages<<20) > 1 {
+	if requestBody.NeedsCompression {
 		h.ChaptersPagesCompressor.EnqueueChapterOnModerationID(chapter.ID)
 	}
 }
@@ -178,8 +178,11 @@ func parseCreateChapterBodyAndCreatePages(
 	err error,
 ) {
 	var (
-		body        dto.CreateChapterDTO
-		usedNumbers = make(map[uint]struct{}, 40)
+		body                                    dto.CreateChapterDTO
+		usedNumbers                             = make(map[uint]struct{}, 40)
+		maxPageQuality                          = 2.5 // Максимальное качество одной страницы. Измеряется в байтах на пиксель. Эквивалентно странице 1080:1920 весом 5мб
+		maxAveragePageQuality                   = 1.7 // Максимальное среднее качество страниц. Эквивалентно странице 1080:1920 весом 3.5мб
+		maxAveragePageQualityWithoutCompression = 0.5 // Максимальное среднее качество страниц без сжатия. Эквивалентно странице 1080:1920 весом 1мб
 	)
 	pages = make([]models.Page, 0, 40)
 	tmpuuid = uuid.NewString()
@@ -198,7 +201,7 @@ Loop:
 				return nil, "", nil, 500, err
 			}
 
-			limitReader := io.LimitReader(part, 5<<20+1)
+			limitReader := io.LimitReader(part, 135<<20+1) // Больше 100 все равно не пропустит реверс прокси, но это как самая крайняя мера предосторожности. А ограничения нет, ведь в теории можно и всю главу в одно изображение склеить
 
 			if strings.HasPrefix(part.FormName(), "page") {
 				fieldName := []rune(part.FormName())
@@ -222,7 +225,7 @@ Loop:
 					return nil, "", nil, 400, errors.New("в поле страницы отправлен не файл")
 				}
 
-				if err := os.MkdirAll(fmt.Sprintf("%s/chapters_on_moderation/%s", pathToMediaDir, tmpuuid), 0644); err != nil {
+				if err := os.MkdirAll(fmt.Sprintf("%s/chapters_on_moderation/%s", pathToMediaDir, tmpuuid), 0755); err != nil {
 					return nil, "", nil, 500, err
 				}
 
@@ -234,10 +237,19 @@ Loop:
 				counterLimitReader := counterReader{reader: limitReader}
 				counterLimitTeeReader := io.TeeReader(&counterLimitReader, tempFile)
 
-				_, format, err := image.DecodeConfig(counterLimitTeeReader)
+				config, format, err := image.DecodeConfig(counterLimitTeeReader)
 				if err != nil {
 					tempFile.Close()
 					return nil, "", nil, 400, errors.New("в поле страницы отправлено не фото (разрешенные форматы: jpg, png)")
+				}
+
+				pageResolution := float64(config.Width * config.Height)
+
+				aspectRatio := float64(config.Height) / float64(config.Width)
+				isWebtoonPage := aspectRatio > 2.4
+
+				if isWebtoonPage {
+					body.WebtoonMode = true // Для больших изображений, содержащих несколько страниц (как в манхве) включается webtoon mode
 				}
 
 				if _, err := io.Copy(io.Discard, counterLimitTeeReader); err != nil {
@@ -246,15 +258,16 @@ Loop:
 				}
 
 				body.PagesSize += counterLimitReader.count
+				body.PagesResolution += int64(pageResolution)
 
 				if body.PagesSize > 135<<20 {
 					tempFile.Close()
 					return nil, "", nil, 400, errors.New("превышен максимальный размер главы (135мб)")
 				}
 
-				if counterLimitReader.count > 5<<20 {
+				if float64(counterLimitReader.count)/pageResolution > maxPageQuality {
 					tempFile.Close()
-					return nil, "", nil, 400, errors.New("превышен максимальный размер одной страницы (5мб)")
+					return nil, "", nil, 400, fmt.Errorf("превышено максимальное качество страницы (%fбайт/пиксель)", maxPageQuality)
 				}
 
 				tempFile.Close()
@@ -278,8 +291,8 @@ Loop:
 			switch part.FormName() {
 			case "name":
 				body.Name = string(data)
-				if len([]rune(body.Name)) > 35 {
-					return nil, "", nil, 400, errors.New("превышена максимальная длина названия (35 символов)")
+				if len([]rune(body.Name)) > 80 {
+					return nil, "", nil, 400, errors.New("превышена максимальная длина названия (80 символов)")
 				}
 
 			case "id":
@@ -326,21 +339,29 @@ Loop:
 					return nil, "", nil, 400, err
 				}
 
+			case "webtoonMode": // Явное включение webtoon режима
+				body.WebtoonMode, err = strconv.ParseBool(string(data))
+				if err != nil {
+					return nil, "", nil, 400, err
+				}
+
 			default:
 				return nil, "", nil, 400, errors.New("отправлено неизвестное поле. поля страниц именуются в формате page1, page2...")
 			}
 		}
 	}
 
-	averagePageSize := float64(body.PagesSize) / float64(body.NumberOfPages<<20)
+	averagePageQuality := float64(body.PagesSize) / float64(body.PagesResolution)
 
-	if body.DisableCompression && averagePageSize > 1 {
-		return nil, "", nil, 400, errors.New("превышен максимальный средний размер страницы для режима без сжатия (1мб)")
+	if body.DisableCompression && averagePageQuality > maxAveragePageQualityWithoutCompression {
+		return nil, "", nil, 400, fmt.Errorf("превышено максимальное среднее качество страницы без сжатия (%fбайт/пиксель)", maxAveragePageQualityWithoutCompression)
 	}
 
-	if averagePageSize > 3.5 {
-		return nil, "", nil, 400, errors.New("превышен максимальный средний размер страницы (3.5мб)")
+	if averagePageQuality > maxAveragePageQuality {
+		return nil, "", nil, 400, fmt.Errorf("превышено максимальное среднее качество страницы (%fбайт/пиксель)", maxAveragePageQuality)
 	}
+
+	body.NeedsCompression = !body.DisableCompression && averagePageQuality > maxAveragePageQualityWithoutCompression
 
 	return &body, tmpuuid, pages, 0, nil
 }

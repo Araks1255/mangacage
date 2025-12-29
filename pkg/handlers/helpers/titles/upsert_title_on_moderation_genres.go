@@ -14,19 +14,16 @@ func UpsertTitleOnModerationGenres(db *gorm.DB, id uint, genresIDs []uint) (code
 		return 0, nil
 	}
 
-	query :=
-		`WITH delete_genres AS (
-			DELETE FROM
-				title_on_moderation_genres
-			WHERE
-				title_on_moderation_id = ?
-		)
-		INSERT INTO
-			title_on_moderation_genres (title_on_moderation_id, genre_id)
-		SELECT
-			?, UNNEST(?::BIGINT[])`
+	if err := db.Exec("DELETE FROM title_on_moderation_genres WHERE title_on_moderation_id = ?", id).Error; err != nil {
+		return 500, err
+	}
 
-	if err := db.Exec(query, id, id, pq.Array(genresIDs)).Error; err != nil {
+	err = db.Exec(
+		"INSERT INTO title_on_moderation_genres (title_on_moderation_id, genre_id) SELECT ?, UNNEST(?::BIGINT[])",
+		id, pq.Array(genresIDs),
+	).Error
+
+	if err != nil {
 		if dbErrors.IsForeignKeyViolation(err, constraints.FkTitleOnModerationGenresGenre) {
 			return 400, errors.New("жанр не найден")
 		}

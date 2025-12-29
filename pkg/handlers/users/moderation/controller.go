@@ -40,7 +40,7 @@ func RegisterRoutes(db *gorm.DB, secretKey string, r *gin.Engine) {
 
 		team := moderation.Group("/team")
 		{
-			team.DELETE("", h.CancelAppealForTeamModeration)
+			team.DELETE("/", h.CancelAppealForTeamModeration)
 			team.GET("/", h.GetMyTeamOnModeration)
 			team.GET("/cover", h.GetMyTeamOnModerationCover)
 		}

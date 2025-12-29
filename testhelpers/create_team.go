@@ -51,11 +51,11 @@ func CreateTeam(db *gorm.DB, creatorID uint, opts ...CreateTeamOptions) (uint, e
 
 		team.CoverPath = fmt.Sprintf("%s/teams/%d.jpg", opts[0].PathToMediaDir, team.ID)
 
-		if err := os.MkdirAll(filepath.Dir(team.CoverPath), 0644); err != nil {
+		if err := os.MkdirAll(filepath.Dir(team.CoverPath), 0755); err != nil {
 			return 0, err
 		}
 
-		if err := os.WriteFile(team.CoverPath, opts[0].Cover, 0644); err != nil {
+		if err := os.WriteFile(team.CoverPath, opts[0].Cover, 0755); err != nil {
 			return 0, err
 		}
 

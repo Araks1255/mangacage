@@ -55,7 +55,7 @@ func leaveTeam(db *gorm.DB, userID uint) (teamID uint, teamLeader bool, newNumbe
 	}
 
 	query :=
-		`WITH user AS (
+		`WITH user_data AS (
 			SELECT
 				EXISTS(
 					SELECT
@@ -75,7 +75,7 @@ func leaveTeam(db *gorm.DB, userID uint) (teamID uint, teamLeader bool, newNumbe
 		),
 		team AS (
 			SELECT
-				COUNT(DISTINCT users.id) - 1 AS new_number_of_team_participants 
+				COUNT(DISTINCT u.id) - 1 AS new_number_of_team_participants 
 			FROM
 				teams AS t
 				INNER JOIN users AS u ON t.id = u.team_id
@@ -83,18 +83,6 @@ func leaveTeam(db *gorm.DB, userID uint) (teamID uint, teamLeader bool, newNumbe
 				u.id = ?
 			GROUP BY
 				t.id
-		),
-		delete_team_roles AS (
-			DELETE FROM
-				user_roles AS ur
-			USING
-				roles AS r
-			WHERE
-				r.id = ur.role_id
-			AND
-				ur.user_id = ?
-			AND
-				r.type = 'team'
 		)
 		UPDATE
 			users
@@ -104,9 +92,9 @@ func leaveTeam(db *gorm.DB, userID uint) (teamID uint, teamLeader bool, newNumbe
 			id = ?
 		RETURNING
 			id,
-			(SELECT team_id FROM user), 
-			(SELECT team_leader FROM user),
-			(SELECT new_number_of_team_participants FROM team)`
+			(SELECT team_id FROM user_data), 
+			(SELECT team_leader FROM user_data),
+			(SELECT new_number_of_team_participants FROM team)` // Логика удаления командных ролей вынесена в триггер
 
 	if err := db.Raw(query, userID, userID, userID, userID).Scan(&user).Error; err != nil {
 		return 0, false, 0, 500, err

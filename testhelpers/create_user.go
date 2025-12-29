@@ -73,11 +73,11 @@ func CreateUser(db *gorm.DB, opts ...CreateUserOptions) (uint, error) {
 
 		user.ProfilePicturePath = &path
 
-		if err := os.MkdirAll(filepath.Dir(*user.ProfilePicturePath), 0644); err != nil {
+		if err := os.MkdirAll(filepath.Dir(*user.ProfilePicturePath), 0755); err != nil {
 			return 0, err
 		}
 
-		if err := os.WriteFile(*user.ProfilePicturePath, opts[0].ProfilePicture, 0644); err != nil {
+		if err := os.WriteFile(*user.ProfilePicturePath, opts[0].ProfilePicture, 0755); err != nil {
 			return 0, err
 		}
 

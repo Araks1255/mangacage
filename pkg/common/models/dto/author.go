@@ -9,7 +9,7 @@ import (
 type CreateAuthorDTO struct {
 	Name         string  `json:"name" binding:"required,min=2,max=50"`
 	EnglishName  string  `json:"englishName" binding:"required,min=2,max=50"`
-	OriginalName string  `json:"originalName" binding:"required,min=2,max=50"`
+	OriginalName string  `json:"originalName" binding:"required,min=1,max=50"`
 	About        *string `json:"about" binding:"omitempty,max=400"`
 }
 

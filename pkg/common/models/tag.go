@@ -5,7 +5,6 @@ type Tag struct {
 	Name string `gorm:"not null"`
 
 	ModeratorID *uint
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 }
 
 type TagOnModeration struct {

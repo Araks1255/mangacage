@@ -12,13 +12,15 @@ type handler struct {
 	DB                  *gorm.DB
 	PathToMediaDir      string
 	NotificationsClient pb.SiteNotificationsClient
+	Host                string
 }
 
-func RegisterRoutes(db *gorm.DB, pathToMediaDir string, notificationsClient pb.SiteNotificationsClient, secretKey string, r *gin.Engine) {
+func RegisterRoutes(db *gorm.DB, pathToMediaDir string, notificationsClient pb.SiteNotificationsClient, secretKey, host string, r *gin.Engine) {
 	h := handler{
 		DB:                  db,
 		PathToMediaDir:      pathToMediaDir,
 		NotificationsClient: notificationsClient,
+		Host:                host,
 	}
 
 	users := r.Group("/api/users")

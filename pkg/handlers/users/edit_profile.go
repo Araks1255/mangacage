@@ -151,7 +151,7 @@ func createUserProfilePicture(db *gorm.DB, pathToMediaDir string, id uint, profi
 		return 500, errors.New("не удалось добавить путь к аватарке изменений профиля")
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0755); err != nil {
 		return 500, err
 	}
 

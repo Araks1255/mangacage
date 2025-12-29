@@ -21,6 +21,16 @@ MainLoop:
 	for chapteronModerationID := range c.chaptersOnModerationIDs {
 		start := time.Now()
 
+		var webtoonMode bool
+
+		if err := c.db.Raw("SELECT webtoon_mode FROM chapters_on_moderation WHERE id = ?", chapteronModerationID).Scan(&webtoonMode).Error; err != nil {
+			webtoonMode = true // Ставим true, чтобы размер страницы не менялся при ошибке
+			log.Printf(
+				"ошибка при получении вебтун режима главы на модерации\nid главы на модерации: %d\nошибка: %s",
+				chapteronModerationID, err.Error(),
+			)
+		}
+
 		var pagesMeta []models.Page
 
 		if err := c.db.Raw("SELECT * FROM pages WHERE chapter_on_moderation_id = ?", chapteronModerationID).Scan(&pagesMeta).Error; err != nil {
@@ -98,7 +108,7 @@ MainLoop:
 				)
 			}
 
-			if img.Bounds().Dy() > 1080 {
+			if !webtoonMode && img.Bounds().Dy() > 1080 { // Для вебтун режима размер страницы не изменяется
 				img = resize.Resize(0, 1080, img, resize.Bilinear)
 			}
 

@@ -45,6 +45,7 @@ func deleteTeamOnModeration(db *gorm.DB, creatorID uint) (coverPath *string, cod
 			creator_id = ?
 		RETURNING
 			id, cover_path`,
+		creatorID,
 	).Scan(&res).Error
 
 	if err != nil {

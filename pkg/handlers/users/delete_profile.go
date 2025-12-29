@@ -43,7 +43,7 @@ func (h handler) DeleteProfile(c *gin.Context) {
 
 	tx.Commit()
 
-	c.SetCookie("mangacage_token", "", -1, "/", "localhost", false, true) // ПОМЕНЯТЬ НА ПРОДЕ
+	c.SetCookie("mangacage_token", "", -1, "/", h.Host, false, true) // ПОМЕНЯТЬ НА ПРОДЕ
 
 	c.JSON(200, gin.H{"success": "ваш аккаунт успешно удален"})
 }

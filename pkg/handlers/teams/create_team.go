@@ -64,7 +64,7 @@ func (h handler) CreateTeam(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "команда успешно отправлена на модерацию"})
+	c.JSON(201, gin.H{"success": "команда успешно отправлена на модерацию", "id": newTeam.ID})
 
 	if _, err := h.NotificationsClient.NotifyAboutNewModerationRequest(
 		c.Request.Context(),

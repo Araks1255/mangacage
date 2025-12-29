@@ -93,6 +93,8 @@ func (h handler) GetMyChaptersOnModeration(c *gin.Context) {
 			query = query.Order(fmt.Sprintf("com.id %s", params.Order))
 		case "numberOfPages":
 			query = query.Order(fmt.Sprintf("com.number_of_pages %s", params.Order))
+		case "number":
+			query = query.Order(fmt.Sprintf("CAST(substring(com.name from '[0-9.]+') AS DECIMAL) %s", params.Order))
 		default:
 			query = query.Order(fmt.Sprintf("com.name %s", params.Order))
 		}

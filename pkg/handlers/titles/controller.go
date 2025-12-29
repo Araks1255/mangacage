@@ -26,6 +26,7 @@ func RegisterRoutes(db *gorm.DB, pathToMediaDir string, notificationsClient pb.S
 		titles.GET("/:id", middlewares.AuthOptional(secretKey), h.GetTitle)
 		titles.GET("/", middlewares.AuthOptional(secretKey), h.GetTitles)
 		titles.GET("/:id/cover", h.GetTitleCover)
+		titles.GET("/similar", h.GetSimilarTitles)
 
 		titlesAuth := titles.Group("/")
 		titlesAuth.Use(middlewares.Auth(secretKey))

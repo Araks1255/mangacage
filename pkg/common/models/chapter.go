@@ -12,6 +12,7 @@ type Chapter struct {
 	NumberOfPages int  `gorm:"not null"`
 	Views         uint `gorm:"not null;default:0"`
 	Volume        uint `gorm:"not null"`
+	WebtoonMode   bool `gorm:"not null;default:false"`
 
 	TitleID uint  `gorm:"not null"`
 	Title   Title `gorm:"foreignKey:TitleID;references:id;constraint:OnDelete:CASCADE"`
@@ -26,7 +27,6 @@ type Chapter struct {
 	Team   *Team `gorm:"foreignKey:TeamID;references:id;constraint:OnDelete:SET NULL"`
 
 	ModeratorID *uint
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 
 	Hidden bool `gorm:"not null;default:false"`
 
@@ -40,6 +40,7 @@ type ChapterOnModeration struct {
 	Description   *string
 	NumberOfPages *int `gorm:"not null;default:0"`
 	Volume        *uint
+	WebtoonMode   bool `gorm:"not null;default:false"`
 
 	TitleID *uint
 	Title   *Title `gorm:"foreignKey:TitleID;references:id;constraint:OnDelete:CASCADE"`
@@ -69,6 +70,7 @@ func (c ChapterOnModeration) ToChapter() *Chapter {
 	chapter := &Chapter{
 		TeamID:      c.TeamID,
 		ModeratorID: c.ModeratorID,
+		WebtoonMode: c.WebtoonMode,
 	}
 
 	if c.Name != nil {

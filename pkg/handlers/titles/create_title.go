@@ -80,7 +80,7 @@ func (h handler) CreateTitle(c *gin.Context) {
 
 	tx.Commit()
 
-	c.JSON(201, gin.H{"success": "тайтл успешно отправлен на модерацию"})
+	c.JSON(201, gin.H{"success": "тайтл успешно отправлен на модерацию", "id": newTitle.ID})
 
 	if _, err := h.NotificationsClient.NotifyAboutNewModerationRequest(
 		c.Request.Context(),

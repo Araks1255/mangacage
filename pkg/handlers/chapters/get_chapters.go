@@ -42,7 +42,7 @@ func (h handler) GetChapters(c *gin.Context) {
 	var selects strings.Builder
 	args := make([]any, 0, 1)
 
-	selects.WriteString("c.id, c.name, t.name AS title, t.id AS title_id, teams.name AS team, teams.id AS team_id")
+	selects.WriteString("c.id, c.name, c.volume, t.name AS title, t.id AS title_id, teams.name AS team, teams.id AS team_id")
 
 	if params.Query != nil {
 		selects.WriteString(",c.name <-> ? AS distance")
@@ -156,6 +156,15 @@ func (h handler) GetChapters(c *gin.Context) {
 				query = query.Order(fmt.Sprintf("uvc.created_at %s", params.Order))
 				break
 			}
+		case "number":
+			orderClause := fmt.Sprintf(`
+				CASE
+					WHEN c.name ~ '^[0-9]' THEN ''
+					ELSE regexp_replace(c.name, '[0-9.]+', '', 'g')
+				END %s,
+				CAST(substring(c.name FROM '[0-9.]+') AS DECIMAL) %s
+			`, params.Order, params.Order)
+			query = query.Order(orderClause)
 		default:
 			query = query.Order(fmt.Sprintf("c.name %s", params.Order))
 		}

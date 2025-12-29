@@ -12,7 +12,7 @@ type Title struct {
 	OriginalName string `gorm:"not null"`
 
 	Description   *string
-	AgeLimit      int    `gorm:"not null"`
+	AgeLimit      int
 	YearOfRelease int    `gorm:"not null"`
 	Type          string `gorm:"type:title_type;not null"`
 
@@ -40,7 +40,6 @@ type Title struct {
 	Teams  []Team  `gorm:"many2many:title_teams;constraint:OnDelete:CASCADE"`
 
 	ModeratorID *uint
-	Moderator   *User `gorm:"foreignKey:ModeratorID;references:id;constraint:OnDelete:SET NULL"`
 
 	Hidden bool `gorm:"not null;default:false"`
 

@@ -17,8 +17,8 @@ type CreateTitleDTO struct {
 	EnglishName  string `form:"englishName" binding:"required,min=2,max=200"`
 	OriginalName string `form:"originalName" binding:"required,min=2,max=200"`
 
-	Description   *string `form:"description" binding:"max=800"`
-	AgeLimit      int     `form:"ageLimit" binding:"required"`
+	Description   *string `form:"description" binding:"max=2000"`
+	AgeLimit      *int    `form:"ageLimit"`
 	YearOfRelease int     `form:"yearOfRelease" binding:"required"`
 	Type          string  `form:"type" binding:"required"`
 
@@ -40,7 +40,7 @@ type EditTitleDTO struct {
 	EnglishName  *string `form:"englishName" binding:"omitempty,min=2,max=200"`
 	OriginalName *string `form:"originalName" binding:"omitempty,min=2,max=200"`
 
-	Description   *string `form:"description" binding:"omitempty,min=2,max=800"`
+	Description   *string `form:"description" binding:"omitempty,min=2,max=2000"`
 	AgeLimit      *int    `form:"ageLimit"`
 	YearOfRelease *int    `form:"yearOfRelease"`
 	Type          *string `form:"type"`
@@ -88,7 +88,7 @@ type ResponseTitleDTO struct {
 	Genres   pq.StringArray `json:"genres,omitempty" gorm:"type:TEXT[]"`
 	Tags     pq.StringArray `json:"tags,omitempty" gorm:"type:TEXT[]"`
 	Volumes  pq.Int64Array  `json:"volumes,omitempty" gorm:"type:BIGINT[]"`
-	TeamsIDs pq.Int64Array  `json:"teamsIds" gorm:"type:BIGINT[]"`
+	TeamsIDs pq.Int64Array  `json:"teamsIds,omitempty" gorm:"type:BIGINT[]"`
 
 	Existing   *string `json:"existing,omitempty"`
 	ExistingID *uint   `json:"existingId,omitempty"`
@@ -116,7 +116,7 @@ func (t CreateTitleDTO) ToTitleOnModeration(creatorID uint) *models.TitleOnModer
 		EnglishName:          &t.EnglishName,
 		OriginalName:         &formatedOriginalName,
 		Description:          t.Description,
-		AgeLimit:             &t.AgeLimit,
+		AgeLimit:             t.AgeLimit,
 		YearOfRelease:        &t.YearOfRelease,
 		Type:                 &t.Type,
 		TranslatingStatus:    &t.TranslatingStatus,
